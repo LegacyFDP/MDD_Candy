@@ -1,4 +1,10 @@
 -- Fete Store Manager — PostgreSQL schema
+--
+-- NOT used by the running app: server/src/db.ts is SQLite-only. This file is
+-- kept as a reference schema (and for anyone who wants to run this app
+-- against real Postgres instead) — the live database is built by
+-- db/init-sqlite.js. Keep the two in sync if you change the data model.
+--
 -- Run once against an empty database:  psql "$DATABASE_URL" -f db/schema.sql
 
 BEGIN;
@@ -13,6 +19,12 @@ CREATE TABLE IF NOT EXISTS fete_users (
 );
 
 CREATE TABLE IF NOT EXISTS store_locations (
+  id          SERIAL PRIMARY KEY,
+  name        TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS fete_locations (
   id          SERIAL PRIMARY KEY,
   name        TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT ''
@@ -36,7 +48,7 @@ CREATE TABLE IF NOT EXISTS fetes (
   description TEXT        NOT NULL DEFAULT '',
   status      TEXT        NOT NULL DEFAULT 'planned',
   created_by  INTEGER     REFERENCES fete_users(id) ON DELETE SET NULL,
-  location_id INTEGER     REFERENCES store_locations(id) ON DELETE SET NULL,
+  location_id INTEGER     REFERENCES fete_locations(id) ON DELETE SET NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

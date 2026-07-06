@@ -1,4 +1,8 @@
--- Fete Store Manager — demo seed data
+-- Fete Store Manager — demo seed data (PostgreSQL)
+--
+-- NOT used by the running app (see schema.sql) — for SQLite, demo data comes
+-- from db/init-sqlite.js instead.
+--
 -- Run after schema.sql:  psql "$DATABASE_URL" -f db/seed.sql
 -- Safe to re-run: it truncates the app tables first.
 --
@@ -7,7 +11,7 @@
 
 BEGIN;
 
-TRUNCATE fete_requirements, fete_volunteers, withdrawals, fetes, assets, store_locations, fete_users
+TRUNCATE fete_requirements, fete_volunteers, withdrawals, fetes, assets, store_locations, fete_locations, fete_users
   RESTART IDENTITY CASCADE;
 
 -- Users (credentials shown on the login page) ---------------------------------
@@ -23,6 +27,12 @@ INSERT INTO store_locations (name, description) VALUES
   ('Garage',        'Lock-up garage behind the hall'),
   ('Loft',          'Above the main hall — ladder access'),
   ('Kitchen Store', 'Shelving in the kitchen pantry');
+
+-- Event locations (where fetes are held — distinct from store_locations) -----
+INSERT INTO fete_locations (name, description) VALUES
+  ('The Village Green',  'Main outdoor event space'),
+  ('Church Hall',        'Indoor hall with kitchen access'),
+  ('School Playing Field', 'Large field, parking on site');
 
 -- Assets ----------------------------------------------------------------------
 INSERT INTO assets (name, category, quantity_total, quantity_available, location_id, notes) VALUES
@@ -41,8 +51,8 @@ INSERT INTO assets (name, category, quantity_total, quantity_available, location
 
 -- Fetes -----------------------------------------------------------------------
 INSERT INTO fetes (name, event_date, description, status, created_by, location_id) VALUES
-  ('Summer Fete 2026',  '2026-07-18', 'Annual summer fundraiser on the green', 'planned',   1, NULL),
-  ('Christmas Bazaar',  '2026-12-05', 'Indoor craft and gift stalls',          'planned',   1, NULL),
+  ('Summer Fete 2026',  '2026-07-18', 'Annual summer fundraiser on the green', 'planned',   1, 1),
+  ('Christmas Bazaar',  '2026-12-05', 'Indoor craft and gift stalls',          'planned',   1, 2),
   ('Spring Open Day',   '2026-04-12', 'Community open day',                     'completed', 2, NULL);
 
 -- An example active withdrawal (Folding Tables out for the Summer Fete) --------

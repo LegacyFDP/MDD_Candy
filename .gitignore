@@ -25,3 +25,15 @@ Thumbs.db
 
 #local history extension
 /.history-files
+
+# Docker
+*.pid
+*.seed
+*.log
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Docker volumes
+volumes/
+data/
+

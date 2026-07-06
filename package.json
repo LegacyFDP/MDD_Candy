@@ -1,5 +1,8 @@
 {
   "private": true,
+  "scripts": {
+    "dev": "concurrently -n server,frontend -c blue,green \"npm run dev --prefix server\" \"npm run dev --prefix frontend\""
+  },
   "retool": {
     "app": {
       "uuid": "5c7283f2-640e-11f1-be18-27072a359c65",
@@ -165,5 +168,8 @@
   },
   "dependencies": {
     "sqlite3": "^6.0.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   }
 }

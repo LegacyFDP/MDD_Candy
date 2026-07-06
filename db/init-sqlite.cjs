@@ -1,9 +1,12 @@
-import sqlite3 from 'sqlite3'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+const sqlite3 = require('sqlite3')
+const path = require('node:path')
 
-const here = path.dirname(fileURLToPath(import.meta.url))
-const dbPath = path.resolve(here, '..', 'fete_store.db')
+const here = __dirname
+// DB_PATH mirrors server/src/db.ts so containerized first-run init writes to
+// the same mounted file the server will open.
+const dbPath = process.env.DB_PATH
+  ? path.resolve(process.env.DB_PATH)
+  : path.resolve(here, '..', 'fete_store.db')
 
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
@@ -21,8 +24,23 @@ async function runSQL(sql) {
   })
 }
 
+function tableHasRows(table) {
+  return new Promise((resolve, reject) => {
+    db.get(`SELECT COUNT(*) AS c FROM ${table}`, [], (err, row) => {
+      if (err) resolve(false) // table doesn't exist yet
+      else resolve(row.c > 0)
+    })
+  })
+}
+
 async function init() {
   try {
+    if (await tableHasRows('fete_users')) {
+      console.log(`Database at ${dbPath} already has data — skipping (this script is one-time setup only).`)
+      db.close()
+      return
+    }
+
     console.log(`Initializing SQLite database at ${dbPath}...`)
 
     // Create schema directly for SQLite
@@ -37,6 +55,12 @@ CREATE TABLE IF NOT EXISTS fete_users (
 );
 
 CREATE TABLE IF NOT EXISTS store_locations (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  name        TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS fete_locations (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   name        TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT ''
@@ -60,7 +84,7 @@ CREATE TABLE IF NOT EXISTS fetes (
   description TEXT        NOT NULL DEFAULT '',
   status      TEXT        NOT NULL DEFAULT 'planned',
   created_by  INTEGER     REFERENCES fete_users(id) ON DELETE SET NULL,
-  location_id INTEGER     REFERENCES store_locations(id) ON DELETE SET NULL,
+  location_id INTEGER     REFERENCES fete_locations(id) ON DELETE SET NULL,
   created_at  TEXT        NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -110,6 +134,11 @@ INSERT INTO store_locations (name, description) VALUES
   ('Loft',          'Above the main hall — ladder access'),
   ('Kitchen Store', 'Shelving in the kitchen pantry');
 
+INSERT INTO fete_locations (name, description) VALUES
+  ('The Village Green',  'Main outdoor event space'),
+  ('Church Hall',        'Indoor hall with kitchen access'),
+  ('School Playing Field', 'Large field, parking on site');
+
 INSERT INTO assets (name, category, quantity_total, quantity_available, location_id, notes) VALUES
   ('Folding Table 6ft',      'Furniture',   12, 12, 2, 'Heavy — two people to carry'),
   ('Folding Chair',          'Furniture',   60, 60, 2, ''),
@@ -125,8 +154,8 @@ INSERT INTO assets (name, category, quantity_total, quantity_available, location
   ('Tombola Tickets (roll)', 'Stationery',  15, 15, 1, '');
 
 INSERT INTO fetes (name, event_date, description, status, created_by, location_id) VALUES
-  ('Summer Fete 2026',  '2026-07-18', 'Annual summer fundraiser on the green', 'planned',   1, NULL),
-  ('Christmas Bazaar',  '2026-12-05', 'Indoor craft and gift stalls',          'planned',   1, NULL),
+  ('Summer Fete 2026',  '2026-07-18', 'Annual summer fundraiser on the green', 'planned',   1, 1),
+  ('Christmas Bazaar',  '2026-12-05', 'Indoor craft and gift stalls',          'planned',   1, 2),
   ('Spring Open Day',   '2026-04-12', 'Community open day',                     'completed', 2, NULL);
 
 INSERT INTO withdrawals (asset_id, fete_id, quantity, withdrawn_by, status, notes) VALUES

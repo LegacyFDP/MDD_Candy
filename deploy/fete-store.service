@@ -10,7 +10,7 @@
 
 [Unit]
 Description=Fete Store Manager (Node API + static frontend)
-After=network.target postgresql.service
+After=network.target
 
 [Service]
 Type=simple

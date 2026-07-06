@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import {
   useGetFetes, useSaveFete, useGetWithdrawals,
-  useGetFeteVolunteers, useGetUsers, useGetLocations
+  useGetFeteVolunteers, useGetUsers,
+  useGetFeteLocations, useSaveFeteLocation, useDeleteFeteLocation
 } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Input } from '../lib/shadcn/input'
@@ -11,7 +12,7 @@ import { Textarea } from '../lib/shadcn/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../lib/shadcn/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../lib/shadcn/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
-import { Plus, ChevronDown, ChevronUp, ArrowUpFromLine, UserCheck, MapPin } from 'lucide-react'
+import { Plus, ChevronDown, ChevronUp, ArrowUpFromLine, UserCheck, MapPin, Settings, Trash2 } from 'lucide-react'
 import FeteVolunteers from './ui/FeteVolunteers'
 import type { AppUser } from './Login'
 
@@ -22,7 +23,7 @@ type Fete = {
   status: 'planned' | 'active' | 'completed'; created_by_name: string; created_at: string
   location_id: number | null; location_name: string | null
 }
-type Location = { id: number; name: string; description: string }
+type FeteLocation = { id: number; name: string; description: string }
 type Withdrawal = {
   id: number; fete_id: number | null; asset_id: number; asset_name: string
   category: string; quantity: number; status: string
@@ -47,18 +48,24 @@ export default function FetesPage({ currentUser }: Props) {
   const { data: withdrawalsRaw, trigger: loadWithdrawals } = useGetWithdrawals()
   const { data: volunteersRaw, trigger: loadVolunteers } = useGetFeteVolunteers()
   const { data: usersRaw, trigger: loadUsers } = useGetUsers()
-  const { data: locationsRaw, trigger: loadLocations } = useGetLocations()
+  const { data: locationsRaw, trigger: loadLocations } = useGetFeteLocations()
+  const { trigger: saveFeteLocation, loading: savingLocation } = useSaveFeteLocation()
+  const { trigger: deleteFeteLocation } = useDeleteFeteLocation()
 
   const fetes = (fetesRaw ?? []) as Fete[]
   const allWithdrawals = (withdrawalsRaw ?? []) as Withdrawal[]
   const allVolunteers = (volunteersRaw ?? []) as import('./ui/FeteVolunteers').Volunteer[]
   const allUsers = (usersRaw ?? []) as FeteUser[]
-  const locations = (locationsRaw ?? []) as Location[]
+  const locations = (locationsRaw ?? []) as FeteLocation[]
 
   const [feteOpen, setFeteOpen] = useState(false)
   const [feteForm, setFeteForm] = useState<Partial<Fete>>(emptyFete())
   const [editFeteId, setEditFeteId] = useState<number | null>(null)
   const [expandedFeteId, setExpandedFeteId] = useState<number | null>(null)
+
+  const [manageLocationsOpen, setManageLocationsOpen] = useState(false)
+  const [newLocationName, setNewLocationName] = useState('')
+  const [newLocationDescription, setNewLocationDescription] = useState('')
 
   const isAdmin = currentUser.role === 'admin'
 
@@ -69,6 +76,22 @@ export default function FetesPage({ currentUser }: Props) {
     void loadUsers({})
     void loadLocations({})
   }, [])
+
+  async function handleAddLocation() {
+    if (!newLocationName.trim()) return
+    await saveFeteLocation({ name: newLocationName.trim(), description: newLocationDescription.trim() })
+    setNewLocationName('')
+    setNewLocationDescription('')
+    void loadLocations({})
+  }
+
+  async function handleDeleteLocation(id: number) {
+    await deleteFeteLocation({ id })
+    if (feteForm.location_id === id) {
+      setFeteForm(f => ({ ...f, location_id: null }))
+    }
+    void loadLocations({})
+  }
 
   function openNewFete() {
     setFeteForm(emptyFete())
@@ -296,7 +319,16 @@ export default function FetesPage({ currentUser }: Props) {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Location</Label>
+              <div className="flex items-center justify-between">
+                <Label>Location</Label>
+                <Button
+                  type="button" size="sm" variant="ghost"
+                  className="h-6 px-2 text-xs flex items-center gap-1"
+                  onClick={() => setManageLocationsOpen(true)}
+                >
+                  <Settings className="w-3 h-3" /> Manage
+                </Button>
+              </div>
               <Select
                 value={feteForm.location_id != null ? String(feteForm.location_id) : 'none'}
                 onValueChange={v =>
@@ -318,6 +350,63 @@ export default function FetesPage({ currentUser }: Props) {
             <Button onClick={handleSaveFete} disabled={savingFete || !feteForm.name}>
               {savingFete ? 'Saving…' : 'Save'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage fete locations dialog */}
+      <Dialog open={manageLocationsOpen} onOpenChange={setManageLocationsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Fete Locations</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {locations.map(l => (
+                <div key={l.id} className="flex items-start gap-2 border rounded-md p-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{l.name}</p>
+                    {l.description && (
+                      <p className="text-xs text-muted-foreground">{l.description}</p>
+                    )}
+                  </div>
+                  <Button
+                    size="sm" variant="outline"
+                    onClick={() => handleDeleteLocation(l.id)}
+                    aria-label={`Delete ${l.name}`}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              ))}
+              {locations.length === 0 && (
+                <p className="text-sm text-muted-foreground">No event locations defined yet.</p>
+              )}
+            </div>
+            <div className="border-t border-border pt-3 space-y-2">
+              <div className="space-y-1">
+                <Label>New Location Name</Label>
+                <Input value={newLocationName} onChange={e => setNewLocationName(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Description</Label>
+                <Input
+                  value={newLocationDescription}
+                  onChange={e => setNewLocationDescription(e.target.value)}
+                  placeholder="e.g. Main outdoor event space"
+                />
+              </div>
+              <Button
+                onClick={handleAddLocation}
+                disabled={savingLocation || !newLocationName.trim()}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" /> Add Location
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManageLocationsOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -3,7 +3,11 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const dbPath = path.resolve(here, '..', '..', 'fete_store.db')
+// DB_PATH lets containerized deployments point the SQLite file at a mounted
+// volume; local/dev runs fall back to the repo-root file.
+const dbPath = process.env.DB_PATH
+  ? path.resolve(process.env.DB_PATH)
+  : path.resolve(here, '..', '..', 'fete_store.db')
 
 // SQLite database connection
 export const db = new sqlite3.Database(dbPath, (err) => {

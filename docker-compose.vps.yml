@@ -1,0 +1,25 @@
+# Optional VPS override for production deployment.
+# Usage:
+#   cp .env.vps.example .env
+#   docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build
+
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"
+    restart: unless-stopped
+
+  backend:
+    environment:
+      DATABASE_URL: postgres://fete_user:${DB_PASSWORD:?Set DB_PASSWORD in .env}@postgres:5432/fete_store
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 8080
+      HOST: 0.0.0.0
+      PGSSL: "false"
+    restart: unless-stopped
+
+  nginx:
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped

@@ -1,0 +1,169 @@
+{
+  "private": true,
+  "retool": {
+    "app": {
+      "uuid": "5c7283f2-640e-11f1-be18-27072a359c65",
+      "name": null,
+      "resourceReferencesByFile": {
+        "/backend/fete/deleteAsset.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/deleteFeteRequirement.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/deleteUser.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/getAssets.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/getFeteRequirements.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/getFetes.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/getLocations.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/getUsers.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/getWithdrawals.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/loginUser.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/returnAsset.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/saveAsset.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/saveFete.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/saveFeteRequirement.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/saveLocation.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/saveUser.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/withdrawAsset.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/user.d.ts": [],
+        "/backend/fete/getFeteWithdrawals.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/deleteFeteVolunteer.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/getFeteVolunteers.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/saveFeteVolunteer.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ],
+        "/backend/fete/getUsersWithFetes.ts": [
+          {
+            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
+            "displayName": "retool_db",
+            "type": "retoolDb"
+          }
+        ]
+      }
+    }
+  },
+  "dependencies": {
+    "sqlite3": "^6.0.1"
+  }
+}

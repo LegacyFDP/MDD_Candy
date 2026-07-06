@@ -1,0 +1,27 @@
+Summary
+
+Your Retool → standalone VPS conversion is now verified end-to-end on a live system, not just statically:
+
+- Build: frontend installs + produces a real dist/ bundle; server installs + typechecks — all exit 0.
+- Runtime: against a live PostgreSQL 16.4, the app serves the built SPA, the API routes to all 22 auto-discovered backend functions, and DB-backed flows work — login succeeds (PIN not leaked), bad PIN is rejected with 400, and getAssets returns the 12 seeded rows with their joined location.
+
+Still running: Postgres on :5432 and the Node server on :8080 (background task biue4bc66) — open http://127.0.0.1:8080 in a browser and log in with alice@charity.org / 1234 to click around if you like.
+
+I also saved the setup details and the psql URI-hang gotcha to project memory for next time. Just tell me if you'd like me to shut the server and Postgres down.
+
+
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/filter-test-output.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

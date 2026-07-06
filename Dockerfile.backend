@@ -1,0 +1,28 @@
+# Backend Dockerfile
+# Build and run the Node.js Express server
+
+FROM node:22-bookworm-slim
+
+WORKDIR /app
+
+# Copy package files
+COPY server/package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy server source
+COPY server/src ./src
+
+# Copy backend functions that the server uses
+COPY backend ./backend
+
+# Expose port (must match PORT in .env)
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:8080/api/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+
+# Start the server
+CMD ["npm", "start"]

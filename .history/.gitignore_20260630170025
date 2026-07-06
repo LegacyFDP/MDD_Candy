@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+<<<<<<< HEAD
+dist/
+.env
+.vscode/sftp.json
+=======
+>>>>>>> 246533ec1fe5c99acc82a991e72605cef7cc8347
+
+# build output
+frontend/dist/
+
+# env / secrets
+.env
+*.env
+!*.env.example
+
+# logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# local editor / agent settings
+.claude/settings.local.json

@@ -1,0 +1,26 @@
+# systemd unit for the Fete Store Manager Node server.
+# Install:
+#   sudo cp deploy/fete-store.service /etc/systemd/system/fete-store.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now fete-store
+# Logs:
+#   journalctl -u fete-store -f
+#
+# Adjust User, WorkingDirectory and the npm path to match your VPS.
+
+[Unit]
+Description=Fete Store Manager (Node API + static frontend)
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=fete
+WorkingDirectory=/opt/fete-store/server
+EnvironmentFile=/opt/fete-store/server/.env
+ExecStart=/usr/bin/npm run start
+Restart=on-failure
+RestartSec=5
+# Node respects PORT/HOST from the EnvironmentFile above.
+
+[Install]
+WantedBy=multi-user.target

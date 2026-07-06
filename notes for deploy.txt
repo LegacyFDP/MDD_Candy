@@ -1,0 +1,13 @@
+rsync cli rsync -avz --progress "/cygdrive/ " timmi@217.154.60.212:/opt/fete-store/
+
+
+sudo chown -R timmi:timmi /opt/fete-store
+# Create database and user
+sudo -u postgres psql <<'SQL'
+CREATE USER timmi WITH PASSWORD 'paVxm7GjO';
+CREATE DATABASE timmi OWNER fete_user;
+SQL
+
+# Import schema and seed data
+psql "postgres://fete_user:paVxm7GjO@localhost:5432/fete_store" -f /opt/fete-store/db/schema.sql
+psql "postgres://fete_user:paVxm7GjO@localhost:5432/fete_store" -f /opt/fete-store/db/seed.sql

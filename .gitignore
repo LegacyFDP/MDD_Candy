@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+dist/
+.env
+.vscode/sftp.json
+
+# build output
+frontend/dist/
+
+# env / secrets
+.env
+*.env
+!*.env.example
+
+# logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# local editor / agent settings
+.claude/settings.local.json
+
+#local history extension
+/.history-files

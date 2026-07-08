@@ -12,9 +12,9 @@ NODE_SETUP_URL="https://deb.nodesource.com/setup_20.x"
 CADDY_GPG_URL="https://dl.cloudsmith.io/public/caddy/stable/gpg.key"
 CADDY_LIST_URL="https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt"
 
-DOMAIN=""
-REPO_URL=""
-ENABLE_UFW=0
+DOMAIN="fete.oxongroup.co.uk"
+REPO_URL="https://github.com/LegacyFDP/MDD_Copy"
+ENABLE_UFW=1
 SKIP_APT=0
 
 usage() {

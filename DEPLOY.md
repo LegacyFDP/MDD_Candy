@@ -57,7 +57,7 @@ sudo useradd --system --create-home --home-dir /opt/MDD_Candy --shell /bin/bash 
 sudo mkdir -p /opt/MDD_Candy
 sudo chown -R fete:fete /opt/MDD_Candy
 cd /opt/MDD_Candy
-sudo -u fete git clone <your-repo-url> .
+sudo -u fete git clone github.com/LegacyFDP/MDD_Copy .
 ```
 
 ### 2. Create the database
@@ -97,7 +97,7 @@ Replace your domain and copy the config:
 
 ```bash
 sudo tee /etc/caddy/Caddyfile >/dev/null <<'CADDY'
-your-domain.example.com {
+github.com/LegacyFDP/MDD_Copy {
     handle /api* {
         reverse_proxy 127.0.0.1:8080
     }
@@ -119,7 +119,7 @@ sudo ufw allow 'WWW Full'
 sudo ufw enable
 ```
 
-Visit https://your-domain.example.com and log in with alice@charity.org / 1234.
+Visit fete.oxongroup.co.uk and log in with alice@charity.org / 1234.
 
 ## Updating after code changes
 

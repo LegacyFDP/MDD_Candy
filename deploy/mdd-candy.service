@@ -1,15 +1,15 @@
-# systemd unit for the Fete Store Manager Node server.
+# systemd unit for the MDD Candy Node server.
 # Install:
-#   sudo cp deploy/fete-store.service /etc/systemd/system/fete-store.service
+#   sudo cp deploy/mdd-candy.service /etc/systemd/system/mdd-candy.service
 #   sudo systemctl daemon-reload
-#   sudo systemctl enable --now fete-store
+#   sudo systemctl enable --now mdd-candy
 # Logs:
-#   journalctl -u fete-store -f
+#   journalctl -u mdd-candy -f
 #
 # Adjust User, WorkingDirectory and the npm path to match your VPS.
 
 [Unit]
-Description=Fete Store Manager (Node API + static frontend)
+Description=MDD Candy (Node API + static frontend)
 After=network.target
 
 [Service]

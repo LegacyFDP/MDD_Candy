@@ -7,7 +7,7 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 // volume; local/dev runs fall back to the repo-root file.
 const dbPath = process.env.DB_PATH
   ? path.resolve(process.env.DB_PATH)
-  : path.resolve(here, '..', '..', 'fete_store.db')
+  : path.resolve(here, '..', '..', 'MDD_Candy.db')
 
 // SQLite database connection
 export const db = new sqlite3.Database(dbPath, (err) => {

@@ -57,7 +57,7 @@ sudo useradd --system --create-home --home-dir /opt/MDD_Candy --shell /bin/bash 
 sudo mkdir -p /opt/MDD_Candy
 sudo chown -R fete:fete /opt/MDD_Candy
 cd /opt/MDD_Candy
-sudo -u fete git clone github.com/LegacyFDP/MDD_Copy .
+sudo -u fete git clone https://github.com/LegacyFDP/MDD_Copy .
 ```
 
 ### 2. Create the database
@@ -85,10 +85,10 @@ npm install
 ### 4. Run the app as a service
 
 ```bash
-sudo cp /opt/MDD_Candy/deploy/fete-store.service /etc/systemd/system/fete-store.service
+sudo cp /opt/MDD_Candy/deploy/mdd-candy.service /etc/systemd/system/mdd-candy.service
 sudo systemctl daemon-reload
-sudo systemctl enable --now fete-store
-journalctl -u fete-store -f
+sudo systemctl enable --now mdd-candy
+journalctl -u mdd-candy -f
 ```
 
 ### 5. Configure Caddy
@@ -97,7 +97,7 @@ Replace your domain and copy the config:
 
 ```bash
 sudo tee /etc/caddy/Caddyfile >/dev/null <<'CADDY'
-github.com/LegacyFDP/MDD_Copy {
+fete.oxongroup.co.uk {
     handle /api* {
         reverse_proxy 127.0.0.1:8080
     }
@@ -127,7 +127,7 @@ Visit fete.oxongroup.co.uk and log in with alice@charity.org / 1234.
 cd /opt/MDD_Candy && git pull
 cd frontend && npm install && npm run build
 cd ../server && npm install
-sudo systemctl restart fete-store
+sudo systemctl restart mdd-candy
 sudo systemctl reload caddy
 ```
 

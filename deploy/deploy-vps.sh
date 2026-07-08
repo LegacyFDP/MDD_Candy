@@ -5,7 +5,7 @@ set -euo pipefail
 APP_USER="fete"
 APP_GROUP="fete"
 APP_ROOT="/opt/MDD_Candy"
-SERVICE_NAME="fete-store"
+SERVICE_NAME="mdd-candy"
 SERVICE_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
 CADDYFILE_PATH="/etc/caddy/Caddyfile"
 NODE_SETUP_URL="https://deb.nodesource.com/setup_20.x"
@@ -152,7 +152,7 @@ init_database() {
   log "Initializing SQLite database"
   cd "${APP_ROOT}"
   node db/init-sqlite.cjs
-  chown "${APP_USER}:${APP_GROUP}" "${APP_ROOT}/fete_store.db"
+  chown "${APP_USER}:${APP_GROUP}" "${APP_ROOT}/MDD_Candy.db"
 }
 
 install_dependencies_and_build() {
@@ -168,7 +168,7 @@ install_dependencies_and_build() {
 
 install_systemd_service() {
   log "Installing systemd service"
-  cp "${APP_ROOT}/deploy/fete-store.service" "${SERVICE_PATH}"
+  cp "${APP_ROOT}/deploy/mdd-candy.service" "${SERVICE_PATH}"
   systemctl daemon-reload
   systemctl enable "${SERVICE_NAME}"
   systemctl restart "${SERVICE_NAME}"

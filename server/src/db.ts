@@ -23,8 +23,17 @@ export const db = new sqlite3.Database(dbPath, (err) => {
 export function createRetoolDb(database: sqlite3.Database = db) {
   return {
     async query<T = Record<string, unknown>>(text: string, params: unknown[] = []) {
+      // Retool-exported handlers use Postgres placeholders ($1, $2, ...).
+      // SQLite expects positional placeholders (?); remap to keep handlers unchanged.
+      const sqliteParams: unknown[] = []
+      const sqliteText = text.replace(/\$(\d+)/g, (_match, indexText: string) => {
+        const index = Number(indexText) - 1
+        sqliteParams.push(params[index])
+        return '?'
+      })
+
       return new Promise((resolve, reject) => {
-        database.all(text, params as unknown[], (err, rows) => {
+        database.all(sqliteText, sqliteParams, (err, rows) => {
           if (err) reject(err)
           else resolve({ data: (rows as T[]) ?? [] })
         })

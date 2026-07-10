@@ -1,9 +1,24 @@
-fete.oxongroup.co.uk {
-    handle /api* {
-        reverse_proxy 127.0.0.1:8080
-    }
+#!/usr/bin/env bash
+set -e
 
-    root * /home/timmi/projects/MDD_Candy/frontend/dist
-    try_files {path} {path}/ /index.html
+DOMAIN="fete.oxongroup.co.uk"
+APP_DIR="/home/timmi/projects/MDD_Candy"
+FRONTEND_DIR="$APP_DIR/frontend/dist"
+SERVER_PORT=3000
+CADDYFILE="/etc/caddy/Caddyfile"
+
+echo "Writing Caddyfile to $CADDYFILE..."
+
+sudo tee "$CADDYFILE" >/dev/null <<EOF
+$DOMAIN {
+    root * $FRONTEND_DIR
     file_server
+
+    reverse_proxy /api/* localhost:$SERVER_PORT
 }
+EOF
+
+echo "Reloading Caddy..."
+sudo systemctl reload caddy || sudo systemctl restart caddy
+
+echo "Caddy deploy complete."

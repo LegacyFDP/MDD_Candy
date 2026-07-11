@@ -22,12 +22,12 @@ export default function Login({ onLogin }: LoginProps) {
     e.preventDefault()
     setErrorMsg('')
     try {
-      const result = await trigger({ email, pin })
+      const result = await trigger({ email: email.trim(), pin: pin.trim() })
       if (result) {
         onLogin(result as AppUser)
       }
-    } catch {
-      setErrorMsg('Invalid email or PIN. Please try again.')
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Sign in failed. Please try again.')
     }
   }
 

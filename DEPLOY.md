@@ -122,6 +122,33 @@ sudo ufw enable
 
 Visit fete.oxongroup.co.uk and log in with alice@charity.org / 1234.
 
+## Verify the service
+
+After deployment, confirm the systemd unit is using the expected paths and that the app can see its database:
+
+```bash
+systemctl cat mdd-candy
+sudo test -f /home/timmi/projects/MDD_Candy/server/.env && echo "server/.env ok"
+sudo test -f /home/timmi/projects/MDD_Candy/MDD_Candy.db && echo "MDD_Candy.db ok"
+curl http://127.0.0.1:8080/api/health
+journalctl -u mdd-candy -n 100 --no-pager
+```
+
+You should see:
+
+- `WorkingDirectory=/home/timmi/projects/MDD_Candy/server`
+- `EnvironmentFile=/home/timmi/projects/MDD_Candy/server/.env`
+- `ExecStart=/usr/bin/npm run start`
+- `{"ok":true}` from the health check
+
+If the service file was created before the deployment script was updated, reinstall it and restart the service:
+
+```bash
+sudo cp /home/timmi/projects/MDD_Candy/deploy/mdd-candy.service /etc/systemd/system/mdd-candy.service
+sudo systemctl daemon-reload
+sudo systemctl restart mdd-candy
+```
+
 ## Updating after code changes
 
 ```bash

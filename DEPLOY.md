@@ -122,6 +122,7 @@ sudo ufw enable
 
 Visit fete.oxongroup.co.uk and log in with alice@charity.org / 1234.
 
+<<<<<<< HEAD
 ## Verify the service
 
 After deployment, confirm the systemd unit is using the expected paths and that the app can see its database:
@@ -149,6 +150,8 @@ sudo systemctl daemon-reload
 sudo systemctl restart mdd-candy
 ```
 
+=======
+>>>>>>> 3bde4ba (re-init repo)
 ## Updating after code changes
 
 ```bash

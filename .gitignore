@@ -48,5 +48,10 @@ server/dist/
 # Vite cache
 /vite/
 
+<<<<<<< HEAD
 # Database files
 MDD_Candy.db
+=======
+# Database Files
+MDD_Candy.db
+>>>>>>> 9b2fa682cc0f1004d8a747ffe68c1837eb71a15c

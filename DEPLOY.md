@@ -57,7 +57,7 @@ sudo useradd --system --create-home --home-dir /home/timmi --shell /bin/bash tim
 sudo mkdir -p /home/timmi/projects/MDD_Candy
 sudo chown -R timmi:timmi /home/timmi/projects
 cd /home/timmi/projects/MDD_Candy
-sudo -u timmi git clone https://github.com/LegacyFDP/MDD_Copy .
+sudo -u timmi git clone https://github.com/LegacyFDP/MDD_Candy.git .
 ```
 
 ### 2. Create the database

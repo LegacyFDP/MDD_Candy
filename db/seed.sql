@@ -11,7 +11,7 @@
 
 BEGIN;
 
-TRUNCATE fete_requirements, fete_volunteers, withdrawals, fetes, assets, store_locations, fete_locations, fete_users
+TRUNCATE fete_requirements, fete_volunteers, withdrawals, fetes, assets, store_locations, fete_users
   RESTART IDENTITY CASCADE;
 
 -- Users (credentials shown on the login page) ---------------------------------
@@ -25,22 +25,21 @@ INSERT INTO fete_users (name, email, role, pin) VALUES
 INSERT INTO store_locations (
   name,
   description,
+  notes,
   address_line1,
   address_line2,
   town_city,
   county,
-  postcode
+  postcode,
+  location_type
 ) VALUES
-  ('Main Cupboard', 'Hallway cupboard by the office', 'St Mary''s Church Hall', '12 Hall Lane', 'Oxford', 'Oxfordshire', 'OX1 1AA'),
-  ('Garage',        'Lock-up garage behind the hall', 'Parish Storage Garage', 'Rear of 28 Market Street', 'Oxford', 'Oxfordshire', 'OX2 7BG'),
-  ('Loft',          'Above the main hall — ladder access', 'Village Community Centre', '4 Chapel Road', 'Abingdon', 'Oxfordshire', 'OX14 3QJ'),
-  ('Kitchen Store', 'Shelving in the kitchen pantry', 'Church Hall Kitchen', '12 Hall Lane', 'Oxford', 'Oxfordshire', 'OX1 1AA');
-
--- Event locations (where fetes are held — distinct from store_locations) -----
-INSERT INTO fete_locations (name, description) VALUES
-  ('The Village Green',  'Main outdoor event space'),
-  ('Church Hall',        'Indoor hall with kitchen access'),
-  ('School Playing Field', 'Large field, parking on site');
+  ('Main Cupboard', 'Hallway cupboard by the office', '', 'St Mary''s Church Hall', '12 Hall Lane', 'Oxford', 'Oxfordshire', 'OX1 1AA', 'Store'),
+  ('Garage',        'Lock-up garage behind the hall', '', 'Parish Storage Garage', 'Rear of 28 Market Street', 'Oxford', 'Oxfordshire', 'OX2 7BG', 'Store'),
+  ('Loft',          'Above the main hall — ladder access', '', 'Village Community Centre', '4 Chapel Road', 'Abingdon', 'Oxfordshire', 'OX14 3QJ', 'Store'),
+  ('Kitchen Store', 'Shelving in the kitchen pantry', '', 'Church Hall Kitchen', '12 Hall Lane', 'Oxford', 'Oxfordshire', 'OX1 1AA', 'Store'),
+  ('The Village Green', 'Main outdoor event space', 'Bring gazebo weights if windy', 'Village Green', '', 'Oxford', 'Oxfordshire', 'OX1 2AB', 'Fetes'),
+  ('Church Hall', 'Indoor hall with kitchen access', 'Use side entrance after 8am', 'Church Hall', '12 Hall Lane', 'Oxford', 'Oxfordshire', 'OX1 1AA', 'Fetes'),
+  ('School Playing Field', 'Large field, parking on site', '', 'School Playing Fields', 'School Lane', 'Abingdon', 'Oxfordshire', 'OX14 1XY', 'Fetes');
 
 -- Assets ----------------------------------------------------------------------
 INSERT INTO assets (name, category, quantity_total, quantity_available, location_id, notes) VALUES
@@ -58,10 +57,10 @@ INSERT INTO assets (name, category, quantity_total, quantity_available, location
   ('Tombola Tickets (roll)', 'Stationery',  15, 15, 1, '');
 
 -- Fetes -----------------------------------------------------------------------
-INSERT INTO fetes (name, event_date, description, status, created_by, location_id) VALUES
-  ('Summer Fete 2026',  '2026-07-18', 'Annual summer fundraiser on the green', 'planned',   1, 1),
-  ('Christmas Bazaar',  '2026-12-05', 'Indoor craft and gift stalls',          'planned',   1, 2),
-  ('Spring Open Day',   '2026-04-12', 'Community open day',                     'completed', 2, NULL);
+INSERT INTO fetes (name, event_date, description, notes, status, created_by, location_id) VALUES
+  ('Summer Fete 2026',  '2026-07-18', 'Annual summer fundraiser on the green', 'Need extra volunteers at 10am', 'planned',   1, 5),
+  ('Christmas Bazaar',  '2026-12-05', 'Indoor craft and gift stalls',          '',                              'planned',   1, 6),
+  ('Spring Open Day',   '2026-04-12', 'Community open day',                     '',                              'completed', 2, NULL);
 
 -- An example active withdrawal (Folding Tables out for the Summer Fete) --------
 INSERT INTO withdrawals (asset_id, fete_id, quantity, withdrawn_by, status, notes) VALUES

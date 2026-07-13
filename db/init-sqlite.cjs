@@ -109,17 +109,13 @@ CREATE TABLE IF NOT EXISTS store_locations (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   name        TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
+  notes       TEXT NOT NULL DEFAULT '',
   address_line1 TEXT NOT NULL DEFAULT '',
   address_line2 TEXT NOT NULL DEFAULT '',
   town_city     TEXT NOT NULL DEFAULT '',
   county        TEXT NOT NULL DEFAULT '',
-  postcode      TEXT NOT NULL DEFAULT ''
-);
-
-CREATE TABLE IF NOT EXISTS fete_locations (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  name        TEXT NOT NULL,
-  description TEXT NOT NULL DEFAULT ''
+  postcode      TEXT NOT NULL DEFAULT '',
+  location_type TEXT NOT NULL DEFAULT 'Store'
 );
 
 CREATE TABLE IF NOT EXISTS assets (
@@ -138,9 +134,10 @@ CREATE TABLE IF NOT EXISTS fetes (
   name        TEXT        NOT NULL,
   event_date  DATE,
   description TEXT        NOT NULL DEFAULT '',
+  notes       TEXT        NOT NULL DEFAULT '',
   status      TEXT        NOT NULL DEFAULT 'planned',
   created_by  INTEGER     REFERENCES fete_users(id) ON DELETE SET NULL,
-  location_id INTEGER     REFERENCES fete_locations(id) ON DELETE SET NULL,
+  location_id INTEGER     REFERENCES store_locations(id) ON DELETE SET NULL,
   created_at  TEXT        NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -191,17 +188,16 @@ INSERT INTO store_locations (
   address_line2,
   town_city,
   county,
-  postcode
+  postcode,
+  location_type
 ) VALUES
-  ('Main Cupboard', 'Hallway cupboard by the office', 'St Mary''s Church Hall', '12 Hall Lane', 'Oxford', 'Oxfordshire', 'OX1 1AA'),
-  ('Garage',        'Lock-up garage behind the hall', 'Parish Storage Garage', 'Rear of 28 Market Street', 'Oxford', 'Oxfordshire', 'OX2 7BG'),
-  ('Loft',          'Above the main hall — ladder access', 'Village Community Centre', '4 Chapel Road', 'Abingdon', 'Oxfordshire', 'OX14 3QJ'),
-  ('Kitchen Store', 'Shelving in the kitchen pantry', 'Church Hall Kitchen', '12 Hall Lane', 'Oxford', 'Oxfordshire', 'OX1 1AA');
-
-INSERT INTO fete_locations (name, description) VALUES
-  ('The Village Green',  'Main outdoor event space'),
-  ('Church Hall',        'Indoor hall with kitchen access'),
-  ('School Playing Field', 'Large field, parking on site');
+  ('Main Cupboard', 'Hallway cupboard by the office', 'St Mary''s Church Hall', '12 Hall Lane', 'Oxford', 'Oxfordshire', 'OX1 1AA', 'Store'),
+  ('Garage',        'Lock-up garage behind the hall', 'Parish Storage Garage', 'Rear of 28 Market Street', 'Oxford', 'Oxfordshire', 'OX2 7BG', 'Store'),
+  ('Loft',          'Above the main hall — ladder access', 'Village Community Centre', '4 Chapel Road', 'Abingdon', 'Oxfordshire', 'OX14 3QJ', 'Store'),
+  ('Kitchen Store', 'Shelving in the kitchen pantry', 'Church Hall Kitchen', '12 Hall Lane', 'Oxford', 'Oxfordshire', 'OX1 1AA', 'Store'),
+  ('The Village Green', 'Main outdoor event space', 'Village Green', '', 'Oxford', 'Oxfordshire', 'OX1 2AB', 'Fetes'),
+  ('Church Hall', 'Indoor hall with kitchen access', 'Church Hall', '12 Hall Lane', 'Oxford', 'Oxfordshire', 'OX1 1AA', 'Fetes'),
+  ('School Playing Field', 'Large field, parking on site', 'School Playing Fields', 'School Lane', 'Abingdon', 'Oxfordshire', 'OX14 1XY', 'Fetes');
 
 INSERT INTO assets (name, category, quantity_total, quantity_available, location_id, notes) VALUES
   ('Folding Table 6ft',      'Furniture',   12, 12, 2, 'Heavy — two people to carry'),
@@ -218,8 +214,8 @@ INSERT INTO assets (name, category, quantity_total, quantity_available, location
   ('Tombola Tickets (roll)', 'Stationery',  15, 15, 1, '');
 
 INSERT INTO fetes (name, event_date, description, status, created_by, location_id) VALUES
-  ('Summer Fete 2026',  '2026-07-18', 'Annual summer fundraiser on the green', 'planned',   1, 1),
-  ('Christmas Bazaar',  '2026-12-05', 'Indoor craft and gift stalls',          'planned',   1, 2),
+  ('Summer Fete 2026',  '2026-07-18', 'Annual summer fundraiser on the green', 'planned',   1, 5),
+  ('Christmas Bazaar',  '2026-12-05', 'Indoor craft and gift stalls',          'planned',   1, 6),
   ('Spring Open Day',   '2026-04-12', 'Community open day',                     'completed', 2, NULL);
 
 INSERT INTO withdrawals (asset_id, fete_id, quantity, withdrawn_by, status, notes) VALUES

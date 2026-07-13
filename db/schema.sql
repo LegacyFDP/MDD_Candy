@@ -22,17 +22,13 @@ CREATE TABLE IF NOT EXISTS store_locations (
   id          SERIAL PRIMARY KEY,
   name        TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
+  notes       TEXT NOT NULL DEFAULT '',
   address_line1 TEXT NOT NULL DEFAULT '',
   address_line2 TEXT NOT NULL DEFAULT '',
   town_city     TEXT NOT NULL DEFAULT '',
   county        TEXT NOT NULL DEFAULT '',
-  postcode      TEXT NOT NULL DEFAULT ''
-);
-
-CREATE TABLE IF NOT EXISTS fete_locations (
-  id          SERIAL PRIMARY KEY,
-  name        TEXT NOT NULL,
-  description TEXT NOT NULL DEFAULT ''
+  postcode      TEXT NOT NULL DEFAULT '',
+  location_type TEXT NOT NULL DEFAULT 'Store' CHECK (location_type IN ('Store', 'Fetes'))
 );
 
 CREATE TABLE IF NOT EXISTS assets (
@@ -51,9 +47,10 @@ CREATE TABLE IF NOT EXISTS fetes (
   name        TEXT        NOT NULL,
   event_date  DATE,
   description TEXT        NOT NULL DEFAULT '',
+  notes       TEXT        NOT NULL DEFAULT '',
   status      TEXT        NOT NULL DEFAULT 'planned',
   created_by  INTEGER     REFERENCES fete_users(id) ON DELETE SET NULL,
-  location_id INTEGER     REFERENCES fete_locations(id) ON DELETE SET NULL,
+  location_id INTEGER     REFERENCES store_locations(id) ON DELETE SET NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

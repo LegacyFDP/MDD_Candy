@@ -12,7 +12,7 @@ import { Textarea } from '../lib/shadcn/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../lib/shadcn/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../lib/shadcn/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
-import { Plus, ChevronDown, ChevronUp, ArrowUpFromLine, UserCheck, MapPin, Settings, Trash2 } from 'lucide-react'
+import { Plus, ChevronDown, ChevronUp, ArrowUpFromLine, UserCheck, MapPin, Settings, Trash2, Pencil } from 'lucide-react'
 import FeteVolunteers from './ui/FeteVolunteers'
 import type { AppUser } from './Login'
 
@@ -20,10 +20,21 @@ interface Props { currentUser: AppUser }
 
 type Fete = {
   id: number; name: string; event_date: string; description: string
+  notes: string
   status: 'planned' | 'active' | 'completed'; created_by_name: string; created_at: string
   location_id: number | null; location_name: string | null
 }
-type FeteLocation = { id: number; name: string; description: string }
+type FeteLocation = {
+  id: number
+  name: string
+  description: string
+  notes: string
+  address_line1: string
+  address_line2: string
+  town_city: string
+  county: string
+  postcode: string
+}
 type Withdrawal = {
   id: number; fete_id: number | null; asset_id: number; asset_name: string
   category: string; quantity: number; status: string
@@ -39,7 +50,18 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const emptyFete = (): Partial<Fete> => ({
-  name: '', event_date: '', description: '', status: 'planned', location_id: null,
+  name: '', event_date: '', description: '', notes: '', status: 'planned', location_id: null,
+})
+
+const emptyFeteLocation = (): Partial<FeteLocation> => ({
+  name: '',
+  description: '',
+  notes: '',
+  address_line1: '',
+  address_line2: '',
+  town_city: '',
+  county: '',
+  postcode: '',
 })
 
 export default function FetesPage({ currentUser }: Props) {
@@ -64,8 +86,9 @@ export default function FetesPage({ currentUser }: Props) {
   const [expandedFeteId, setExpandedFeteId] = useState<number | null>(null)
 
   const [manageLocationsOpen, setManageLocationsOpen] = useState(false)
-  const [newLocationName, setNewLocationName] = useState('')
-  const [newLocationDescription, setNewLocationDescription] = useState('')
+  const [editLocationId, setEditLocationId] = useState<number | null>(null)
+  const [locationForm, setLocationForm] = useState<Partial<FeteLocation>>(emptyFeteLocation())
+  const [locationError, setLocationError] = useState('')
 
   const isAdmin = currentUser.role === 'admin'
 
@@ -77,19 +100,57 @@ export default function FetesPage({ currentUser }: Props) {
     void loadLocations({})
   }, [])
 
-  async function handleAddLocation() {
-    if (!newLocationName.trim()) return
-    await saveFeteLocation({ name: newLocationName.trim(), description: newLocationDescription.trim() })
-    setNewLocationName('')
-    setNewLocationDescription('')
-    void loadLocations({})
+  function openNewLocationForm() {
+    setLocationError('')
+    setEditLocationId(null)
+    setLocationForm(emptyFeteLocation())
+  }
+
+  function openEditLocation(location: FeteLocation) {
+    setLocationError('')
+    setEditLocationId(location.id)
+    setLocationForm({ ...location })
+  }
+
+  async function handleSaveLocation() {
+    setLocationError('')
+    if (!locationForm.name?.trim()) {
+      setLocationError('Location name is required')
+      return
+    }
+
+    try {
+      await saveFeteLocation({
+        ...(editLocationId ? { id: editLocationId } : {}),
+        name: locationForm.name ?? '',
+        description: locationForm.description ?? '',
+        notes: locationForm.notes ?? '',
+        address_line1: locationForm.address_line1 ?? '',
+        address_line2: locationForm.address_line2 ?? '',
+        town_city: locationForm.town_city ?? '',
+        county: locationForm.county ?? '',
+        postcode: locationForm.postcode ?? '',
+      })
+
+      openNewLocationForm()
+      void loadLocations({})
+    } catch (error) {
+      setLocationError(error instanceof Error ? error.message : 'Failed to save location')
+    }
   }
 
   async function handleDeleteLocation(id: number) {
+    if (!confirm('Delete this fete location?')) return
     await deleteFeteLocation({ id })
+
     if (feteForm.location_id === id) {
       setFeteForm(f => ({ ...f, location_id: null }))
     }
+
+    if (editLocationId === id) {
+      openNewLocationForm()
+    }
+
     void loadLocations({})
   }
 
@@ -112,6 +173,7 @@ export default function FetesPage({ currentUser }: Props) {
       name: feteForm.name ?? '',
       event_date: feteForm.event_date ?? '',
       description: feteForm.description ?? '',
+      notes: feteForm.notes ?? '',
       status: feteForm.status ?? 'planned',
       created_by: currentUser.id,
       ...(feteForm.location_id != null ? { location_id: feteForm.location_id } : {}),
@@ -177,6 +239,9 @@ export default function FetesPage({ currentUser }: Props) {
                     })}
                     {fete.description && ` · ${fete.description}`}
                   </p>
+                  {fete.notes && (
+                    <p className="text-xs text-muted-foreground mt-0.5">Note: {fete.notes}</p>
+                  )}
                   {fete.location_name && (
                     <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                       <MapPin className="w-3 h-3" />{fete.location_name}
@@ -305,6 +370,21 @@ export default function FetesPage({ currentUser }: Props) {
               />
             </div>
             <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <Label>Notes</Label>
+                <span className="text-xs text-muted-foreground">{(feteForm.notes ?? '').length}/120</span>
+              </div>
+              <Input
+                value={feteForm.notes ?? ''}
+                maxLength={120}
+                onChange={e => setFeteForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="Optional"
+              />
+              {(feteForm.notes ?? '').length >= 120 && (
+                <p className="text-xs text-red-600">Maximum 120 characters reached.</p>
+              )}
+            </div>
+            <div className="space-y-1">
               <Label>Status</Label>
               <Select
                 {...(feteForm.status ? { value: feteForm.status } : {})}
@@ -324,7 +404,10 @@ export default function FetesPage({ currentUser }: Props) {
                 <Button
                   type="button" size="sm" variant="ghost"
                   className="h-6 px-2 text-xs flex items-center gap-1"
-                  onClick={() => setManageLocationsOpen(true)}
+                  onClick={() => {
+                    openNewLocationForm()
+                    setManageLocationsOpen(true)
+                  }}
                 >
                   <Settings className="w-3 h-3" /> Manage
                 </Button>
@@ -369,7 +452,27 @@ export default function FetesPage({ currentUser }: Props) {
                     {l.description && (
                       <p className="text-xs text-muted-foreground">{l.description}</p>
                     )}
+                    {l.notes && (
+                      <p className="text-xs text-muted-foreground">Note: {l.notes}</p>
+                    )}
+                    {(l.address_line1 || l.address_line2 || l.town_city || l.county || l.postcode) && (
+                      <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                        {l.address_line1 && <p>{l.address_line1}</p>}
+                        {l.address_line2 && <p>{l.address_line2}</p>}
+                        {(l.town_city || l.county) && (
+                          <p>{[l.town_city, l.county].filter(Boolean).join(', ')}</p>
+                        )}
+                        {l.postcode && <p className="font-medium text-foreground/80">{l.postcode}</p>}
+                      </div>
+                    )}
                   </div>
+                  <Button
+                    size="sm" variant="outline"
+                    onClick={() => openEditLocation(l)}
+                    aria-label={`Edit ${l.name}`}
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </Button>
                   <Button
                     size="sm" variant="outline"
                     onClick={() => handleDeleteLocation(l.id)}
@@ -385,24 +488,90 @@ export default function FetesPage({ currentUser }: Props) {
             </div>
             <div className="border-t border-border pt-3 space-y-2">
               <div className="space-y-1">
-                <Label>New Location Name</Label>
-                <Input value={newLocationName} onChange={e => setNewLocationName(e.target.value)} />
+                <Label>Location Name</Label>
+                <Input
+                  value={locationForm.name ?? ''}
+                  onChange={e => setLocationForm(f => ({ ...f, name: e.target.value }))}
+                />
               </div>
               <div className="space-y-1">
                 <Label>Description</Label>
                 <Input
-                  value={newLocationDescription}
-                  onChange={e => setNewLocationDescription(e.target.value)}
+                  value={locationForm.description ?? ''}
+                  onChange={e => setLocationForm(f => ({ ...f, description: e.target.value }))}
                   placeholder="e.g. Main outdoor event space"
                 />
               </div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label>Notes</Label>
+                  <span className="text-xs text-muted-foreground">{(locationForm.notes ?? '').length}/120</span>
+                </div>
+                <Input
+                  value={locationForm.notes ?? ''}
+                  maxLength={120}
+                  onChange={e => setLocationForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="Optional"
+                />
+                {(locationForm.notes ?? '').length >= 120 && (
+                  <p className="text-xs text-red-600">Maximum 120 characters reached.</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label>Address Line 1</Label>
+                <Input
+                  value={locationForm.address_line1 ?? ''}
+                  onChange={e => setLocationForm(f => ({ ...f, address_line1: e.target.value }))}
+                  placeholder="e.g. 12 Hall Lane"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Address Line 2</Label>
+                <Input
+                  value={locationForm.address_line2 ?? ''}
+                  onChange={e => setLocationForm(f => ({ ...f, address_line2: e.target.value }))}
+                  placeholder="Optional"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Town / City</Label>
+                  <Input
+                    value={locationForm.town_city ?? ''}
+                    onChange={e => setLocationForm(f => ({ ...f, town_city: e.target.value }))}
+                    placeholder="e.g. Oxford"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>County</Label>
+                  <Input
+                    value={locationForm.county ?? ''}
+                    onChange={e => setLocationForm(f => ({ ...f, county: e.target.value }))}
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>Postcode</Label>
+                <Input
+                  value={locationForm.postcode ?? ''}
+                  onChange={e => setLocationForm(f => ({ ...f, postcode: e.target.value }))}
+                  placeholder="e.g. 12345 or A1B 2C3"
+                />
+              </div>
+              {locationError && (
+                <p className="text-sm text-red-600">{locationError}</p>
+              )}
               <Button
-                onClick={handleAddLocation}
-                disabled={savingLocation || !newLocationName.trim()}
+                onClick={handleSaveLocation}
+                disabled={savingLocation || !locationForm.name?.trim()}
                 className="flex items-center gap-2"
               >
-                <Plus className="w-4 h-4" /> Add Location
+                <Plus className="w-4 h-4" /> {editLocationId ? 'Save Location' : 'Add Location'}
               </Button>
+              {editLocationId && (
+                <Button variant="outline" onClick={openNewLocationForm}>Clear</Button>
+              )}
             </div>
           </div>
           <DialogFooter>

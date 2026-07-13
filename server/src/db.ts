@@ -41,26 +41,99 @@ async function run(
   })
 }
 
-export async function ensureRuntimeSchema(database: sqlite3.Database = db): Promise<void> {
-  const columns = await all<{ name: string }>('PRAGMA table_info(store_locations);', [], database)
-  const existing = new Set(columns.map((column) => column.name))
+async function runWithMeta(
+  sql: string,
+  params: unknown[] = [],
+  database: sqlite3.Database = db,
+): Promise<{ lastID: number; changes: number }> {
+  return new Promise((resolve, reject) => {
+    database.run(sql, params, function onRun(this: sqlite3.RunResult, err) {
+      if (err) reject(err)
+      else resolve({ lastID: this.lastID, changes: this.changes })
+    })
+  })
+}
 
-  const additions = [
+export async function ensureRuntimeSchema(database: sqlite3.Database = db): Promise<void> {
+  const locationColumns = await all<{ name: string }>('PRAGMA table_info(store_locations);', [], database)
+  const locationExisting = new Set(locationColumns.map((column) => column.name))
+
+  const locationAdditions = [
     { name: 'address_line1', sqlType: "TEXT NOT NULL DEFAULT ''" },
     { name: 'address_line2', sqlType: "TEXT NOT NULL DEFAULT ''" },
     { name: 'town_city', sqlType: "TEXT NOT NULL DEFAULT ''" },
     { name: 'county', sqlType: "TEXT NOT NULL DEFAULT ''" },
     { name: 'postcode', sqlType: "TEXT NOT NULL DEFAULT ''" },
+    { name: 'location_type', sqlType: "TEXT NOT NULL DEFAULT 'Store'" },
+    { name: 'notes', sqlType: "TEXT NOT NULL DEFAULT ''" },
   ]
 
-  for (const addition of additions) {
-    if (existing.has(addition.name)) continue
+  for (const addition of locationAdditions) {
+    if (locationExisting.has(addition.name)) continue
     await run(
       `ALTER TABLE store_locations ADD COLUMN ${addition.name} ${addition.sqlType};`,
       [],
       database,
     )
     console.log(`Added missing store_locations column: ${addition.name}`)
+  }
+
+  const feteColumns = await all<{ name: string }>('PRAGMA table_info(fetes);', [], database)
+  const feteExisting = new Set(feteColumns.map((column) => column.name))
+  if (!feteExisting.has('notes')) {
+    await run("ALTER TABLE fetes ADD COLUMN notes TEXT NOT NULL DEFAULT '';", [], database)
+    console.log('Added missing fetes column: notes')
+  }
+
+  await run(
+    "UPDATE store_locations SET location_type = 'Store' WHERE location_type IS NULL OR TRIM(location_type) = ''",
+    [],
+    database,
+  )
+
+  const legacyFeteTable = await all<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='fete_locations'",
+    [],
+    database,
+  )
+
+  if (legacyFeteTable.length > 0) {
+    const legacyRows = await all<{ id: number; name: string; description: string }>(
+      'SELECT id, name, description FROM fete_locations ORDER BY id ASC',
+      [],
+      database,
+    )
+
+    if (legacyRows.length > 0) {
+      for (const row of legacyRows) {
+        const inserted = await runWithMeta(
+          `
+            INSERT INTO store_locations (
+              name,
+              description,
+              address_line1,
+              address_line2,
+              town_city,
+              county,
+              postcode,
+              location_type
+            )
+            VALUES (?, ?, '', '', '', '', '', 'Fetes')
+          `,
+          [row.name, row.description ?? ''],
+          database,
+        )
+
+        await run(
+          'UPDATE fetes SET location_id = ? WHERE location_id = ?',
+          [inserted.lastID, row.id],
+          database,
+        )
+      }
+
+      await run('DELETE FROM fete_locations', [], database)
+      console.log(`Migrated ${legacyRows.length} legacy fete_locations rows into store_locations`)
+    }
   }
 }
 

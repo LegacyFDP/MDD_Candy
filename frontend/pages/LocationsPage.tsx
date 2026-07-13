@@ -13,27 +13,12 @@ type Location = {
   id: number
   name: string
   description: string
+  notes: string
   address_line1: string
   address_line2: string
   town_city: string
   county: string
   postcode: string
-}
-
-type PostcodeLookupResult = {
-  postcode: string
-  admin_district: string | null
-  admin_county: string | null
-  parish: string | null
-  region: string | null
-}
-
-const UK_POSTCODE_REGEX = /^[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}$/
-
-function normalizePostcode(value: string): string {
-  const compact = value.toUpperCase().replace(/\s+/g, '')
-  if (compact.length <= 3) return compact
-  return `${compact.slice(0, -3)} ${compact.slice(-3)}`
 }
 
 export default function LocationsPage({ currentUser }: Props) {
@@ -45,12 +30,10 @@ export default function LocationsPage({ currentUser }: Props) {
   const [open, setOpen] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
   const [saveError, setSaveError] = useState('')
-  const [lookupLoading, setLookupLoading] = useState(false)
-  const [lookupError, setLookupError] = useState('')
-  const [lookupSuccess, setLookupSuccess] = useState('')
   const [form, setForm] = useState<Partial<Location>>({
     name: '',
     description: '',
+    notes: '',
     address_line1: '',
     address_line2: '',
     town_city: '',
@@ -64,11 +47,10 @@ export default function LocationsPage({ currentUser }: Props) {
 
   function openNew() {
     setSaveError('')
-    setLookupError('')
-    setLookupSuccess('')
     setForm({
       name: '',
       description: '',
+      notes: '',
       address_line1: '',
       address_line2: '',
       town_city: '',
@@ -81,8 +63,6 @@ export default function LocationsPage({ currentUser }: Props) {
 
   function openEdit(l: Location) {
     setSaveError('')
-    setLookupError('')
-    setLookupSuccess('')
     setForm({ ...l })
     setEditId(l.id)
     setOpen(true)
@@ -95,6 +75,7 @@ export default function LocationsPage({ currentUser }: Props) {
         ...(editId ? { id: editId } : {}),
         name: form.name ?? '',
         description: form.description ?? '',
+        notes: form.notes ?? '',
         address_line1: form.address_line1 ?? '',
         address_line2: form.address_line2 ?? '',
         town_city: form.town_city ?? '',
@@ -105,51 +86,6 @@ export default function LocationsPage({ currentUser }: Props) {
       void loadLocations({})
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to save location')
-    }
-  }
-
-  async function handlePostcodeLookup() {
-    const compact = (form.postcode ?? '').toUpperCase().replace(/\s+/g, '')
-    setLookupError('')
-    setLookupSuccess('')
-
-    if (!compact) {
-      setLookupError('Enter a postcode first')
-      return
-    }
-
-    if (!UK_POSTCODE_REGEX.test(compact)) {
-      setLookupError('Enter a valid UK postcode to run lookup')
-      return
-    }
-
-    setLookupLoading(true)
-    try {
-      const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(compact)}`)
-      const body = (await response.json()) as {
-        status: number
-        result: PostcodeLookupResult | null
-      }
-
-      if (!response.ok || !body.result) {
-        setLookupError('Postcode lookup failed')
-        return
-      }
-
-      const townOrCity = body.result.admin_district || body.result.parish || form.town_city || ''
-      const county = body.result.admin_county || body.result.region || form.county || ''
-
-      setForm((current) => ({
-        ...current,
-        postcode: normalizePostcode(body.result?.postcode ?? compact),
-        town_city: current.town_city || townOrCity,
-        county: current.county || county,
-      }))
-      setLookupSuccess('Postcode found. Town/county suggested.')
-    } catch {
-      setLookupError('Unable to reach postcode service')
-    } finally {
-      setLookupLoading(false)
     }
   }
 
@@ -177,6 +113,9 @@ export default function LocationsPage({ currentUser }: Props) {
               <p className="font-medium">{loc.name}</p>
               {loc.description && (
                 <p className="text-sm text-muted-foreground mt-0.5">{loc.description}</p>
+              )}
+              {loc.notes && (
+                <p className="text-xs text-muted-foreground mt-0.5">Note: {loc.notes}</p>
               )}
               {(loc.address_line1 || loc.address_line2 || loc.town_city || loc.county || loc.postcode) && (
                 <div className="text-sm text-muted-foreground mt-1 space-y-0.5">
@@ -222,6 +161,19 @@ export default function LocationsPage({ currentUser }: Props) {
                 placeholder="e.g. Large room at the back of the hall" />
             </div>
             <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <Label>Notes</Label>
+                <span className="text-xs text-muted-foreground">{(form.notes ?? '').length}/120</span>
+              </div>
+              <Input value={form.notes ?? ''}
+                maxLength={120}
+                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="Optional" />
+              {(form.notes ?? '').length >= 120 && (
+                <p className="text-xs text-red-600">Maximum 120 characters reached.</p>
+              )}
+            </div>
+            <div className="space-y-1">
               <Label>Address Line 1</Label>
               <Input value={form.address_line1 ?? ''}
                 onChange={e => setForm(f => ({ ...f, address_line1: e.target.value }))}
@@ -248,34 +200,11 @@ export default function LocationsPage({ currentUser }: Props) {
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Postcode (UK)</Label>
-              <div className="flex gap-2">
-                <Input value={form.postcode ?? ''}
-                  onChange={e => {
-                    setLookupError('')
-                    setLookupSuccess('')
-                    setForm(f => ({ ...f, postcode: e.target.value }))
-                  }}
-                  placeholder="e.g. SW1A 1AA" />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handlePostcodeLookup}
-                  disabled={lookupLoading || !(form.postcode ?? '').trim()}
-                >
-                  {lookupLoading ? 'Looking up…' : 'Lookup'}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Optional helper: fills town/county from postcode data. You can still type manually.
-              </p>
+              <Label>Postcode</Label>
+              <Input value={form.postcode ?? ''}
+                onChange={e => setForm(f => ({ ...f, postcode: e.target.value }))}
+                placeholder="e.g. 12345 or A1B 2C3" />
             </div>
-            {lookupError && (
-              <p className="text-sm text-red-600">{lookupError}</p>
-            )}
-            {lookupSuccess && (
-              <p className="text-sm text-green-700">{lookupSuccess}</p>
-            )}
             {saveError && (
               <p className="text-sm text-red-600">{saveError}</p>
             )}

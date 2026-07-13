@@ -3,7 +3,7 @@ import express from 'express'
 import { existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { createRetoolDb, db } from './db.js'
+import { createRetoolDb, db, ensureRuntimeSchema } from './db.js'
 
 // ---------------------------------------------------------------------------
 // 1. Provide the `retoolDb` global the backend functions reference.
@@ -61,6 +61,7 @@ async function loadHandlers(): Promise<Record<string, Handler>> {
 }
 
 async function main() {
+  await ensureRuntimeSchema()
   const handlers = await loadHandlers()
   const app = express()
   app.use(express.json())

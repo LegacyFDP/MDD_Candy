@@ -21,7 +21,12 @@ CREATE TABLE IF NOT EXISTS fete_users (
 CREATE TABLE IF NOT EXISTS store_locations (
   id          SERIAL PRIMARY KEY,
   name        TEXT NOT NULL,
-  description TEXT NOT NULL DEFAULT ''
+  description TEXT NOT NULL DEFAULT '',
+  address_line1 TEXT NOT NULL DEFAULT '',
+  address_line2 TEXT NOT NULL DEFAULT '',
+  town_city     TEXT NOT NULL DEFAULT '',
+  county        TEXT NOT NULL DEFAULT '',
+  postcode      TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS fete_locations (

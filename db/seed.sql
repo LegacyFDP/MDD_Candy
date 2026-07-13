@@ -22,11 +22,19 @@ INSERT INTO fete_users (name, email, role, pin) VALUES
   ('Dan Davies',   'dan@charity.org',   'user',  '4567');
 
 -- Storage locations -----------------------------------------------------------
-INSERT INTO store_locations (name, description) VALUES
-  ('Main Cupboard', 'Hallway cupboard by the office'),
-  ('Garage',        'Lock-up garage behind the hall'),
-  ('Loft',          'Above the main hall — ladder access'),
-  ('Kitchen Store', 'Shelving in the kitchen pantry');
+INSERT INTO store_locations (
+  name,
+  description,
+  address_line1,
+  address_line2,
+  town_city,
+  county,
+  postcode
+) VALUES
+  ('Main Cupboard', 'Hallway cupboard by the office', 'St Mary''s Church Hall', '12 Hall Lane', 'Oxford', 'Oxfordshire', 'OX1 1AA'),
+  ('Garage',        'Lock-up garage behind the hall', 'Parish Storage Garage', 'Rear of 28 Market Street', 'Oxford', 'Oxfordshire', 'OX2 7BG'),
+  ('Loft',          'Above the main hall — ladder access', 'Village Community Centre', '4 Chapel Road', 'Abingdon', 'Oxfordshire', 'OX14 3QJ'),
+  ('Kitchen Store', 'Shelving in the kitchen pantry', 'Church Hall Kitchen', '12 Hall Lane', 'Oxford', 'Oxfordshire', 'OX1 1AA');
 
 -- Event locations (where fetes are held — distinct from store_locations) -----
 INSERT INTO fete_locations (name, description) VALUES

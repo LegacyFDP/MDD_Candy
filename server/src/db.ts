@@ -15,6 +15,55 @@ export const db = new sqlite3.Database(dbPath, (err) => {
   else console.log(`Connected to SQLite database at ${dbPath}`)
 })
 
+async function all<T = Record<string, unknown>>(
+  sql: string,
+  params: unknown[] = [],
+  database: sqlite3.Database = db,
+): Promise<T[]> {
+  return new Promise((resolve, reject) => {
+    database.all(sql, params, (err, rows) => {
+      if (err) reject(err)
+      else resolve((rows as T[]) ?? [])
+    })
+  })
+}
+
+async function run(
+  sql: string,
+  params: unknown[] = [],
+  database: sqlite3.Database = db,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    database.run(sql, params, (err) => {
+      if (err) reject(err)
+      else resolve()
+    })
+  })
+}
+
+export async function ensureRuntimeSchema(database: sqlite3.Database = db): Promise<void> {
+  const columns = await all<{ name: string }>('PRAGMA table_info(store_locations);', [], database)
+  const existing = new Set(columns.map((column) => column.name))
+
+  const additions = [
+    { name: 'address_line1', sqlType: "TEXT NOT NULL DEFAULT ''" },
+    { name: 'address_line2', sqlType: "TEXT NOT NULL DEFAULT ''" },
+    { name: 'town_city', sqlType: "TEXT NOT NULL DEFAULT ''" },
+    { name: 'county', sqlType: "TEXT NOT NULL DEFAULT ''" },
+    { name: 'postcode', sqlType: "TEXT NOT NULL DEFAULT ''" },
+  ]
+
+  for (const addition of additions) {
+    if (existing.has(addition.name)) continue
+    await run(
+      `ALTER TABLE store_locations ADD COLUMN ${addition.name} ${addition.sqlType};`,
+      [],
+      database,
+    )
+    console.log(`Added missing store_locations column: ${addition.name}`)
+  }
+}
+
 /**
  * Re-creates the `retoolDb` interface the original backend functions expect:
  *   const result = await retoolDb.query<T>(text, params)

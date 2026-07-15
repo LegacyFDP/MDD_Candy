@@ -1,11 +1,11 @@
 # Running Fete Store Manager on a VPS
 
-This app runs as a single Node/Express process that serves the REST API and the built React frontend from one place. A lightweight Caddy reverse proxy sits in front of it, which keeps the deployment simple.
+This app runs as a Node/Express process for the API, while Caddy serves the built React frontend and reverse proxies `/api` requests to the server. The deployment stays simple because both pieces live on the same VPS.
 
 ```
-Browser ──▶ Caddy (:80/:443) ──▶ Node server (:8080) ──▶ MDD_Candy.db (SQLite file)
-                                   │
-                                   └─ serves frontend/dist (static React app)
+Browser ──▶ Caddy (:80/:443) ──▶ frontend/dist (static React app)
+                     │
+                     └─▶ Node server (:8080) ──▶ MDD_Candy.db (SQLite file)
 ```
 
 > Security note: the original auth model is kept as-is. PINs are stored in plaintext and the session lives only in the browser. That is fine for a trusted internal deployment, but it is not hardened for the public internet.
@@ -99,13 +99,15 @@ Replace your domain and copy the config:
 ```bash
 sudo tee /etc/caddy/Caddyfile >/dev/null <<'CADDY'
 fete.oxongroup.co.uk {
-    handle /api* {
+    handle /api/* {
         reverse_proxy 127.0.0.1:8080
     }
 
-    root * /home/timmi/projects/MDD_Candy/frontend/dist
-    try_files {path} {path}/ /index.html
-    file_server
+    handle {
+        root * /home/timmi/projects/MDD_Candy/frontend/dist
+        try_files {path} {path}/ /index.html
+        file_server
+    }
 }
 CADDY
 

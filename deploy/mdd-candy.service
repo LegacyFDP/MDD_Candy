@@ -17,10 +17,10 @@ Type=simple
 User=timmi
 WorkingDirectory=/home/timmi/projects/MDD_Candy/server
 EnvironmentFile=/home/timmi/projects/MDD_Candy/server/.env
-ExecStart=/usr/bin/node /home/timmi/projects/MDD_Candy/server/node_modules/.bin/tsx
+ExecStart=/usr/bin/npm start
 Restart=on-failure
 RestartSec=5
-# Node respects PORT/HOST from the EnvironmentFile above.
+# The server package's start script runs the Node/Express process.
 
 [Install]
 WantedBy=multi-user.target

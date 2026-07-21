@@ -37,7 +37,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="app-shell flex h-screen bg-background overflow-hidden">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -47,7 +47,7 @@ export default function App() {
       )}
 
       {/* Sidebar */}
-      <aside className={`
+      <aside className={`app-sidebar
         fixed lg:static inset-y-0 left-0 z-30 w-60 bg-card border-r border-border
         flex flex-col transition-transform duration-200
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -99,7 +99,7 @@ export default function App() {
       </aside>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="app-content flex-1 flex flex-col overflow-hidden">
         {/* Mobile top bar */}
         <header className="lg:hidden flex items-center gap-3 px-4 py-3 border-b border-border bg-card">
           <button onClick={() => setSidebarOpen(true)} aria-label="Open menu">
@@ -109,7 +109,7 @@ export default function App() {
           <span className="font-semibold text-sm">Fete Store Manager</span>
         </header>
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="app-main flex-1 overflow-y-auto">
           <Routes>
             <Route path="/" element={<Dashboard currentUser={currentUser} />} />
             <Route path="/assets" element={<AssetsPage currentUser={currentUser} />} />

@@ -20,6 +20,27 @@ body {
 }
 
 @media print {
+  html,
+  body,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .app-shell,
+  .app-content,
+  .app-main {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  .app-sidebar,
+  .app-content > header {
+    display: none !important;
+  }
+
   .print-hidden {
     display: none !important;
   }

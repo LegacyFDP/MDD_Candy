@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import {
   useGetAssets,
   useGetFeteLocations,
@@ -59,6 +59,34 @@ type Asset = {
   notes: string
 }
 
+const CATEGORY_ORDER = [
+  'Decoration',
+  'Electrical',
+  'Equipment',
+  'Furniture',
+  'Linen',
+  'Safety',
+  'Shelter',
+  'Stationery',
+  'Toys',
+  'Other',
+]
+
+function normalizeAssetCategory(category: string | null | undefined): string {
+  const raw = (category ?? '').trim()
+  if (!raw) return 'Other'
+
+  const lower = raw.toLowerCase()
+  const canonical = CATEGORY_ORDER.find((value) => value.toLowerCase() === lower)
+  if (canonical) return canonical
+
+  return raw
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word[0]?.toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}
+
 function formatAddress(location: Location): string {
   return [
     location.address_line1,
@@ -102,13 +130,23 @@ export default function PrintListsPage({ currentUser }: Props) {
 
   const assetsByCategory = useMemo(() => {
     const grouped = assets.reduce<Record<string, Asset[]>>((acc, asset) => {
-      if (!acc[asset.category]) acc[asset.category] = []
-      acc[asset.category]!.push(asset)
+      const category = normalizeAssetCategory(asset.category)
+      if (!acc[category]) acc[category] = []
+      acc[category]!.push({ ...asset, category })
       return acc
     }, {})
 
     return Object.entries(grouped)
-      .sort(([left], [right]) => left.localeCompare(right))
+      .sort(([left], [right]) => {
+        const leftIndex = CATEGORY_ORDER.indexOf(left)
+        const rightIndex = CATEGORY_ORDER.indexOf(right)
+
+        const leftRank = leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex
+        const rightRank = rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex
+
+        if (leftRank !== rightRank) return leftRank - rightRank
+        return left.localeCompare(right)
+      })
       .map(([category, items]) => ({
         category,
         items: items.sort((left, right) => left.name.localeCompare(right.name)),
@@ -131,12 +169,41 @@ export default function PrintListsPage({ currentUser }: Props) {
     )
   }
 
+  const printCleanupTimeoutRef = useRef<number | null>(null)
+
+  function clearPrintSectionFilter() {
+    document.body.removeAttribute('data-print-section')
+    if (printCleanupTimeoutRef.current !== null) {
+      window.clearTimeout(printCleanupTimeoutRef.current)
+      printCleanupTimeoutRef.current = null
+    }
+  }
+
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      clearPrintSectionFilter()
+    }
+
+    window.addEventListener('afterprint', handleAfterPrint)
+    return () => {
+      window.removeEventListener('afterprint', handleAfterPrint)
+      clearPrintSectionFilter()
+    }
+  }, [])
+
   function printSection(sectionId: string) {
     document.body.setAttribute('data-print-section', sectionId)
     window.print()
-    setTimeout(() => {
-      document.body.removeAttribute('data-print-section')
-    }, 0)
+
+    // Some browsers do not reliably fire `afterprint`; keep a short fallback.
+    printCleanupTimeoutRef.current = window.setTimeout(() => {
+      clearPrintSectionFilter()
+    }, 1000)
+  }
+
+  function printAllSections() {
+    clearPrintSectionFilter()
+    window.print()
   }
 
   return (
@@ -148,7 +215,7 @@ export default function PrintListsPage({ currentUser }: Props) {
             Printable lists for events, volunteers, locations, and assets by type.
           </p>
         </div>
-        <Button onClick={() => window.print()} className="flex items-center gap-2">
+        <Button onClick={printAllSections} className="flex items-center gap-2">
           <Printer className="w-4 h-4" /> Print All Lists
         </Button>
       </div>

@@ -1,0 +1,34 @@
+name: Excel → GitHub Issues Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      excel_file:
+        description: "Excel file to import"
+        required: true
+        default: "faults.xlsx"
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      run: |
+        pip install pandas openpyxl requests
+
+    - name: Run importer
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        REPO: ${{ github.repository }}
+        EXCEL_FILE: ${{ github.event.inputs.excel_file }}
+      run: |
+        python .github/scripts/import_excel_issues.py

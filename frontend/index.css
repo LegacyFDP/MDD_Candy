@@ -60,7 +60,9 @@ body {
     padding-bottom: 0.5rem !important;
   }
 
-  .print-break-after {
+  body:not([data-print-section]) #card-print-events,
+  body:not([data-print-section]) #card-print-volunteers,
+  body:not([data-print-section]) #card-print-locations {
     page-break-after: always;
     break-after: page;
   }

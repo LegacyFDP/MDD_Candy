@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo } from 'react'
 import {
   useGetAssets,
   useGetFeteLocations,
@@ -169,36 +169,50 @@ export default function PrintListsPage({ currentUser }: Props) {
     )
   }
 
-  const printCleanupTimeoutRef = useRef<number | null>(null)
-
   function clearPrintSectionFilter() {
     document.body.removeAttribute('data-print-section')
-    if (printCleanupTimeoutRef.current !== null) {
-      window.clearTimeout(printCleanupTimeoutRef.current)
-      printCleanupTimeoutRef.current = null
-    }
   }
 
   useEffect(() => {
+    const mediaQueryList = window.matchMedia('print')
+
     const handleAfterPrint = () => {
       clearPrintSectionFilter()
     }
 
+    const handleMediaChange = (event: MediaQueryListEvent) => {
+      if (!event.matches) {
+        clearPrintSectionFilter()
+      }
+    }
+
     window.addEventListener('afterprint', handleAfterPrint)
+    if (typeof mediaQueryList.addEventListener === 'function') {
+      mediaQueryList.addEventListener('change', handleMediaChange)
+    } else {
+      mediaQueryList.addListener(handleMediaChange)
+    }
+
     return () => {
       window.removeEventListener('afterprint', handleAfterPrint)
+      if (typeof mediaQueryList.removeEventListener === 'function') {
+        mediaQueryList.removeEventListener('change', handleMediaChange)
+      } else {
+        mediaQueryList.removeListener(handleMediaChange)
+      }
       clearPrintSectionFilter()
     }
   }, [])
 
+  // Print regression checklist (manual):
+  // 1) Short single-section list prints on one sheet (no trailing blank page).
+  // 2) Long single-section list paginates naturally.
+  // 3) Print All keeps section-per-page breaks.
+  // 4) Re-run a short single-section print after a long one; behavior stays stable.
   function printSection(sectionId: string) {
+    clearPrintSectionFilter()
     document.body.setAttribute('data-print-section', sectionId)
     window.print()
-
-    // Some browsers do not reliably fire `afterprint`; keep a short fallback.
-    printCleanupTimeoutRef.current = window.setTimeout(() => {
-      clearPrintSectionFilter()
-    }, 1000)
   }
 
   function printAllSections() {
@@ -220,7 +234,7 @@ export default function PrintListsPage({ currentUser }: Props) {
         </Button>
       </div>
 
-      <Card id="card-print-events" className="print-card print-break-after">
+      <Card id="card-print-events" className="print-card">
         <CardHeader className="print-header">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -280,7 +294,7 @@ export default function PrintListsPage({ currentUser }: Props) {
         </CardContent>
       </Card>
 
-      <Card id="card-print-volunteers" className="print-card print-break-after">
+      <Card id="card-print-volunteers" className="print-card">
         <CardHeader className="print-header">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -334,7 +348,7 @@ export default function PrintListsPage({ currentUser }: Props) {
         </CardContent>
       </Card>
 
-      <Card id="card-print-locations" className="print-card print-break-after">
+      <Card id="card-print-locations" className="print-card">
         <CardHeader className="print-header">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <CardTitle className="flex items-center gap-2 text-base">

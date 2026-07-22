@@ -199,3 +199,16 @@ To sign in, use the demo credentials shown on the login screen:
 | alice@charity.org | 1234 | Admin |
 | bob@charity.org | 2345 | Admin |
 | carol@charity.org | 3456 | Volunteer |
+
+---
+
+## Print Preview Checklist
+
+Use this quick check after any UI or print-style changes to avoid pagination regressions.
+
+- Open **Print Centre** and test each single-list action: **Print Events**, **Print Volunteers**, **Print Locations**, **Print Assets**.
+- For each single-list print, confirm no trailing blank page appears when content fits on one page.
+- Confirm long lists still break across multiple pages naturally (no clipped rows/cards).
+- Click **Print All Lists** and confirm each section starts on a new page in the expected order.
+- Verify headers and the **Printed:** footer are visible in print preview.
+- Repeat one quick pass in a second browser (Edge and Chrome) to catch engine-specific print behavior.

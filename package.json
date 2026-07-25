@@ -171,5 +171,8 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.4"
+  },
+  "allowScripts": {
+    "sqlite3@6.0.1": true
   }
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
 import Login, { type AppUser } from './pages/Login'
+import PublicEventsPage from './pages/PublicEventsPage'
 import Dashboard from './pages/Dashboard'
 import AssetsPage from './pages/AssetsPage'
 import FetesPage from './pages/FetesPage'
@@ -30,11 +31,27 @@ const NAV_ITEMS = [
   { path: '/help', label: 'Help', icon: HelpCircle, adminOnly: false },
 ]
 
+function getCurrentSectionLabel(pathname: string) {
+  if (pathname === '/event' || pathname === '/fete') return 'Events'
+  const navMatch = NAV_ITEMS.find(item => item.path === pathname)
+  return navMatch?.label ?? 'Dashboard'
+}
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const location = useLocation()
+  const currentSection = getCurrentSectionLabel(location.pathname)
+  const isPublicInfoRoute = location.pathname === '/' || location.pathname === '/events'
+  const isLoginRoute = location.pathname === '/login'
 
   if (!currentUser) {
+    if (isPublicInfoRoute) {
+      return <PublicEventsPage />
+    }
+    if (isLoginRoute) {
+      return <Login onLogin={setCurrentUser} />
+    }
     return <Login onLogin={setCurrentUser} />
   }
 
@@ -108,13 +125,26 @@ export default function App() {
             <Menu className="w-5 h-5 text-foreground" />
           </button>
           <Tent className="w-5 h-5 text-primary" />
-          <span className="font-semibold text-sm">Fete Store Manager</span>
+          <div className="min-w-0">
+            <span className="font-semibold text-sm block leading-tight">Fete Store Manager</span>
+            <span className="text-xs text-muted-foreground">Current page: {currentSection}</span>
+          </div>
         </header>
 
         <main className="app-main flex-1 overflow-y-auto">
+          <div className="hidden lg:flex items-center justify-between px-6 py-4 border-b border-border bg-card/40">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Fete Store Manager</p>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">{currentSection}</h1>
+            </div>
+            <p className="text-sm text-muted-foreground">Current page: {currentSection}</p>
+          </div>
           <Routes>
             <Route path="/" element={<Dashboard currentUser={currentUser} />} />
+            <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/assets" element={<AssetsPage currentUser={currentUser} />} />
+            <Route path="/event" element={<Navigate to="/events" replace />} />
+            <Route path="/fete" element={<Navigate to="/events" replace />} />
             <Route path="/events" element={<FeteEventsPage currentUser={currentUser} />} />
             <Route path="/fetes" element={<FetesPage currentUser={currentUser} />} />
             <Route path="/withdrawals" element={<WithdrawalsPage currentUser={currentUser} />} />

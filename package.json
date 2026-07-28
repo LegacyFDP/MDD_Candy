@@ -167,6 +167,7 @@
     }
   },
   "dependencies": {
+    "prefix": "^1.0.0",
     "sqlite3": "^6.0.1"
   },
   "devDependencies": {

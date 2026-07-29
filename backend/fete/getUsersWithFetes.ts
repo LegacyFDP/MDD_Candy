@@ -1,4 +1,8 @@
+import { requireAdmin } from './_auth'
+
 export default async function (_req: { params: Record<string, never>; user: User }) {
+  requireAdmin(_req.user)
+
   const result = await retoolDb.query(`
     SELECT u.id, u.name, u.email, u.role, u.pin,
            f.id          AS fete_id,

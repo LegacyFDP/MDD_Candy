@@ -2,12 +2,16 @@ const sqlite3 = require('sqlite3')
 const path = require('node:path')
 const fs = require('node:fs')
 
-const here = __dirname
-// DB_PATH mirrors server/src/db.ts so containerized first-run init writes to
-// the same mounted file the server will open.
-const dbPath = process.env.DB_PATH
-  ? path.resolve(process.env.DB_PATH)
-  : path.resolve(here, '..', 'MDD_Candy.db')
+function requireEnv(name) {
+  const value = process.env[name]
+  if (!value || !String(value).trim()) {
+    throw new Error(`${name} is required`)
+  }
+  return String(value).trim()
+}
+
+// DB_PATH mirrors server/src/db.ts so first-run init writes to the same file.
+const dbPath = path.resolve(requireEnv('DB_PATH'))
 
 function openDb() {
   return new sqlite3.Database(dbPath, (err) => {
@@ -184,6 +188,46 @@ CREATE TABLE IF NOT EXISTS volunteers (
   notes         TEXT NOT NULL DEFAULT '',
   created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS volunteer_roles (
+  role_key      TEXT PRIMARY KEY,
+  display_name  TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS fete_volunteer_assignments (
+  id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+  fete_id                  INTEGER NOT NULL REFERENCES fetes(id) ON DELETE CASCADE,
+  volunteer_id             INTEGER NOT NULL REFERENCES volunteers(id) ON DELETE CASCADE,
+  role_key                 TEXT NOT NULL REFERENCES volunteer_roles(role_key),
+  role_other               TEXT NOT NULL DEFAULT '',
+  notes                    TEXT NOT NULL DEFAULT '',
+  added_by_user_id         INTEGER REFERENCES fete_users(id) ON DELETE SET NULL,
+  legacy_fete_volunteer_id INTEGER,
+  created_at               TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at               TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (fete_id, volunteer_id)
+);
+
+CREATE TABLE IF NOT EXISTS fete_volunteer_availability (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  assignment_id INTEGER NOT NULL REFERENCES fete_volunteer_assignments(id) ON DELETE CASCADE,
+  slot_date     TEXT NOT NULL,
+  start_hour    INTEGER NOT NULL CHECK (start_hour >= 9 AND start_hour <= 17),
+  end_hour      INTEGER NOT NULL CHECK (end_hour = start_hour + 1 AND end_hour >= 10 AND end_hour <= 18),
+  UNIQUE (assignment_id, slot_date, start_hour)
+);
+
+CREATE TABLE IF NOT EXISTS db_backups (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  filename           TEXT NOT NULL UNIQUE,
+  absolute_path      TEXT NOT NULL,
+  byte_size          INTEGER NOT NULL DEFAULT 0,
+  reason             TEXT NOT NULL DEFAULT 'manual',
+  created_by_user_id INTEGER REFERENCES fete_users(id) ON DELETE SET NULL,
+  deleted_by_user_id INTEGER REFERENCES fete_users(id) ON DELETE SET NULL,
+  created_at         TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  deleted_at         TEXT
+);
     `
 
     await runSQL(schema)
@@ -289,6 +333,15 @@ INSERT INTO volunteers (
     'Heavy lifting, setup crew',
     ''
   );
+
+INSERT OR IGNORE INTO volunteer_roles (role_key, display_name) VALUES
+  ('Lead Volunteer', 'Lead Volunteer'),
+  ('Helper', 'Helper'),
+  ('Putting Up', 'Putting Up'),
+  ('Taking Down', 'Taking Down'),
+  ('Transport', 'Transport'),
+  ('Stall Holder', 'Stall Holder'),
+  ('Other', 'Other');
     `
     
     await runSQL(seed)

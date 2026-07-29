@@ -1,3 +1,5 @@
+import { requireAdmin } from './_auth'
+
 type Params = {
   id?: number
   name: string
@@ -7,6 +9,8 @@ type Params = {
 }
 
 export default async function (req: { params: Params; user: User }) {
+  requireAdmin(req.user)
+
   const { id, name, email, role, pin } = req.params
   if (id) {
     await retoolDb.query(`

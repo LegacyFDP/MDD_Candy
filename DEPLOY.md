@@ -72,6 +72,18 @@ node db/init-sqlite.cjs
 
 This creates the database file at /home/timmi/projects/MDD_Candy/MDD_Candy.db with schema and demo data.
 
+Set required runtime environment variables for the server service:
+
+```bash
+mkdir -p /home/timmi/projects/MDD_Candy/backups
+cat >/home/timmi/projects/MDD_Candy/server/.env <<'ENV'
+PORT=8080
+HOST=127.0.0.1
+DB_PATH=/home/timmi/projects/MDD_Candy/MDD_Candy.db
+DB_BACKUP_DIR=/home/timmi/projects/MDD_Candy/backups
+ENV
+```
+
 ### 3. Build the frontend and install server dependencies
 
 ```bash
@@ -136,7 +148,12 @@ sudo systemctl reload caddy
 
 ## Backing up the database
 
-The whole database is one file: /home/timmi/projects/MDD_Candy/MDD_Candy.db. Back it up while the app is stopped or use SQLite's online backup:
+The whole database is one file: /home/timmi/projects/MDD_Candy/MDD_Candy.db.
+
+- Admin users can now create/list/delete backup files from the Users page in the app.
+- The app stores backup files in DB_BACKUP_DIR and records metadata in db_backups.
+
+You can still do a manual SQLite backup:
 
 ```bash
 sqlite3 /home/timmi/projects/MDD_Candy/MDD_Candy.db ".backup /home/timmi/backups/MDD_Candy-$(date +%F).db"
@@ -156,12 +173,14 @@ The API runs on port 8080 and the Vite frontend runs on http://localhost:5173.
 If the database file does not exist yet, create it first:
 
 ```bash
-node db/init-sqlite.cjs
+DB_PATH=./MDD_Candy.db DB_BACKUP_DIR=./backups node db/init-sqlite.cjs
 ```
+
+For local server runs, ensure `server/.env` contains `DB_PATH` and `DB_BACKUP_DIR`.
 
 ## How the pieces fit together
 
 - server/src/index.ts sets up the global Retool database connection, auto-discovers the backend handlers in backend/fete, and exposes each as POST /api/<functionName>.
-- server/src/db.ts opens MDD_Candy.db, which is the single SQLite database file used by the app.
+- server/src/db.ts opens DB_PATH (required), which is the single SQLite database file used by the app.
 - frontend/hooks/backend/fete.ts is a small fetch client that posts to /api/<functionName>.
 - In production, the Node server also serves frontend/dist with an SPA fallback, so the API and app share one origin.

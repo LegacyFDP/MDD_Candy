@@ -1,3 +1,5 @@
+import { requireAdmin } from './_auth'
+
 type Params = {
   id?: number
   name: string
@@ -22,6 +24,8 @@ const UK_POSTCODE_REGEX = /^([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})$/i
 const PHONE_REGEX = /^[0-9+()\-\s]{7,20}$/
 
 export default async function (req: { params: Params; user: User }) {
+  requireAdmin(req.user)
+
   const { id } = req.params
   const name = clean(req.params.name)
   const email = clean(req.params.email).toLowerCase()

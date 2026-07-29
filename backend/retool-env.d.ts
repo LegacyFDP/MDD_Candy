@@ -15,8 +15,8 @@ declare global {
     ): Promise<RetoolQueryResult<T>>
   }
 
-  // Retool passed the authenticated user on each request. Auth is handled
-  // client-side in this deployment, so the value is not used by any handler.
+  // The server forwards the signed-in app user via request headers so backend
+  // handlers can enforce role-based access checks.
   type User = {
     id: number
     name: string

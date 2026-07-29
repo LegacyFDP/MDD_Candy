@@ -1,24 +1,97 @@
+import { requireAdmin } from './_auth'
+import { normalizeAvailability, normalizeRole, type AvailabilitySlot } from './_volunteerScheduling'
+
 type Params = {
   id?: number
   fete_id: number
-  user_id: number
+  volunteer_id?: number
+  user_id?: number
   role: string
+  role_other?: string
   notes: string
+  availability?: AvailabilitySlot[]
 }
 
 export default async function (req: { params: Params; user: User }) {
-  const { id, fete_id, user_id, role, notes } = req.params
+  requireAdmin(req.user)
+
+  const { id, fete_id, role, notes } = req.params
+  const volunteerId = Number(req.params.volunteer_id ?? req.params.user_id)
+  const { roleKey, roleOther } = normalizeRole(req.params.role, req.params.role_other)
+  const availability = normalizeAvailability(req.params.availability)
+
+  if (!Number.isInteger(fete_id) || fete_id <= 0) {
+    throw new Error('Valid fete_id is required')
+  }
+
+  if (!Number.isInteger(volunteerId) || volunteerId <= 0) {
+    throw new Error('Valid volunteer_id is required')
+  }
 
   if (id) {
-    await retoolDb.query(
-      `UPDATE fete_volunteers SET role = $1, notes = $2 WHERE id = $3`,
-      [role, notes, id]
+    const existing = await retoolDb.query<{ id: number }>(
+      'SELECT id FROM fete_volunteer_assignments WHERE id = $1',
+      [id],
     )
+    if (existing.data.length === 0) {
+      throw new Error('Volunteer assignment not found')
+    }
+
+    await retoolDb.query(
+      `
+        UPDATE fete_volunteer_assignments
+        SET role_key = $1,
+            role_other = $2,
+            notes = $3,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $4
+      `,
+      [roleKey, roleOther, (notes ?? '').trim(), id],
+    )
+
+    await retoolDb.query('DELETE FROM fete_volunteer_availability WHERE assignment_id = $1', [id])
+
+    for (const slot of availability) {
+      await retoolDb.query(
+        `
+          INSERT INTO fete_volunteer_availability (assignment_id, slot_date, start_hour, end_hour)
+          VALUES ($1, $2, $3, $4)
+        `,
+        [id, slot.date, slot.start_hour, slot.end_hour],
+      )
+    }
   } else {
-    await retoolDb.query(`
-      INSERT INTO fete_volunteers (fete_id, user_id, role, notes)
-      VALUES ($1, $2, $3, $4)
-    `, [fete_id, user_id, role, notes])
+    await retoolDb.query(
+      `
+        INSERT INTO fete_volunteer_assignments (
+          fete_id,
+          volunteer_id,
+          role_key,
+          role_other,
+          notes,
+          added_by_user_id
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `,
+      [fete_id, volunteerId, roleKey, roleOther, (notes ?? '').trim(), req.user.id],
+    )
+
+    const inserted = await retoolDb.query<{ id: number }>('SELECT last_insert_rowid() AS id')
+    const assignmentId = inserted.data[0]?.id
+    if (!assignmentId) {
+      throw new Error('Failed to create volunteer assignment')
+    }
+
+    for (const slot of availability) {
+      await retoolDb.query(
+        `
+          INSERT INTO fete_volunteer_availability (assignment_id, slot_date, start_hour, end_hour)
+          VALUES ($1, $2, $3, $4)
+        `,
+        [assignmentId, slot.date, slot.start_hour, slot.end_hour],
+      )
+    }
   }
+
   return { success: true }
 }

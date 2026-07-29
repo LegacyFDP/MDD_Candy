@@ -4,11 +4,47 @@ import { useCallback, useState } from 'react'
 // production the same Node server serves both the API and these static files.
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/api'
 
+function getUserHeaderValue(): string | null {
+  if (typeof window === 'undefined') return null
+  const raw = window.localStorage.getItem('mdd-current-user')
+  if (!raw) return null
+
+  try {
+    const parsed = JSON.parse(raw) as { id?: unknown; name?: unknown; email?: unknown; role?: unknown }
+    if (
+      typeof parsed.id === 'number' &&
+      typeof parsed.name === 'string' &&
+      typeof parsed.email === 'string' &&
+      typeof parsed.role === 'string'
+    ) {
+      return JSON.stringify({
+        id: parsed.id,
+        name: parsed.name,
+        email: parsed.email,
+        role: parsed.role,
+      })
+    }
+  } catch {
+    return null
+  }
+
+  return null
+}
+
 /** POST <params> to /api/<fn> and return the parsed JSON result. */
 async function callApi<T>(fn: string, params: unknown): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  const userHeader = getUserHeaderValue()
+  if (userHeader) {
+    headers['x-app-user'] = userHeader
+  }
+
   const res = await fetch(`${API_BASE}/${fn}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(params ?? {}),
   })
 
@@ -114,3 +150,12 @@ export const useDeleteFeteVolunteer = makeBackendHook('deleteFeteVolunteer')
 export const useGetFeteRequirements = makeBackendHook('getFeteRequirements')
 export const useSaveFeteRequirement = makeBackendHook('saveFeteRequirement')
 export const useDeleteFeteRequirement = makeBackendHook('deleteFeteRequirement')
+
+// Database backups
+export const useListBackups = makeBackendHook('listBackups')
+export const useCreateBackup = makeBackendHook('createBackup')
+export const useDeleteBackup = makeBackendHook('deleteBackup')
+
+// Migration and health
+export const useGetMigrationStatus = makeBackendHook('getMigrationStatus')
+export const useMigrateLegacyVolunteerNotes = makeBackendHook('migrateLegacyVolunteerNotes')

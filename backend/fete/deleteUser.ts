@@ -1,6 +1,10 @@
+import { requireAdmin } from './_auth'
+
 type Params = { id: number }
 
 export default async function (req: { params: Params; user: User }) {
+  requireAdmin(req.user)
+
   const { id } = req.params
 
   // Block deletion if the user has any withdrawal records (withdrawn_by is NOT NULL FK)

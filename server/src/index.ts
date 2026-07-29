@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import express from 'express'
-import { existsSync, readdirSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createRetoolDb, db, ensureRuntimeSchema } from './db.js'
@@ -37,6 +37,69 @@ const frontendDist = path.join(repoRoot, 'frontend', 'dist')
 
 type Handler = (req: { params: Record<string, unknown>; user: User }) => Promise<unknown>
 
+function requireEnv(name: string): string {
+  const value = process.env[name]?.trim()
+  if (!value) {
+    throw new Error(`${name} is required. Configure it before starting the server.`)
+  }
+  return value
+}
+
+function ensureDirectory(dirPath: string): void {
+  if (!existsSync(dirPath)) {
+    mkdirSync(dirPath, { recursive: true })
+  }
+}
+
+function nowStamp(): string {
+  const d = new Date()
+  const yyyy = d.getFullYear().toString()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  const ss = String(d.getSeconds()).padStart(2, '0')
+  return `${yyyy}${mm}${dd}-${hh}${mi}${ss}`
+}
+
+function createStartupBackup(dbPath: string, backupDir: string): string {
+  ensureDirectory(backupDir)
+  const filename = `MDD_Candy-pre-migration-${nowStamp()}.db`
+  const backupPath = path.join(backupDir, filename)
+  copyFileSync(dbPath, backupPath)
+  const stats = statSync(backupPath)
+  console.log(`Created startup backup at ${backupPath} (${stats.size} bytes)`)
+  return backupPath
+}
+
+function parseUserHeader(raw: string): User {
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    if (
+      typeof parsed.id === 'number' &&
+      typeof parsed.name === 'string' &&
+      typeof parsed.email === 'string' &&
+      typeof parsed.role === 'string'
+    ) {
+      return {
+        id: parsed.id,
+        name: parsed.name,
+        email: parsed.email,
+        role: parsed.role,
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function getRequestUser(req: express.Request): User {
+  const userHeader = req.header('x-app-user')
+  if (!userHeader) return null
+  return parseUserHeader(userHeader)
+}
+
 // ---------------------------------------------------------------------------
 // 2. Auto-discover every backend function and map it to its file name.
 //    backend/fete/getAssets.ts  ->  POST /api/getAssets
@@ -61,6 +124,10 @@ async function loadHandlers(): Promise<Record<string, Handler>> {
 }
 
 async function main() {
+  const dbPath = path.resolve(requireEnv('DB_PATH'))
+  const backupDir = path.resolve(requireEnv('DB_BACKUP_DIR'))
+  createStartupBackup(dbPath, backupDir)
+
   await ensureRuntimeSchema()
   const handlers = await loadHandlers()
   const app = express()
@@ -82,7 +149,7 @@ async function main() {
     try {
       const result = await handler({
         params: (req.body ?? {}) as Record<string, unknown>,
-        user: null,
+        user: getRequestUser(req),
       })
       res.json(result ?? null)
     } catch (err) {

@@ -29,11 +29,29 @@ const NAV_ITEMS = [
 ]
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(null)
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
+    const raw = window.localStorage.getItem('mdd-current-user')
+    if (!raw) return null
+    try {
+      return JSON.parse(raw) as AppUser
+    } catch {
+      return null
+    }
+  })
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  function handleLogin(user: AppUser) {
+    setCurrentUser(user)
+    window.localStorage.setItem('mdd-current-user', JSON.stringify(user))
+  }
+
+  function handleSignOut() {
+    setCurrentUser(null)
+    window.localStorage.removeItem('mdd-current-user')
+  }
+
   if (!currentUser) {
-    return <Login onLogin={setCurrentUser} />
+    return <Login onLogin={handleLogin} />
   }
 
   return (
@@ -91,7 +109,7 @@ export default function App() {
             variant="outline"
             size="sm"
             className="w-full flex items-center gap-2"
-            onClick={() => setCurrentUser(null)}
+            onClick={handleSignOut}
           >
             <LogOut className="w-3 h-3" /> Sign Out
           </Button>

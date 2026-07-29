@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   useGetFetes, useSaveFete, useGetWithdrawals,
-  useGetFeteVolunteers, useGetUsers,
+  useGetFeteVolunteers, useGetVolunteers,
   useGetFeteLocations, useSaveFeteLocation, useDeleteFeteLocation
 } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
@@ -41,7 +41,7 @@ type Withdrawal = {
   withdrawn_at: string; returned_at: string | null
   withdrawn_by_name: string; notes: string
 }
-type FeteUser = { id: number; name: string; role: string; email: string }
+type VolunteerPerson = { id: number; name: string; email: string }
 
 const STATUS_COLORS: Record<string, string> = {
   planned: 'secondary',
@@ -69,7 +69,7 @@ export default function FetesPage({ currentUser }: Props) {
   const { trigger: saveFete, loading: savingFete } = useSaveFete()
   const { data: withdrawalsRaw, trigger: loadWithdrawals } = useGetWithdrawals()
   const { data: volunteersRaw, trigger: loadVolunteers } = useGetFeteVolunteers()
-  const { data: usersRaw, trigger: loadUsers } = useGetUsers()
+  const { data: volunteerPoolRaw, trigger: loadVolunteerPool } = useGetVolunteers()
   const { data: locationsRaw, trigger: loadLocations } = useGetFeteLocations()
   const { trigger: saveFeteLocation, loading: savingLocation } = useSaveFeteLocation()
   const { trigger: deleteFeteLocation } = useDeleteFeteLocation()
@@ -77,7 +77,7 @@ export default function FetesPage({ currentUser }: Props) {
   const fetes = (fetesRaw ?? []) as Fete[]
   const allWithdrawals = (withdrawalsRaw ?? []) as Withdrawal[]
   const allVolunteers = (volunteersRaw ?? []) as import('./ui/FeteVolunteers').Volunteer[]
-  const allUsers = (usersRaw ?? []) as FeteUser[]
+  const volunteerPool = (volunteerPoolRaw ?? []) as VolunteerPerson[]
   const locations = (locationsRaw ?? []) as FeteLocation[]
 
   const [feteOpen, setFeteOpen] = useState(false)
@@ -96,7 +96,9 @@ export default function FetesPage({ currentUser }: Props) {
     void loadFetes({})
     void loadWithdrawals({})
     void loadVolunteers({})
-    void loadUsers({})
+    if (isAdmin) {
+      void loadVolunteerPool({})
+    }
     void loadLocations({})
   }, [])
 
@@ -327,7 +329,7 @@ export default function FetesPage({ currentUser }: Props) {
                       <FeteVolunteers
                         feteId={fete.id}
                         volunteers={feteVolunteers}
-                        allUsers={allUsers}
+                        allVolunteers={volunteerPool}
                         currentUser={currentUser}
                         onRefresh={refreshVolunteers}
                       />

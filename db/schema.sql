@@ -58,15 +58,16 @@ END;
 IF OBJECT_ID('dbo.fetes', 'U') IS NULL
 BEGIN
   CREATE TABLE dbo.fetes (
-    id          INT IDENTITY(1,1) PRIMARY KEY,
-    name        NVARCHAR(255) NOT NULL,
-    event_date  DATE          NULL,
-    description NVARCHAR(MAX) NOT NULL CONSTRAINT DF_fetes_description DEFAULT '',
-    notes       NVARCHAR(MAX) NOT NULL CONSTRAINT DF_fetes_notes DEFAULT '',
-    status      NVARCHAR(50)  NOT NULL CONSTRAINT DF_fetes_status DEFAULT 'planned',
-    created_by  INT           NULL,
-    location_id INT           NULL,
-    created_at  DATETIMEOFFSET NOT NULL CONSTRAINT DF_fetes_created_at DEFAULT SYSDATETIMEOFFSET(),
+    id               INT IDENTITY(1,1) PRIMARY KEY,
+    name             NVARCHAR(255) NOT NULL,
+    event_date       DATE          NULL,
+    description      NVARCHAR(MAX) NOT NULL CONSTRAINT DF_fetes_description DEFAULT '',
+    notes            NVARCHAR(MAX) NOT NULL CONSTRAINT DF_fetes_notes DEFAULT '',
+    status           NVARCHAR(50)  NOT NULL CONSTRAINT DF_fetes_status DEFAULT 'planned',
+    volunteer_slots  INT           NOT NULL CONSTRAINT DF_fetes_volunteer_slots DEFAULT 10,
+    created_by       INT           NULL,
+    location_id      INT           NULL,
+    created_at       DATETIMEOFFSET NOT NULL CONSTRAINT DF_fetes_created_at DEFAULT SYSDATETIMEOFFSET(),
     CONSTRAINT FK_fetes_created_by FOREIGN KEY (created_by)
       REFERENCES dbo.fete_users(id) ON DELETE SET NULL,
     CONSTRAINT FK_fetes_location FOREIGN KEY (location_id)
@@ -100,21 +101,47 @@ BEGIN
   );
 END;
 
+IF OBJECT_ID('dbo.volunteer_booking_requests', 'U') IS NULL
+BEGIN
+  CREATE TABLE dbo.volunteer_booking_requests (
+    id          INT IDENTITY(1,1) PRIMARY KEY,
+    fete_id     INT           NOT NULL,
+    name        NVARCHAR(255) NOT NULL,
+    email       NVARCHAR(255) NOT NULL,
+    status      NVARCHAR(20)  NOT NULL CONSTRAINT DF_vbr_status DEFAULT 'pending',
+    notes       NVARCHAR(MAX) NOT NULL CONSTRAINT DF_vbr_notes DEFAULT '',
+    created_at  DATETIMEOFFSET NOT NULL CONSTRAINT DF_vbr_created_at DEFAULT SYSDATETIMEOFFSET(),
+    reviewed_at DATETIMEOFFSET NULL,
+    reviewed_by INT           NULL,
+    CONSTRAINT UQ_vbr_fete_email UNIQUE (fete_id, email),
+    CONSTRAINT CK_vbr_status CHECK (status IN ('pending', 'approved', 'rejected')),
+    CONSTRAINT FK_vbr_fete FOREIGN KEY (fete_id)
+      REFERENCES dbo.fetes(id) ON DELETE CASCADE,
+    CONSTRAINT FK_vbr_reviewed_by FOREIGN KEY (reviewed_by)
+      REFERENCES dbo.fete_users(id) ON DELETE SET NULL
+  );
+END;
+
 IF OBJECT_ID('dbo.fete_volunteers', 'U') IS NULL
 BEGIN
   CREATE TABLE dbo.fete_volunteers (
-    id       INT IDENTITY(1,1) PRIMARY KEY,
-    fete_id  INT           NOT NULL,
-    user_id  INT           NOT NULL,
-    role     NVARCHAR(100) NOT NULL CONSTRAINT DF_fete_volunteers_role DEFAULT '',
-    notes    NVARCHAR(MAX) NOT NULL CONSTRAINT DF_fete_volunteers_notes DEFAULT '',
-    added_at DATETIMEOFFSET NOT NULL CONSTRAINT DF_fete_volunteers_added_at DEFAULT SYSDATETIMEOFFSET(),
+    id          INT IDENTITY(1,1) PRIMARY KEY,
+    fete_id     INT           NOT NULL,
+    user_id     INT           NOT NULL,
+    role        NVARCHAR(100) NOT NULL CONSTRAINT DF_fete_volunteers_role DEFAULT '',
+    notes       NVARCHAR(MAX) NOT NULL CONSTRAINT DF_fete_volunteers_notes DEFAULT '',
+    added_at    DATETIMEOFFSET NOT NULL CONSTRAINT DF_fete_volunteers_added_at DEFAULT SYSDATETIMEOFFSET(),
+    migrated_at DATETIMEOFFSET NULL,
     CONSTRAINT UQ_fete_volunteers_fete_user UNIQUE (fete_id, user_id),
     CONSTRAINT FK_fete_volunteers_fete FOREIGN KEY (fete_id)
       REFERENCES dbo.fetes(id) ON DELETE CASCADE,
     CONSTRAINT FK_fete_volunteers_user FOREIGN KEY (user_id)
       REFERENCES dbo.fete_users(id) ON DELETE CASCADE
   );
+END;
+ELSE IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.fete_volunteers') AND name = 'migrated_at')
+BEGIN
+  ALTER TABLE dbo.fete_volunteers ADD migrated_at DATETIMEOFFSET NULL;
 END;
 
 IF OBJECT_ID('dbo.volunteer_roles', 'U') IS NULL

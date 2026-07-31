@@ -1,12 +1,18 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-function requireEnv(name: string): string {
+function readEnv(name: string): string | undefined {
   const value = process.env[name]?.trim()
-  if (!value) {
-    throw new Error(`${name} is required`)
-  }
-  return value
+  return value ? value : undefined
+}
+
+function resolveRuntimePath(envName: string, fallbackRelativePath: string): string {
+  const configured = readEnv(envName)
+  if (configured) return path.resolve(configured)
+
+  const backendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+  return path.resolve(backendDir, fallbackRelativePath)
 }
 
 function nowStamp(): string {
@@ -21,11 +27,11 @@ function nowStamp(): string {
 }
 
 export function getDbPath(): string {
-  return path.resolve(requireEnv('DB_PATH'))
+  return resolveRuntimePath('DB_PATH', 'server/fete_store.db')
 }
 
 export function getBackupDirPath(): string {
-  return path.resolve(requireEnv('DB_BACKUP_DIR'))
+  return resolveRuntimePath('DB_BACKUP_DIR', 'server/backups')
 }
 
 export function ensureBackupDir(): string {

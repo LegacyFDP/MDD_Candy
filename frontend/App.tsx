@@ -10,6 +10,7 @@ import VolunteersPage from './pages/VolunteersPage'
 import PrintListsPage from './pages/PrintListsPage'
 import LocationsPage from './pages/LocationsPage'
 import HelpPage from './pages/HelpPage'
+import AdminToolsPage from './pages/AdminToolsPage'
 import { Button } from './lib/shadcn/button'
 import {
   LayoutDashboard, Package, Tent, ArrowUpFromLine,
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { path: '/locations', label: 'Locations', icon: MapPin, adminOnly: true },
   { path: '/users', label: 'Users', icon: Users, adminOnly: true },
   { path: '/volunteers', label: 'Volunteers', icon: Handshake, adminOnly: true },
+  { path: '/admin-tools', label: 'Admin Tools', icon: Shield, adminOnly: true, highlight: true },
   { path: '/print-lists', label: 'Print Lists', icon: Printer, adminOnly: true },
   { path: '/help', label: 'Help', icon: HelpCircle, adminOnly: false },
 ]
@@ -139,6 +141,11 @@ export default function App() {
                 ? <UsersPage currentUser={currentUser} />
                 : <Navigate to="/" replace />
             } />
+            <Route path="/admin-tools" element={
+              currentUser.role === 'admin'
+                ? <AdminToolsPage currentUser={currentUser} />
+                : <Navigate to="/" replace />
+            } />
             <Route path="/volunteers" element={
               currentUser.role === 'admin'
                 ? <VolunteersPage currentUser={currentUser} />
@@ -158,10 +165,10 @@ export default function App() {
 }
 
 function NavItem({
-  path, label, icon: Icon, onNavigate
+  path, label, icon: Icon, onNavigate, highlight
 }: {
   path: string; label: string; icon: React.ComponentType<{ className?: string }>
-  adminOnly: boolean; onNavigate: () => void
+  adminOnly: boolean; onNavigate: () => void; highlight?: boolean
 }) {
   const location = useLocation()
   const isActive = location.pathname === path
@@ -173,13 +180,20 @@ function NavItem({
       className={`
         flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors
         ${isActive
-          ? 'bg-primary text-primary-foreground font-medium'
-          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          ? 'bg-primary text-primary-foreground font-medium shadow-sm'
+          : highlight
+            ? 'border border-primary/20 bg-primary/5 text-foreground hover:bg-primary/10'
+            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
         }
       `}
     >
       <Icon className="w-4 h-4 flex-shrink-0" />
-      {label}
+      <span className="flex-1">{label}</span>
+      {highlight && !isActive && (
+        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+          Admin
+        </span>
+      )}
     </Link>
   )
 }

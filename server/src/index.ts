@@ -4,6 +4,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createRetoolDb, db, ensureRuntimeSchema } from './db.js'
+import { resolveRuntimePaths } from './config.js'
 
 // ---------------------------------------------------------------------------
 // 1. Provide the `retoolDb` global the backend functions reference.
@@ -124,8 +125,7 @@ async function loadHandlers(): Promise<Record<string, Handler>> {
 }
 
 async function main() {
-  const dbPath = path.resolve(requireEnv('DB_PATH'))
-  const backupDir = path.resolve(requireEnv('DB_BACKUP_DIR'))
+  const { dbPath, backupDir } = resolveRuntimePaths()
   createStartupBackup(dbPath, backupDir)
 
   await ensureRuntimeSchema()

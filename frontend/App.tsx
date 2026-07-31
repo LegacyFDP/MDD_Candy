@@ -6,7 +6,6 @@ import AssetsPage from './pages/AssetsPage'
 import FetesPage from './pages/FetesPage'
 import WithdrawalsPage from './pages/WithdrawalsPage'
 import UsersPage from './pages/UsersPage'
-import VolunteersPage from './pages/VolunteersPage'
 import PrintListsPage from './pages/PrintListsPage'
 import LocationsPage from './pages/LocationsPage'
 import HelpPage from './pages/HelpPage'
@@ -14,7 +13,7 @@ import AdminToolsPage from './pages/AdminToolsPage'
 import { Button } from './lib/shadcn/button'
 import {
   LayoutDashboard, Package, Tent, ArrowUpFromLine,
-  Users, Handshake, Printer, MapPin, LogOut, Menu, X, Shield, HelpCircle
+  Users, Printer, MapPin, LogOut, Menu, X, Shield, HelpCircle
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -24,7 +23,6 @@ const NAV_ITEMS = [
   { path: '/withdrawals', label: 'Withdrawals', icon: ArrowUpFromLine, adminOnly: false },
   { path: '/locations', label: 'Locations', icon: MapPin, adminOnly: true },
   { path: '/users', label: 'Users', icon: Users, adminOnly: true },
-  { path: '/volunteers', label: 'Volunteers', icon: Handshake, adminOnly: true },
   { path: '/admin-tools', label: 'Admin Tools', icon: Shield, adminOnly: true, highlight: true },
   { path: '/print-lists', label: 'Print Lists', icon: Printer, adminOnly: true },
   { path: '/help', label: 'Help', icon: HelpCircle, adminOnly: false },
@@ -144,11 +142,6 @@ export default function App() {
             <Route path="/admin-tools" element={
               currentUser.role === 'admin'
                 ? <AdminToolsPage currentUser={currentUser} />
-                : <Navigate to="/" replace />
-            } />
-            <Route path="/volunteers" element={
-              currentUser.role === 'admin'
-                ? <VolunteersPage currentUser={currentUser} />
                 : <Navigate to="/" replace />
             } />
             <Route path="/print-lists" element={

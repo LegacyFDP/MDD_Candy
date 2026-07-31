@@ -157,64 +157,12 @@ CREATE TABLE IF NOT EXISTS withdrawals (
   notes        TEXT        NOT NULL DEFAULT ''
 );
 
-CREATE TABLE IF NOT EXISTS fete_volunteers (
-  id   INTEGER PRIMARY KEY AUTOINCREMENT,
-  fete_id INTEGER NOT NULL REFERENCES fetes(id) ON DELETE CASCADE,
-  user_id INTEGER NOT NULL REFERENCES fete_users(id),
-  role TEXT NOT NULL,
-  notes TEXT NOT NULL DEFAULT ''
-);
-
 CREATE TABLE IF NOT EXISTS fete_requirements (
   id               INTEGER PRIMARY KEY AUTOINCREMENT,
   fete_id          INTEGER NOT NULL REFERENCES fetes(id) ON DELETE CASCADE,
   asset_id         INTEGER NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
   quantity_needed  INTEGER NOT NULL,
   notes            TEXT    NOT NULL DEFAULT ''
-);
-
-CREATE TABLE IF NOT EXISTS volunteers (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  name          TEXT NOT NULL,
-  email         TEXT NOT NULL UNIQUE,
-  address_line1 TEXT NOT NULL DEFAULT '',
-  address_line2 TEXT NOT NULL DEFAULT '',
-  town_city     TEXT NOT NULL DEFAULT '',
-  county        TEXT NOT NULL DEFAULT '',
-  postcode      TEXT NOT NULL DEFAULT '',
-  phone_home    TEXT NOT NULL DEFAULT '',
-  phone_mobile  TEXT NOT NULL DEFAULT '',
-  skills        TEXT NOT NULL DEFAULT '',
-  notes         TEXT NOT NULL DEFAULT '',
-  created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS volunteer_roles (
-  role_key      TEXT PRIMARY KEY,
-  display_name  TEXT NOT NULL UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS fete_volunteer_assignments (
-  id                       INTEGER PRIMARY KEY AUTOINCREMENT,
-  fete_id                  INTEGER NOT NULL REFERENCES fetes(id) ON DELETE CASCADE,
-  volunteer_id             INTEGER NOT NULL REFERENCES volunteers(id) ON DELETE CASCADE,
-  role_key                 TEXT NOT NULL REFERENCES volunteer_roles(role_key),
-  role_other               TEXT NOT NULL DEFAULT '',
-  notes                    TEXT NOT NULL DEFAULT '',
-  added_by_user_id         INTEGER REFERENCES fete_users(id) ON DELETE SET NULL,
-  legacy_fete_volunteer_id INTEGER,
-  created_at               TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at               TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE (fete_id, volunteer_id)
-);
-
-CREATE TABLE IF NOT EXISTS fete_volunteer_availability (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  assignment_id INTEGER NOT NULL REFERENCES fete_volunteer_assignments(id) ON DELETE CASCADE,
-  slot_date     TEXT NOT NULL,
-  start_hour    INTEGER NOT NULL CHECK (start_hour >= 9 AND start_hour <= 17),
-  end_hour      INTEGER NOT NULL CHECK (end_hour = start_hour + 1 AND end_hour >= 10 AND end_hour <= 18),
-  UNIQUE (assignment_id, slot_date, start_hour)
 );
 
 CREATE TABLE IF NOT EXISTS db_backups (
@@ -283,65 +231,12 @@ INSERT INTO withdrawals (asset_id, fete_id, quantity, withdrawn_by, status, note
 
 UPDATE assets SET quantity_available = quantity_available - 4 WHERE id = 1;
 
-INSERT INTO fete_volunteers (fete_id, user_id, role, notes) VALUES
-  (1, 3, 'Stall Lead', 'Tombola stall'),
-  (1, 4, 'Setup Crew', ''),
-  (2, 3, 'Helper',     '');
-
 INSERT INTO fete_requirements (fete_id, asset_id, quantity_needed, notes) VALUES
   (1, 1, 8,  'For stalls'),
   (1, 2, 40, 'Seating'),
   (1, 3, 2,  'Shade for cake stall'),
   (1, 4, 10, 'Decorate fence line');
 
-INSERT INTO volunteers (
-  name,
-  email,
-  address_line1,
-  address_line2,
-  town_city,
-  county,
-  postcode,
-  phone_home,
-  phone_mobile,
-  skills,
-  notes
-) VALUES
-  (
-    'Eve Evans',
-    'eve.evans@example.org',
-    '7 High Street',
-    '',
-    'Oxford',
-    'Oxfordshire',
-    'OX1 4AB',
-    '01865 123456',
-    '07700 900111',
-    'Baking, till operation, first aid',
-    'Prefers morning shifts.'
-  ),
-  (
-    'Frank Foster',
-    'frank.foster@example.org',
-    'Flat 2, 18 River Road',
-    '',
-    'Abingdon',
-    'Oxfordshire',
-    'OX14 5CD',
-    '01235 998877',
-    '07700 900222',
-    'Heavy lifting, setup crew',
-    ''
-  );
-
-INSERT OR IGNORE INTO volunteer_roles (role_key, display_name) VALUES
-  ('Lead Volunteer', 'Lead Volunteer'),
-  ('Helper', 'Helper'),
-  ('Putting Up', 'Putting Up'),
-  ('Taking Down', 'Taking Down'),
-  ('Transport', 'Transport'),
-  ('Stall Holder', 'Stall Holder'),
-  ('Other', 'Other');
     `
     
     await runSQL(seed)

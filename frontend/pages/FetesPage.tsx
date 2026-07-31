@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
   useGetFetes, useSaveFete, useGetWithdrawals,
-  useGetFeteVolunteers, useGetVolunteers,
   useGetFeteLocations, useSaveFeteLocation, useDeleteFeteLocation
 } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
@@ -12,8 +11,7 @@ import { Textarea } from '../lib/shadcn/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../lib/shadcn/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../lib/shadcn/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
-import { Plus, ChevronDown, ChevronUp, ArrowUpFromLine, UserCheck, MapPin, Settings, Trash2, Pencil } from 'lucide-react'
-import FeteVolunteers from './ui/FeteVolunteers'
+import { Plus, ChevronDown, ChevronUp, ArrowUpFromLine, MapPin, Settings, Trash2, Pencil } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -41,8 +39,6 @@ type Withdrawal = {
   withdrawn_at: string; returned_at: string | null
   withdrawn_by_name: string; notes: string
 }
-type VolunteerPerson = { id: number; name: string; email: string }
-
 const STATUS_COLORS: Record<string, string> = {
   planned: 'secondary',
   active: 'default',
@@ -68,16 +64,12 @@ export default function FetesPage({ currentUser }: Props) {
   const { data: fetesRaw, trigger: loadFetes } = useGetFetes()
   const { trigger: saveFete, loading: savingFete } = useSaveFete()
   const { data: withdrawalsRaw, trigger: loadWithdrawals } = useGetWithdrawals()
-  const { data: volunteersRaw, trigger: loadVolunteers } = useGetFeteVolunteers()
-  const { data: volunteerPoolRaw, trigger: loadVolunteerPool } = useGetVolunteers()
   const { data: locationsRaw, trigger: loadLocations } = useGetFeteLocations()
   const { trigger: saveFeteLocation, loading: savingLocation } = useSaveFeteLocation()
   const { trigger: deleteFeteLocation } = useDeleteFeteLocation()
 
   const fetes = (fetesRaw ?? []) as Fete[]
   const allWithdrawals = (withdrawalsRaw ?? []) as Withdrawal[]
-  const allVolunteers = (volunteersRaw ?? []) as import('./ui/FeteVolunteers').Volunteer[]
-  const volunteerPool = (volunteerPoolRaw ?? []) as VolunteerPerson[]
   const locations = (locationsRaw ?? []) as FeteLocation[]
 
   const [feteOpen, setFeteOpen] = useState(false)
@@ -95,10 +87,6 @@ export default function FetesPage({ currentUser }: Props) {
   useEffect(() => {
     void loadFetes({})
     void loadWithdrawals({})
-    void loadVolunteers({})
-    if (isAdmin) {
-      void loadVolunteerPool({})
-    }
     void loadLocations({})
   }, [])
 
@@ -188,10 +176,6 @@ export default function FetesPage({ currentUser }: Props) {
     setExpandedFeteId(prev => prev === feteId ? null : feteId)
   }
 
-  function refreshVolunteers() {
-    void loadVolunteers({}, { skipCache: true })
-  }
-
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -212,7 +196,6 @@ export default function FetesPage({ currentUser }: Props) {
         {fetes.map(fete => {
           const isExpanded = expandedFeteId === fete.id
           const feteWithdrawals = allWithdrawals.filter(w => w.fete_id === fete.id)
-          const feteVolunteers = allVolunteers.filter(v => v.fete_id === fete.id)
           const itemsOut = feteWithdrawals.filter(w => w.status === 'out').length
 
           return (
@@ -227,12 +210,6 @@ export default function FetesPage({ currentUser }: Props) {
                     </Badge>
                     {itemsOut > 0 && (
                       <Badge variant="secondary">{itemsOut} item{itemsOut !== 1 ? 's' : ''} out</Badge>
-                    )}
-                    {feteVolunteers.length > 0 && (
-                      <Badge variant="outline" className="flex items-center gap-1">
-                        <UserCheck className="w-3 h-3" />
-                        {feteVolunteers.length} volunteer{feteVolunteers.length !== 1 ? 's' : ''}
-                      </Badge>
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground mt-0.5">
@@ -274,10 +251,6 @@ export default function FetesPage({ currentUser }: Props) {
                       <TabsTrigger value="withdrawals" className="flex items-center gap-1.5">
                         <ArrowUpFromLine className="w-3.5 h-3.5" />
                         Equipment ({feteWithdrawals.length})
-                      </TabsTrigger>
-                      <TabsTrigger value="volunteers" className="flex items-center gap-1.5">
-                        <UserCheck className="w-3.5 h-3.5" />
-                        Volunteers ({feteVolunteers.length})
                       </TabsTrigger>
                     </TabsList>
 
@@ -324,16 +297,6 @@ export default function FetesPage({ currentUser }: Props) {
                       )}
                     </TabsContent>
 
-                    {/* Volunteers tab */}
-                    <TabsContent value="volunteers">
-                      <FeteVolunteers
-                        feteId={fete.id}
-                        volunteers={feteVolunteers}
-                        allVolunteers={volunteerPool}
-                        currentUser={currentUser}
-                        onRefresh={refreshVolunteers}
-                      />
-                    </TabsContent>
                   </Tabs>
                 </div>
               )}

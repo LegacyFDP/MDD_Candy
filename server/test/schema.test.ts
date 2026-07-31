@@ -26,7 +26,7 @@ test('ensureRuntimeSchema creates the core tables for a fresh SQLite database', 
 
     const tables = await new Promise<string[]>((resolve, reject) => {
       database.all(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('fete_users','store_locations','assets','fetes','withdrawals','fete_volunteers','fete_requirements','volunteers','volunteer_roles','fete_volunteer_assignments','fete_volunteer_availability','db_backups') ORDER BY name",
+        "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('fete_users','store_locations','assets','fetes','withdrawals','fete_requirements','db_backups','fete_volunteers','volunteers','volunteer_roles','fete_volunteer_assignments','volunteer_booking_requests') ORDER BY name",
         (err, rows: Array<{ name: string }>) => {
           if (err) reject(err)
           else resolve(rows.map((row) => row.name))
@@ -39,13 +39,8 @@ test('ensureRuntimeSchema creates the core tables for a fresh SQLite database', 
       'db_backups',
       'fete_requirements',
       'fete_users',
-      'fete_volunteer_assignments',
-      'fete_volunteer_availability',
-      'fete_volunteers',
       'fetes',
       'store_locations',
-      'volunteer_roles',
-      'volunteers',
       'withdrawals',
     ])
 

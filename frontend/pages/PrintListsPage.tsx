@@ -4,11 +4,10 @@ import {
   useGetFeteLocations,
   useGetFetes,
   useGetLocations,
-  useGetVolunteers,
 } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../lib/shadcn/card'
-import { Printer, Calendar, Handshake, MapPin, Package } from 'lucide-react'
+import { Printer, Calendar, MapPin, Package } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -20,21 +19,6 @@ type Fete = {
   status: string
   description: string
   location_name: string | null
-}
-
-type Volunteer = {
-  id: number
-  name: string
-  email: string
-  address_line1: string
-  address_line2: string
-  town_city: string
-  county: string
-  postcode: string
-  phone_home: string
-  phone_mobile: string
-  skills: string
-  notes: string
 }
 
 type Location = {
@@ -73,21 +57,18 @@ function formatAddress(location: Location): string {
 
 export default function PrintListsPage({ currentUser }: Props) {
   const { data: fetesRaw, trigger: loadFetes } = useGetFetes()
-  const { data: volunteersRaw, trigger: loadVolunteers } = useGetVolunteers()
   const { data: storeLocationsRaw, trigger: loadStoreLocations } = useGetLocations()
   const { data: feteLocationsRaw, trigger: loadFeteLocations } = useGetFeteLocations()
   const { data: assetsRaw, trigger: loadAssets } = useGetAssets()
 
   useEffect(() => {
     void loadFetes({})
-    void loadVolunteers({})
     void loadStoreLocations({})
     void loadFeteLocations({})
     void loadAssets({})
   }, [])
 
   const fetes = (fetesRaw ?? []) as Fete[]
-  const volunteers = (volunteersRaw ?? []) as Volunteer[]
   const storeLocations = (storeLocationsRaw ?? []) as Location[]
   const feteLocations = (feteLocationsRaw ?? []) as Location[]
   const assets = (assetsRaw ?? []) as Asset[]
@@ -145,7 +126,7 @@ export default function PrintListsPage({ currentUser }: Props) {
         <div>
           <h1 className="text-2xl font-bold">Print Centre</h1>
           <p className="text-sm text-muted-foreground">
-            Printable lists for events, volunteers, locations, and assets by type.
+            Printable lists for events, locations, and assets by type.
           </p>
         </div>
         <Button onClick={() => window.print()} className="flex items-center gap-2">
@@ -207,60 +188,6 @@ export default function PrintListsPage({ currentUser }: Props) {
           {fetes.length === 0 && (
             <p className="text-sm text-muted-foreground">No events available.</p>
           )}
-          <p className="print-only-footer text-xs text-muted-foreground mt-3">
-            Printed: {generatedAt}
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card id="card-print-volunteers" className="print-card print-break-after">
-        <CardHeader className="print-header">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Handshake className="w-4 h-4" /> Volunteers
-            </CardTitle>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="print-hidden"
-              onClick={() => printSection('print-volunteers')}
-            >
-              <Printer className="w-3.5 h-3.5 mr-1" /> Print Volunteers
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent id="print-volunteers" className="space-y-2 print-section">
-          {volunteers.length === 0 && (
-            <p className="text-sm text-muted-foreground">No volunteers available.</p>
-          )}
-          {volunteers.map((volunteer) => (
-            <div key={volunteer.id} className="border rounded-md p-3">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div>
-                  <p className="font-medium">{volunteer.name}</p>
-                  <p className="text-sm text-muted-foreground">{volunteer.email}</p>
-                </div>
-                <div className="text-xs text-muted-foreground space-y-0.5 text-right">
-                  <p>Home: {volunteer.phone_home || '-'}</p>
-                  <p>Mobile: {volunteer.phone_mobile || '-'}</p>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {[
-                  volunteer.address_line1,
-                  volunteer.address_line2,
-                  [volunteer.town_city, volunteer.county].filter(Boolean).join(', '),
-                  volunteer.postcode,
-                ]
-                  .map((part) => part.trim())
-                  .filter(Boolean)
-                  .join(', ') || '-'}
-              </p>
-              <p className="text-sm mt-2"><span className="font-medium">Skills:</span> {volunteer.skills || '-'}</p>
-              <p className="text-xs text-muted-foreground mt-1"><span className="font-medium">Notes:</span> {volunteer.notes || '-'}</p>
-            </div>
-          ))}
           <p className="print-only-footer text-xs text-muted-foreground mt-3">
             Printed: {generatedAt}
           </p>

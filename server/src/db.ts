@@ -138,20 +138,6 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
 
   await run(
     `
-      CREATE TABLE IF NOT EXISTS fete_volunteers (
-        id       INTEGER PRIMARY KEY AUTOINCREMENT,
-        fete_id  INTEGER NOT NULL REFERENCES fetes(id) ON DELETE CASCADE,
-        user_id  INTEGER NOT NULL REFERENCES fete_users(id),
-        role     TEXT NOT NULL,
-        notes    TEXT NOT NULL DEFAULT ''
-      )
-    `,
-    [],
-    database,
-  )
-
-  await run(
-    `
       CREATE TABLE IF NOT EXISTS fete_requirements (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
         fete_id         INTEGER NOT NULL REFERENCES fetes(id) ON DELETE CASCADE,
@@ -163,52 +149,6 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
     [],
     database,
   )
-
-  await run(
-    `
-      CREATE TABLE IF NOT EXISTS volunteers (
-        id            INTEGER PRIMARY KEY AUTOINCREMENT,
-        name          TEXT NOT NULL,
-        email         TEXT NOT NULL UNIQUE,
-        address_line1 TEXT NOT NULL DEFAULT '',
-        address_line2 TEXT NOT NULL DEFAULT '',
-        town_city     TEXT NOT NULL DEFAULT '',
-        county        TEXT NOT NULL DEFAULT '',
-        postcode      TEXT NOT NULL DEFAULT '',
-        phone_home    TEXT NOT NULL DEFAULT '',
-        phone_mobile  TEXT NOT NULL DEFAULT '',
-        skills        TEXT NOT NULL DEFAULT '',
-        notes         TEXT NOT NULL DEFAULT '',
-        created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `,
-    [],
-    database,
-  )
-
-  const volunteerColumns = await all<{ name: string }>('PRAGMA table_info(volunteers);', [], database)
-  const volunteerExisting = new Set(volunteerColumns.map((column) => column.name))
-  const volunteerAdditions = [
-    { name: 'address_line1', sqlType: "TEXT NOT NULL DEFAULT ''" },
-    { name: 'address_line2', sqlType: "TEXT NOT NULL DEFAULT ''" },
-    { name: 'town_city', sqlType: "TEXT NOT NULL DEFAULT ''" },
-    { name: 'county', sqlType: "TEXT NOT NULL DEFAULT ''" },
-    { name: 'postcode', sqlType: "TEXT NOT NULL DEFAULT ''" },
-    { name: 'phone_home', sqlType: "TEXT NOT NULL DEFAULT ''" },
-    { name: 'phone_mobile', sqlType: "TEXT NOT NULL DEFAULT ''" },
-    { name: 'skills', sqlType: "TEXT NOT NULL DEFAULT ''" },
-    { name: 'notes', sqlType: "TEXT NOT NULL DEFAULT ''" },
-  ]
-
-  for (const addition of volunteerAdditions) {
-    if (volunteerExisting.has(addition.name)) continue
-    await run(
-      `ALTER TABLE volunteers ADD COLUMN ${addition.name} ${addition.sqlType};`,
-      [],
-      database,
-    )
-    console.log(`Added missing volunteers column: ${addition.name}`)
-  }
 
   const locationColumns = await all<{ name: string }>('PRAGMA table_info(store_locations);', [], database)
   const locationExisting = new Set(locationColumns.map((column) => column.name))
@@ -297,71 +237,6 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
 
   await run(
     `
-      CREATE TABLE IF NOT EXISTS volunteer_roles (
-        role_key      TEXT PRIMARY KEY,
-        display_name  TEXT NOT NULL UNIQUE
-      )
-    `,
-    [],
-    database,
-  )
-
-  await run(
-    `
-      CREATE TABLE IF NOT EXISTS fete_volunteer_assignments (
-        id                       INTEGER PRIMARY KEY AUTOINCREMENT,
-        fete_id                  INTEGER NOT NULL REFERENCES fetes(id) ON DELETE CASCADE,
-        volunteer_id             INTEGER NOT NULL REFERENCES volunteers(id) ON DELETE CASCADE,
-        role_key                 TEXT NOT NULL REFERENCES volunteer_roles(role_key),
-        role_other               TEXT NOT NULL DEFAULT '',
-        notes                    TEXT NOT NULL DEFAULT '',
-        added_by_user_id         INTEGER REFERENCES fete_users(id) ON DELETE SET NULL,
-        legacy_fete_volunteer_id INTEGER,
-        created_at               TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at               TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE (fete_id, volunteer_id)
-      )
-    `,
-    [],
-    database,
-  )
-
-  await run(
-    `
-      CREATE TABLE IF NOT EXISTS fete_volunteer_availability (
-        id            INTEGER PRIMARY KEY AUTOINCREMENT,
-        assignment_id INTEGER NOT NULL REFERENCES fete_volunteer_assignments(id) ON DELETE CASCADE,
-        slot_date     TEXT NOT NULL,
-        start_hour    INTEGER NOT NULL CHECK (start_hour >= 9 AND start_hour <= 17),
-        end_hour      INTEGER NOT NULL CHECK (end_hour = start_hour + 1 AND end_hour >= 10 AND end_hour <= 18),
-        UNIQUE (assignment_id, slot_date, start_hour)
-      )
-    `,
-    [],
-    database,
-  )
-
-  await run(
-    `
-      CREATE TABLE IF NOT EXISTS volunteer_booking_requests (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        fete_id     INTEGER NOT NULL REFERENCES fetes(id) ON DELETE CASCADE,
-        name        TEXT NOT NULL,
-        email       TEXT NOT NULL,
-        status      TEXT NOT NULL DEFAULT 'pending',
-        notes       TEXT NOT NULL DEFAULT '',
-        created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        reviewed_at TEXT,
-        reviewed_by INTEGER REFERENCES fete_users(id) ON DELETE SET NULL,
-        UNIQUE(fete_id, email)
-      )
-    `,
-    [],
-    database,
-  )
-
-  await run(
-    `
       CREATE TABLE IF NOT EXISTS db_backups (
         id                 INTEGER PRIMARY KEY AUTOINCREMENT,
         filename           TEXT NOT NULL UNIQUE,
@@ -377,105 +252,6 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
     [],
     database,
   )
-
-  const roles = [
-    ['Lead Volunteer', 'Lead Volunteer'],
-    ['Helper', 'Helper'],
-    ['Putting Up', 'Putting Up'],
-    ['Taking Down', 'Taking Down'],
-    ['Transport', 'Transport'],
-    ['Stall Holder', 'Stall Holder'],
-    ['Other', 'Other'],
-  ]
-
-  for (const [roleKey, displayName] of roles) {
-    await run(
-      'INSERT OR IGNORE INTO volunteer_roles (role_key, display_name) VALUES (?, ?)',
-      [roleKey, displayName],
-      database,
-    )
-  }
-
-  // Step 7: Add migration marker column to fete_volunteers if not already present
-  const feteVolunteerColumns = await all<{ name: string }>('PRAGMA table_info(fete_volunteers);', [], database)
-  const feteVolunteerExisting = new Set(feteVolunteerColumns.map((c) => c.name))
-  if (!feteVolunteerExisting.has('migrated_at')) {
-    await run('ALTER TABLE fete_volunteers ADD COLUMN migrated_at TEXT;', [], database)
-    console.log('Added migration marker column: fete_volunteers.migrated_at')
-  }
-
-  // Step 9: Backfill unmigrated fete_volunteers rows into fete_volunteer_assignments
-  const knownRoleKeys = new Set(roles.map(([key]) => key.toLowerCase()))
-
-  function mapLegacyRole(rawRole: string): { role_key: string; role_other: string } {
-    const normalised = rawRole.trim().toLowerCase()
-    const matched = roles.find(([key]) => key.toLowerCase() === normalised)
-    if (matched) return { role_key: matched[0], role_other: '' }
-    return { role_key: 'Other', role_other: rawRole.trim() }
-  }
-
-  const unmigrated = await all<{ id: number; fete_id: number; user_id: number; role: string; notes: string }>(
-    'SELECT id, fete_id, user_id, role, notes FROM fete_volunteers WHERE migrated_at IS NULL',
-    [],
-    database,
-  )
-
-  let backfillCount = 0
-  let skippedCount = 0
-
-  for (const row of unmigrated) {
-    // Match fete_users to volunteers by email — the deterministic path
-    const feteUser = await all<{ email: string }>(
-      'SELECT email FROM fete_users WHERE id = ?',
-      [row.user_id],
-      database,
-    )
-    if (feteUser.length === 0) {
-      skippedCount++
-      continue
-    }
-
-    const volunteer = await all<{ id: number }>(
-      'SELECT id FROM volunteers WHERE email = ?',
-      [feteUser[0].email],
-      database,
-    )
-    if (volunteer.length === 0) {
-      // No matching volunteer record — ambiguous, leave unmigrated
-      skippedCount++
-      continue
-    }
-
-    const { role_key, role_other } = mapLegacyRole(row.role)
-
-    try {
-      await run(
-        `INSERT OR IGNORE INTO fete_volunteer_assignments
-          (fete_id, volunteer_id, role_key, role_other, notes, legacy_fete_volunteer_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-        [row.fete_id, volunteer[0].id, role_key, role_other, row.notes, row.id],
-        database,
-      )
-      await run(
-        'UPDATE fete_volunteers SET migrated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        [row.id],
-        database,
-      )
-      backfillCount++
-    } catch {
-      // Conflict (duplicate fete+volunteer pair) — mark migrated to avoid re-processing
-      await run(
-        'UPDATE fete_volunteers SET migrated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        [row.id],
-        database,
-      )
-      backfillCount++
-    }
-  }
-
-  if (backfillCount > 0 || skippedCount > 0) {
-    console.log(`fete_volunteers backfill: ${backfillCount} migrated, ${skippedCount} skipped (no matching volunteer record)`)
-  }
 
   const userCount = await all<{ count: number }>('SELECT COUNT(*) AS count FROM fete_users', [], database)
   if ((userCount[0]?.count ?? 0) === 0) {

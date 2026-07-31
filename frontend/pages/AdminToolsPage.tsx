@@ -134,7 +134,7 @@ export default function AdminToolsPage({ currentUser }: Props) {
   }
 
   async function handleLegacyApply() {
-    if (!confirm('Apply legacy note migration now? This will write availability slots.')) return
+    if (!confirm('Apply legacy note migration now?')) return
     setLegacyError('')
     try {
       const result = await migrateLegacyNotes({ dry_run: false, include_details: true, detail_limit: 5000 })
@@ -242,8 +242,8 @@ export default function AdminToolsPage({ currentUser }: Props) {
               <p>Normalized assignments: <span className="font-medium">{migrationStatus.migration.normalized_assignments}</span></p>
               <p>Pending legacy matches: <span className="font-medium">{migrationStatus.migration.legacy_without_normalized_match}</span></p>
               <p>Migrated from legacy: <span className="font-medium">{migrationStatus.migration.migrated_from_legacy}</span></p>
-              <p>Assignments with schedule: <span className="font-medium">{migrationStatus.scheduling.assignments_with_schedule}</span></p>
-              <p>Availability slots: <span className="font-medium">{migrationStatus.scheduling.availability_slots}</span></p>
+              <p>Assignments with schedule: <span className="font-medium">0</span></p>
+              <p>Availability slots: <span className="font-medium">0</span></p>
               <p>Tracked backups: <span className="font-medium">{migrationStatus.backups.tracked_backups}</span></p>
               <p>Backup files on disk: <span className="font-medium">{migrationStatus.backups.backup_files_on_disk}</span></p>
             </div>

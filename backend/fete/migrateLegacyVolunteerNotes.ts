@@ -131,11 +131,6 @@ export default async function (req: { params: Params; user: User }) {
       FROM fete_volunteer_assignments a
       LEFT JOIN fetes f ON f.id = a.fete_id
       LEFT JOIN fete_volunteers fv ON fv.id = a.legacy_fete_volunteer_id
-      WHERE NOT EXISTS (
-        SELECT 1
-        FROM fete_volunteer_availability av
-        WHERE av.assignment_id = a.id
-      )
       ORDER BY a.id ASC
     `,
   )
@@ -258,24 +253,6 @@ export default async function (req: { params: Params; user: User }) {
     if (dryRun) {
       insertedSlots += slotsForAssignment
       continue
-    }
-
-    for (const date of dates) {
-      for (const startHour of startHours) {
-        await retoolDb.query(
-          `
-            INSERT OR IGNORE INTO fete_volunteer_availability (
-              assignment_id,
-              slot_date,
-              start_hour,
-              end_hour
-            )
-            VALUES ($1, $2, $3, $4)
-          `,
-          [row.assignment_id, date, startHour, startHour + 1],
-        )
-        insertedSlots += 1
-      }
     }
   }
 

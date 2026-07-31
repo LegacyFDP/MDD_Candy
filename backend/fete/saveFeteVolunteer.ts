@@ -1,5 +1,5 @@
 import { requireAdmin } from './_auth'
-import { normalizeAvailability, normalizeRole, type AvailabilitySlot } from './_volunteerScheduling'
+import { normalizeRole } from './_volunteerScheduling'
 
 type Params = {
   id?: number
@@ -9,7 +9,6 @@ type Params = {
   role: string
   role_other?: string
   notes: string
-  availability?: AvailabilitySlot[]
 }
 
 export default async function (req: { params: Params; user: User }) {
@@ -18,7 +17,6 @@ export default async function (req: { params: Params; user: User }) {
   const { id, fete_id, role, notes } = req.params
   const volunteerId = Number(req.params.volunteer_id ?? req.params.user_id)
   const { roleKey, roleOther } = normalizeRole(req.params.role, req.params.role_other)
-  const availability = normalizeAvailability(req.params.availability)
 
   if (!Number.isInteger(fete_id) || fete_id <= 0) {
     throw new Error('Valid fete_id is required')
@@ -48,18 +46,6 @@ export default async function (req: { params: Params; user: User }) {
       `,
       [roleKey, roleOther, (notes ?? '').trim(), id],
     )
-
-    await retoolDb.query('DELETE FROM fete_volunteer_availability WHERE assignment_id = $1', [id])
-
-    for (const slot of availability) {
-      await retoolDb.query(
-        `
-          INSERT INTO fete_volunteer_availability (assignment_id, slot_date, start_hour, end_hour)
-          VALUES ($1, $2, $3, $4)
-        `,
-        [id, slot.date, slot.start_hour, slot.end_hour],
-      )
-    }
   } else {
     await retoolDb.query(
       `
@@ -80,16 +66,6 @@ export default async function (req: { params: Params; user: User }) {
     const assignmentId = inserted.data[0]?.id
     if (!assignmentId) {
       throw new Error('Failed to create volunteer assignment')
-    }
-
-    for (const slot of availability) {
-      await retoolDb.query(
-        `
-          INSERT INTO fete_volunteer_availability (assignment_id, slot_date, start_hour, end_hour)
-          VALUES ($1, $2, $3, $4)
-        `,
-        [assignmentId, slot.date, slot.start_hour, slot.end_hour],
-      )
     }
   }
 

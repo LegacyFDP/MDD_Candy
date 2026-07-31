@@ -152,7 +152,7 @@ export default function Dashboard({ currentUser }: Props) {
           </CardHeader>
           <CardContent className="flex items-center justify-between gap-3 flex-wrap">
             <p className="text-sm text-muted-foreground">
-              Produce print-ready lists for events, volunteers, locations, and assets by type.
+              Produce print-ready lists for events, locations, and assets by type.
             </p>
             <Button asChild>
               <Link to="/print-lists">Open Print Centre</Link>

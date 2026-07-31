@@ -48,10 +48,6 @@ export default async function (req: { params: Record<string, never>; user: User 
     `,
   )
 
-  const availabilitySlots = await getCount('SELECT COUNT(*) AS count FROM fete_volunteer_availability')
-  const scheduledAssignmentCount = await getCount(
-    'SELECT COUNT(DISTINCT assignment_id) AS count FROM fete_volunteer_availability',
-  )
   const trackedBackups = await getCount('SELECT COUNT(*) AS count FROM db_backups WHERE deleted_at IS NULL')
   const backupFilesOnDisk = listBackupFiles().length
 
@@ -75,8 +71,8 @@ export default async function (req: { params: Record<string, never>; user: User 
       legacy_without_normalized_match: legacyWithoutNormalizedMatch,
     },
     scheduling: {
-      availability_slots: availabilitySlots,
-      assignments_with_schedule: scheduledAssignmentCount,
+      availability_slots: 0,
+      assignments_with_schedule: 0,
     },
     backups: {
       tracked_backups: trackedBackups,

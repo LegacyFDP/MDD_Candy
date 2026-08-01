@@ -4,6 +4,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createRetoolDb, db, ensureRuntimeSchema } from './db.js'
+import { resolveRuntimePaths } from './config.js'
 
 // ---------------------------------------------------------------------------
 // 1. Provide the `retoolDb` global the backend functions reference.
@@ -37,14 +38,6 @@ const frontendDist = path.join(repoRoot, 'frontend', 'dist')
 
 type Handler = (req: { params: Record<string, unknown>; user: User }) => Promise<unknown>
 
-function requireEnv(name: string): string {
-  const value = process.env[name]?.trim()
-  if (!value) {
-    throw new Error(`${name} is required. Configure it before starting the server.`)
-  }
-  return value
-}
-
 function ensureDirectory(dirPath: string): void {
   if (!existsSync(dirPath)) {
     mkdirSync(dirPath, { recursive: true })
@@ -62,8 +55,14 @@ function nowStamp(): string {
   return `${yyyy}${mm}${dd}-${hh}${mi}${ss}`
 }
 
-function createStartupBackup(dbPath: string, backupDir: string): string {
+function createStartupBackup(dbPath: string, backupDir: string): string | null {
   ensureDirectory(backupDir)
+
+  if (!existsSync(dbPath)) {
+    console.log(`No existing database at ${dbPath}; skipping startup backup.`)
+    return null
+  }
+
   const filename = `MDD_Candy-pre-migration-${nowStamp()}.db`
   const backupPath = path.join(backupDir, filename)
   copyFileSync(dbPath, backupPath)
@@ -124,8 +123,7 @@ async function loadHandlers(): Promise<Record<string, Handler>> {
 }
 
 async function main() {
-  const dbPath = path.resolve(requireEnv('DB_PATH'))
-  const backupDir = path.resolve(requireEnv('DB_BACKUP_DIR'))
+  const { dbPath, backupDir } = resolveRuntimePaths()
   createStartupBackup(dbPath, backupDir)
 
   await ensureRuntimeSchema()

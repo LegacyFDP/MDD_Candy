@@ -1,16 +1,8 @@
 import sqlite3 from 'sqlite3'
 import path from 'node:path'
-function requireEnv(name: string): string {
-  const value = process.env[name]?.trim()
-  if (!value) {
-    throw new Error(`${name} is required. Configure it in your environment before starting the server.`)
-  }
-  return value
-}
+import { resolveRuntimePaths } from './config.js'
 
-// DB_PATH is required so backup and restore behavior is explicit in every
-// environment and never silently points to an unexpected local file.
-const dbPath = path.resolve(requireEnv('DB_PATH'))
+const { dbPath } = resolveRuntimePaths()
 
 // SQLite database connection
 export const db = new sqlite3.Database(dbPath, (err) => {
@@ -271,7 +263,7 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
   // the normalized volunteers table before migrating assignments.
   await run(
     `
-      INSERT INTO volunteers (name, email, notes)
+      INSERT OR IGNORE INTO volunteers (name, email, notes)
       SELECT u.name, LOWER(TRIM(u.email)), ''
       FROM fete_users u
       JOIN fete_volunteers fv ON fv.user_id = u.id
@@ -324,7 +316,7 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
         TRIM(COALESCE(fv.notes, '')),
         fv.user_id,
         fv.id,
-        COALESCE(fv.added_at, CURRENT_TIMESTAMP),
+        CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
       FROM fete_volunteers fv
       JOIN fete_users u ON u.id = fv.user_id

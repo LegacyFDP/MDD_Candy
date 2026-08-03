@@ -100,16 +100,6 @@ export const useGetUsersWithFetes = makeBackendHook('getUsersWithFetes')
 export const useSaveUser = makeBackendHook('saveUser')
 export const useDeleteUser = makeBackendHook('deleteUser')
 
-// Volunteers
-export const useGetVolunteers = makeBackendHook('getVolunteers')
-export const useSaveVolunteer = makeBackendHook('saveVolunteer')
-export const useDeleteVolunteer = makeBackendHook('deleteVolunteer')
-
-// Fete volunteers
-export const useGetFeteVolunteers = makeBackendHook('getFeteVolunteers')
-export const useSaveFeteVolunteer = makeBackendHook('saveFeteVolunteer')
-export const useDeleteFeteVolunteer = makeBackendHook('deleteFeteVolunteer')
-
 // Fete requirements
 export const useGetFeteRequirements = makeBackendHook('getFeteRequirements')
 export const useSaveFeteRequirement = makeBackendHook('saveFeteRequirement')

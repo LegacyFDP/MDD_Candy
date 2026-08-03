@@ -11,7 +11,7 @@
 
 BEGIN;
 
-TRUNCATE fete_requirements, fete_volunteers, withdrawals, fetes, assets, store_locations, fete_users
+TRUNCATE fete_requirements, withdrawals, fetes, assets, store_locations, fete_users
   RESTART IDENTITY CASCADE;
 
 -- Users (credentials shown on the login page) ---------------------------------
@@ -58,7 +58,7 @@ INSERT INTO assets (name, category, quantity_total, quantity_available, location
 
 -- Fetes -----------------------------------------------------------------------
 INSERT INTO fetes (name, event_date, description, notes, status, created_by, location_id) VALUES
-  ('Summer Fete 2026',  '2026-07-18', 'Annual summer fundraiser on the green', 'Need extra volunteers at 10am', 'planned',   1, 5),
+  ('Summer Fete 2026',  '2026-07-18', 'Annual summer fundraiser on the green', 'Marquee setup starts at 10am', 'planned',   1, 5),
   ('Christmas Bazaar',  '2026-12-05', 'Indoor craft and gift stalls',          '',                              'planned',   1, 6),
   ('Spring Open Day',   '2026-04-12', 'Community open day',                     '',                              'completed', 2, NULL);
 
@@ -66,12 +66,6 @@ INSERT INTO fetes (name, event_date, description, notes, status, created_by, loc
 INSERT INTO withdrawals (asset_id, fete_id, quantity, withdrawn_by, status, notes) VALUES
   (1, 1, 4, 3, 'out', 'Taken early for setup');
 UPDATE assets SET quantity_available = quantity_available - 4 WHERE id = 1;
-
--- Volunteers assigned to fetes ------------------------------------------------
-INSERT INTO fete_volunteers (fete_id, user_id, role, notes) VALUES
-  (1, 3, 'Stall Lead', 'Tombola stall'),
-  (1, 4, 'Setup Crew', ''),
-  (2, 3, 'Helper',     '');
 
 -- Pre-planned equipment requirements for the Summer Fete ----------------------
 INSERT INTO fete_requirements (fete_id, asset_id, quantity_needed, notes) VALUES

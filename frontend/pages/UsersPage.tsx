@@ -16,7 +16,6 @@ type FeteAllocation = {
   fete_name: string
   event_date: string
   fete_status: string
-  volunteer_role: string
   notes: string
 }
 
@@ -244,7 +243,6 @@ function UserCard({
               <Calendar className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0" />
               <div className="flex-1 min-w-0">
                 <span className="font-medium">{f.fete_name}</span>
-                <span className="text-muted-foreground"> · {f.volunteer_role}</span>
                 {f.notes && (
                   <p className="text-xs text-muted-foreground truncate">{f.notes}</p>
                 )}
@@ -261,7 +259,7 @@ function UserCard({
           ))}
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground pl-1 italic">Not allocated to any fete</p>
+        <p className="text-xs text-muted-foreground pl-1 italic">No event history</p>
       )}
     </div>
   )

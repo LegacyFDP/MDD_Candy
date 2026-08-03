@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS fete_users (
   id         SERIAL PRIMARY KEY,
   name       TEXT        NOT NULL,
   email      TEXT        NOT NULL UNIQUE,
-  role       TEXT        NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+  role       TEXT        NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'store keeper', 'user')),
   pin        TEXT        NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS withdrawals (
   returned_by  INTEGER     REFERENCES fete_users(id),
   withdrawn_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   returned_at  TIMESTAMPTZ,
-  status       TEXT        NOT NULL DEFAULT 'out' CHECK (status IN ('out', 'returned')),
+  status       TEXT        NOT NULL DEFAULT 'out' CHECK (status IN ('booked', 'out', 'returned')),
   notes        TEXT        NOT NULL DEFAULT ''
 );
 

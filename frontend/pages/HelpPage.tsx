@@ -28,7 +28,7 @@ const SECTIONS: Section[] = [
         </p>
         <p>Use the sidebar to navigate between sections. The sections available to you depend on your role:</p>
         <ul className="space-y-1 ml-4 list-disc">
-          <li><strong className="text-foreground">Volunteers</strong> — can view and manage assets, fete events, and withdrawals.</li>
+          <li><strong className="text-foreground">Users</strong> — can view and manage assets, fete events, and withdrawals.</li>
           <li><strong className="text-foreground">Admins</strong> — have full access including Locations and User management.</li>
         </ul>
       </div>
@@ -188,7 +188,7 @@ const SECTIONS: Section[] = [
         </p>
         <h4 className="font-semibold text-foreground mt-4">Roles</h4>
         <div className="space-y-2">
-          <ManualRow label="Volunteer" description="Can view and create assets, fetes, and withdrawals. Cannot access Locations or Users pages." />
+          <ManualRow label="User" description="Can view and create assets, fetes, and withdrawals. Cannot access Locations or Users pages." />
           <ManualRow
             label={<span className="flex items-center gap-1"><Shield className="w-3.5 h-3.5 text-primary" /> Admin</span>}
             description="Full access to all pages including user and location management."

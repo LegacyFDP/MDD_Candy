@@ -146,7 +146,7 @@ Click the **Full History** tab to see every withdrawal ever made, including retu
 
 ## Locations *(admin only)*
 
-Locations are the physical storage spots in your store (e.g. *Main Store Room*, *Garden Shed*, *Top Shelf A*). Assets are assigned to a location so volunteers can find them easily.
+Locations are the physical storage spots in your store (e.g. *Main Store Room*, *Garden Shed*, *Top Shelf A*). Assets are assigned to a location so users can find them easily.
 
 ### Adding a location
 

@@ -3,7 +3,7 @@ type Params = { status?: string }
 export default async function (req: { params: Params; user: User }) {
   const { status } = req.params
 
-  if (status === 'out' || status === 'returned') {
+  if (status === 'out' || status === 'returned' || status === 'booked') {
     const result = await retoolDb.query(`
       SELECT w.id, w.fete_id, w.quantity, w.withdrawn_at, w.returned_at, w.status, w.notes,
              a.id AS asset_id, a.name AS asset_name, a.category,

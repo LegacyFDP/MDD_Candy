@@ -19,6 +19,7 @@ interface Props { currentUser: AppUser }
 type Asset = {
   id: number; name: string; category: string
   quantity_total: number; quantity_available: number
+  quantity_booked?: number
   location_id: number | null; location_name: string | null; notes: string
 }
 
@@ -65,7 +66,12 @@ function AssetCard({
           <Package className="w-4 h-4 text-primary flex-shrink-0" />
           <span className="font-medium truncate">{asset.name}</span>
         </div>
-        <AvailabilityBadge available={asset.quantity_available} total={asset.quantity_total} />
+        <div className="flex items-center gap-1">
+          {Boolean(asset.quantity_booked && asset.quantity_booked > 0) && (
+            <Badge variant="outline">Booked {asset.quantity_booked}</Badge>
+          )}
+          <AvailabilityBadge available={asset.quantity_available} total={asset.quantity_total} />
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">

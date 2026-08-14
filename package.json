@@ -135,27 +135,6 @@
             "type": "retoolDb"
           }
         ],
-        "/backend/fete/deleteFeteVolunteer.ts": [
-          {
-            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
-            "displayName": "retool_db",
-            "type": "retoolDb"
-          }
-        ],
-        "/backend/fete/getFeteVolunteers.ts": [
-          {
-            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
-            "displayName": "retool_db",
-            "type": "retoolDb"
-          }
-        ],
-        "/backend/fete/saveFeteVolunteer.ts": [
-          {
-            "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
-            "displayName": "retool_db",
-            "type": "retoolDb"
-          }
-        ],
         "/backend/fete/getUsersWithFetes.ts": [
           {
             "name": "dfd928b3-6dd8-420c-9fd8-a6c7ec2b671c",
@@ -171,5 +150,8 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.4"
+  },
+  "allowScripts": {
+    "sqlite3@6.0.1": true
   }
 }

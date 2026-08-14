@@ -16,7 +16,6 @@ type FeteAllocation = {
   fete_name: string
   event_date: string
   fete_status: string
-  volunteer_role: string
   notes: string
 }
 
@@ -24,7 +23,7 @@ type FeteUser = {
   id: number
   name: string
   email: string
-  role: 'admin' | 'user'
+  role: 'admin' | 'store keeper' | 'user'
   pin: string
   fetes: FeteAllocation[]
 }
@@ -94,6 +93,7 @@ export default function UsersPage({ currentUser }: Props) {
   }
 
   const admins = users.filter(u => u.role === 'admin')
+  const storeKeepers = users.filter(u => u.role === 'store keeper')
   const regularUsers = users.filter(u => u.role === 'user')
 
   return (
@@ -101,7 +101,7 @@ export default function UsersPage({ currentUser }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">User Management</h1>
-          <p className="text-muted-foreground text-sm">Manage admins and users · {users.length} total</p>
+          <p className="text-muted-foreground text-sm">Manage admins, store keepers, and users · {users.length} total</p>
         </div>
         <Button onClick={openNew} className="flex items-center gap-2">
           <Plus className="w-4 h-4" /> Add User
@@ -115,6 +115,19 @@ export default function UsersPage({ currentUser }: Props) {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {admins.map(u => (
+            <UserCard key={u.id} user={u} currentUser={currentUser}
+              onEdit={openEdit} onDelete={handleDelete} />
+          ))}
+        </div>
+      </section>
+
+      {/* Store keepers */}
+      <section>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+          <Shield className="w-4 h-4" /> Store keepers ({storeKeepers.length})
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {storeKeepers.map(u => (
             <UserCard key={u.id} user={u} currentUser={currentUser}
               onEdit={openEdit} onDelete={handleDelete} />
           ))}
@@ -155,10 +168,11 @@ export default function UsersPage({ currentUser }: Props) {
               <Label>Role</Label>
               <Select
                 {...(form.role ? { value: form.role } : {})}
-                onValueChange={v => setForm(f => ({ ...f, role: v as 'admin' | 'user' }))}>
+                onValueChange={v => setForm(f => ({ ...f, role: v as 'admin' | 'store keeper' | 'user' }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="store keeper">Store keeper</SelectItem>
                   <SelectItem value="user">User</SelectItem>
                 </SelectContent>
               </Select>
@@ -207,8 +221,8 @@ function UserCard({
     <div className="border rounded-lg p-4 bg-card text-card-foreground space-y-3">
       {/* User identity row */}
       <div className="flex items-center gap-3">
-        <div className={`p-2 rounded-full shrink-0 ${user.role === 'admin' ? 'bg-primary/10' : 'bg-muted'}`}>
-          {user.role === 'admin'
+        <div className={`p-2 rounded-full shrink-0 ${user.role === 'admin' || user.role === 'store keeper' ? 'bg-primary/10' : 'bg-muted'}`}>
+          {user.role === 'admin' || user.role === 'store keeper'
             ? <Shield className="w-5 h-5 text-primary" />
             : <User className="w-5 h-5 text-muted-foreground" />
           }
@@ -244,7 +258,6 @@ function UserCard({
               <Calendar className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0" />
               <div className="flex-1 min-w-0">
                 <span className="font-medium">{f.fete_name}</span>
-                <span className="text-muted-foreground"> · {f.volunteer_role}</span>
                 {f.notes && (
                   <p className="text-xs text-muted-foreground truncate">{f.notes}</p>
                 )}
@@ -261,7 +274,7 @@ function UserCard({
           ))}
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground pl-1 italic">Not allocated to any fete</p>
+        <p className="text-xs text-muted-foreground pl-1 italic">No event history</p>
       )}
     </div>
   )

@@ -30,6 +30,8 @@ const CATEGORIES = [
   'Linen', 'Safety', 'Shelter', 'Stationery', 'Toys', 'Other'
 ]
 
+const CUSTOM_CATEGORY = '__custom__'
+
 const emptyForm = (): Omit<Asset, 'id' | 'quantity_available' | 'location_name'> => ({
   name: '', category: 'Equipment', quantity_total: 1, location_id: null, notes: ''
 })
@@ -75,6 +77,9 @@ function AssetCard({
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+        {asset.quantity_total <= 1 && (
+          <Badge variant="outline">Unique</Badge>
+        )}
         {showCategory && (
           <span className="flex items-center gap-1">
             <Tag className="w-3 h-3" /> {asset.category}
@@ -206,7 +211,7 @@ export default function AssetsPage({ currentUser }: Props) {
     await saveAsset({
       ...(editId ? { id: editId } : {}),
       name: form.name ?? '',
-      category: form.category ?? 'Equipment',
+      category: (form.category ?? '').trim() || 'Equipment',
       quantity_total: form.quantity_total ?? 1,
       location_id: form.location_id ?? null,
       notes: form.notes ?? ''
@@ -229,6 +234,18 @@ export default function AssetsPage({ currentUser }: Props) {
     ...(assets.some(a => !a.location_id) ? ['Unassigned'] : [])
   ]
   const pills = groupBy === 'category' ? categoryPills : locationPills
+
+  const extraCategories = Array.from(
+    new Set(
+      assets
+        .map(a => a.category.trim())
+        .filter(category => category && !CATEGORIES.includes(category))
+    )
+  ).sort((a, b) => a.localeCompare(b))
+
+  const categoryOptions = [...CATEGORIES, ...extraCategories]
+  const currentCategory = (form.category ?? '').trim()
+  const isCustomCategory = Boolean(currentCategory) && !categoryOptions.includes(currentCategory)
 
   // Apply search + filter
   const filtered = assets
@@ -385,14 +402,25 @@ export default function AssetsPage({ currentUser }: Props) {
             <div className="space-y-1">
               <Label>Category</Label>
               <Select
-                {...(form.category ? { value: form.category } : {})}
-                onValueChange={v => setForm(f => ({ ...f, category: v }))}
+                value={isCustomCategory ? CUSTOM_CATEGORY : (currentCategory || 'Equipment')}
+                onValueChange={v => setForm(f => ({
+                  ...f,
+                  category: v === CUSTOM_CATEGORY ? '' : v,
+                }))}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {categoryOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  <SelectItem value={CUSTOM_CATEGORY}>+ Add new category</SelectItem>
                 </SelectContent>
               </Select>
+              {(isCustomCategory || form.category === '') && (
+                <Input
+                  placeholder="Enter new category"
+                  value={form.category ?? ''}
+                  onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                />
+              )}
             </div>
             <div className="space-y-1">
               <Label>Total Quantity</Label>
@@ -430,7 +458,7 @@ export default function AssetsPage({ currentUser }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || !form.name}>
+            <Button onClick={handleSave} disabled={saving || !form.name || !(form.category ?? '').trim()}>
               {saving ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>

@@ -103,6 +103,18 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
 
   await run(
     `
+      CREATE TABLE IF NOT EXISTS asset_categories (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT NOT NULL COLLATE NOCASE UNIQUE,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `,
+    [],
+    database,
+  )
+
+  await run(
+    `
       CREATE TABLE IF NOT EXISTS fetes (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         name        TEXT NOT NULL,
@@ -184,6 +196,26 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
 
   await run(
     "UPDATE store_locations SET location_type = 'Store' WHERE location_type IS NULL OR TRIM(location_type) = ''",
+    [],
+    database,
+  )
+
+  await run(
+    `
+      INSERT OR IGNORE INTO asset_categories (name) VALUES
+        ('Decoration'), ('Electrical'), ('Equipment'), ('Furniture'), ('Linen'),
+        ('Safety'), ('Shelter'), ('Stationery'), ('Toys'), ('Other')
+    `,
+    [],
+    database,
+  )
+  await run(
+    `
+      INSERT OR IGNORE INTO asset_categories (name)
+      SELECT DISTINCT TRIM(category)
+      FROM assets
+      WHERE TRIM(category) <> ''
+    `,
     [],
     database,
   )

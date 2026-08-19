@@ -39,6 +39,9 @@ export default function Dashboard({ currentUser }: Props) {
   const lowStock = assets.filter(a => a.quantity_available === 0).length
   const itemsOut = withdrawals.length
   const activeFetes = fetes.filter(f => f.status === 'active').length
+  const stockAlerts = assets.filter(a =>
+    a.quantity_available === 0 || (a.quantity_total > 1 && a.quantity_available < 2)
+  )
 
   const stockAlerts = assets.filter(a => {
     const threshold = a.quantity_total <= 1 ? 1 : 2

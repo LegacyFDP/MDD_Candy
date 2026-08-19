@@ -28,6 +28,14 @@ export default async function (req: { params: Params; user: User }) {
     `, [name, category, quantity_total, id, location_id, notes])
     return { success: true }
   } else {
+    const duplicate = await retoolDb.query<{ id: number }>(
+      `SELECT id FROM assets WHERE name = $1 COLLATE NOCASE`,
+      [name.trim()],
+    )
+    if (duplicate.data.length > 0) {
+      throw new Error('An asset with this name already exists')
+    }
+
     await retoolDb.query(`
       INSERT INTO assets (name, category, quantity_total, quantity_available, location_id, notes)
       VALUES ($1, $2, $3, $4, $5, $6)

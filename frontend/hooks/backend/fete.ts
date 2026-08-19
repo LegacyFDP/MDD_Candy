@@ -74,6 +74,9 @@ export const useLoginUser = makeBackendHook('loginUser')
 export const useGetAssets = makeBackendHook('getAssets')
 export const useSaveAsset = makeBackendHook('saveAsset')
 export const useDeleteAsset = makeBackendHook('deleteAsset')
+export const useGetAssetCategories = makeBackendHook('getAssetCategories')
+export const useSaveAssetCategory = makeBackendHook('saveAssetCategory')
+export const useDeleteAssetCategory = makeBackendHook('deleteAssetCategory')
 
 // Locations
 export const useGetLocations = makeBackendHook('getLocations')

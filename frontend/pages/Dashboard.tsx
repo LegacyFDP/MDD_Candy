@@ -43,11 +43,6 @@ export default function Dashboard({ currentUser }: Props) {
     a.quantity_available === 0 || (a.quantity_total > 1 && a.quantity_available < 2)
   )
 
-  const stockAlerts = assets.filter(a => {
-    const threshold = a.quantity_total <= 1 ? 1 : 2
-    return a.quantity_available < threshold
-  })
-
   const recentWithdrawals = withdrawals.slice(0, 5)
 
   return (

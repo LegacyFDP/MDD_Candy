@@ -514,11 +514,7 @@ export default function AssetsPage({ currentUser }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-<<<<<<< HEAD
-            <Button onClick={handleSave} disabled={saving || !form.name || !(form.category ?? '').trim()}>
-=======
             <Button onClick={handleSave} disabled={saving || !form.name || !form.category}>
->>>>>>> main
               {saving ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>

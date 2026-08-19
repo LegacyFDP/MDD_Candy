@@ -171,6 +171,9 @@ install_dependencies_and_build() {
   log "Installing server dependencies"
   cd "${APP_ROOT}/server"
   run_as_app_user npm install
+
+  log "Applying SQLite schema migrations"
+  run_as_app_user npm run db:migrate
 }
 
 install_systemd_service() {

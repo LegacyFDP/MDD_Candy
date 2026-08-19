@@ -6,7 +6,8 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
-    "db:init": "node ../db/init-sqlite.cjs"
+    "db:init": "node ../db/init-sqlite.cjs",
+    "db:migrate": "tsx src/migrate.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.7",

@@ -147,6 +147,7 @@ Visit fete.oxongroup.co.uk and log in with alice@charity.org / 1234.
 cd ~/projects/MDD_Candy && git pull
 cd frontend && npm install && npm run build
 cd ../server && npm install
+npm run db:migrate
 sudo systemctl restart mdd-candy
 sudo systemctl reload caddy
 ```
@@ -165,6 +166,7 @@ From the repo root:
 
 ```bash
 npm install
+npm run migrate
 npm run dev
 ```
 

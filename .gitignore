@@ -49,7 +49,7 @@ server/dist/
 /vite/
 
 # Database Files
-MDD_Candy.db
+!MDD_Candy.db
 
 # Notes
 notes/

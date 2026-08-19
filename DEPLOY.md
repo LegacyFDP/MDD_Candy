@@ -92,7 +92,24 @@ sudo systemctl enable --now mdd-candy
 journalctl -u mdd-candy -f
 ```
 
-### 5. Configure Caddy
+### 5. Configure Caddynotes
+                      ├── Alisons Observations.txt
+                      ├── Step 4 MD_Candy_staging.txt
+                      ├── Step 5.txt
+                      ├── ToDo_saturday task after webpage.txt
+                      ├── VSCode Git Copilot.txt
+                      ├── Webpage.docx
+                      ├── add fete volunteers.txt
+                      ├── clean up after git to public-events.txt
+                      ├── deploy-cheat-sheet.md
+                      ├── new branch.txt
+                      ├── recovered-chat-2026-07-11-turn-by-turn.md
+                      ├── recovered-chat-2026-07-11-user-only.md
+                      ├── recovered-chat-2026-07-11.md
+                      ├── staging-production folders as deployment copies.txt
+                      ├── staging.pdf
+                      ├── today-chat-transcript.md
+                      └── wishlist.txt
 
 Replace your domain and copy the config:
 

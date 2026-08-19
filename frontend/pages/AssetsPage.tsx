@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useGetAssets, useGetLocations, useSaveAsset, useDeleteAsset } from '../hooks/backend/fete'
+import {
+  useGetAssets, useGetLocations, useSaveAsset, useDeleteAsset,
+  useGetAssetCategories, useSaveAssetCategory, useDeleteAssetCategory
+} from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Input } from '../lib/shadcn/input'
 import { Label } from '../lib/shadcn/label'
@@ -11,7 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '../lib/shadcn/select'
 import { Tabs, TabsList, TabsTrigger } from '../lib/shadcn/tabs'
-import { Plus, Pencil, Trash2, MapPin, Package, LayoutGrid, Tag } from 'lucide-react'
+import { Plus, Pencil, Trash2, MapPin, Package, LayoutGrid, Tag, Settings2 } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -24,11 +27,7 @@ type Asset = {
 }
 
 type Location = { id: number; name: string; description: string }
-
-const CATEGORIES = [
-  'Decoration', 'Electrical', 'Equipment', 'Furniture',
-  'Linen', 'Safety', 'Shelter', 'Stationery', 'Toys', 'Other'
-]
+type AssetCategory = { id: number; name: string }
 
 const emptyForm = (): Omit<Asset, 'id' | 'quantity_available' | 'location_name'> => ({
   name: '', category: 'Equipment', quantity_total: 1, location_id: null, notes: ''
@@ -162,11 +161,15 @@ function GroupSection({
 export default function AssetsPage({ currentUser }: Props) {
   const { data: assetsRaw, trigger: loadAssets } = useGetAssets()
   const { data: locationsRaw, trigger: loadLocations } = useGetLocations()
+  const { data: categoriesRaw, trigger: loadCategories } = useGetAssetCategories()
   const { trigger: saveAsset, loading: saving } = useSaveAsset()
   const { trigger: deleteAsset } = useDeleteAsset()
+  const { trigger: saveCategory, loading: savingCategory } = useSaveAssetCategory()
+  const { trigger: deleteCategory } = useDeleteAssetCategory()
 
   const assets = (assetsRaw ?? []) as Asset[]
   const locations = (locationsRaw ?? []) as Location[]
+  const categories = (categoriesRaw ?? []) as AssetCategory[]
 
   const [groupBy, setGroupBy] = useState<'category' | 'location'>('location')
   const [filterValue, setFilterValue] = useState('All')
@@ -175,10 +178,16 @@ export default function AssetsPage({ currentUser }: Props) {
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<Partial<Omit<Asset, 'quantity_available' | 'location_name'>>>(emptyForm())
   const [editId, setEditId] = useState<number | null>(null)
+  const [saveError, setSaveError] = useState('')
+  const [categoriesOpen, setCategoriesOpen] = useState(false)
+  const [categoryName, setCategoryName] = useState('')
+  const [categoryEditId, setCategoryEditId] = useState<number | null>(null)
+  const [categoryError, setCategoryError] = useState('')
 
   useEffect(() => {
     void loadAssets({})
     void loadLocations({})
+    void loadCategories({})
   }, [])
 
   // Reset filter when switching group mode
@@ -188,8 +197,9 @@ export default function AssetsPage({ currentUser }: Props) {
   }
 
   function openNew() {
-    setForm(emptyForm())
+    setForm({ ...emptyForm(), category: categories[0]?.name ?? '' })
     setEditId(null)
+    setSaveError('')
     setOpen(true)
   }
 
@@ -199,26 +209,68 @@ export default function AssetsPage({ currentUser }: Props) {
       location_id: a.location_id, notes: a.notes
     })
     setEditId(a.id)
+    setSaveError('')
     setOpen(true)
   }
 
   async function handleSave() {
-    await saveAsset({
-      ...(editId ? { id: editId } : {}),
-      name: form.name ?? '',
-      category: form.category ?? 'Equipment',
-      quantity_total: form.quantity_total ?? 1,
-      location_id: form.location_id ?? null,
-      notes: form.notes ?? ''
-    })
-    setOpen(false)
-    void loadAssets({})
+    setSaveError('')
+    try {
+      await saveAsset({
+        ...(editId ? { id: editId } : {}),
+        name: form.name ?? '',
+        category: form.category ?? '',
+        quantity_total: form.quantity_total ?? 1,
+        location_id: form.location_id ?? null,
+        notes: form.notes ?? ''
+      })
+      setOpen(false)
+      void loadAssets({})
+    } catch (error) {
+      setSaveError((error as Error).message)
+    }
   }
 
   async function handleDelete(id: number) {
     if (!confirm('Delete this asset?')) return
     await deleteAsset({ id })
     void loadAssets({})
+  }
+
+  function openNewCategory() {
+    setCategoryEditId(null)
+    setCategoryName('')
+    setCategoryError('')
+  }
+
+  function openEditCategory(category: AssetCategory) {
+    setCategoryEditId(category.id)
+    setCategoryName(category.name)
+    setCategoryError('')
+  }
+
+  async function handleSaveCategory() {
+    setCategoryError('')
+    try {
+      await saveCategory({ ...(categoryEditId ? { id: categoryEditId } : {}), name: categoryName })
+      openNewCategory()
+      void loadCategories({})
+      void loadAssets({})
+    } catch (error) {
+      setCategoryError((error as Error).message)
+    }
+  }
+
+  async function handleDeleteCategory(category: AssetCategory) {
+    if (!confirm(`Delete the ${category.name} category?`)) return
+    setCategoryError('')
+    try {
+      await deleteCategory({ id: category.id })
+      if (categoryEditId === category.id) openNewCategory()
+      void loadCategories({})
+    } catch (error) {
+      setCategoryError((error as Error).message)
+    }
   }
 
   // Build filter pill options
@@ -296,9 +348,14 @@ export default function AssetsPage({ currentUser }: Props) {
           <p className="text-muted-foreground text-sm">Track all items in the charity store</p>
         </div>
         {isAdmin && (
-          <Button onClick={openNew} className="flex items-center gap-2">
-            <Plus className="w-4 h-4" /> Add Asset
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => setCategoriesOpen(true)} aria-label="Manage categories">
+              <Settings2 className="w-4 h-4" />
+            </Button>
+            <Button onClick={openNew} className="flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Add Asset
+            </Button>
+          </div>
         )}
       </div>
 
@@ -390,7 +447,7 @@ export default function AssetsPage({ currentUser }: Props) {
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {categories.map(category => <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -430,10 +487,39 @@ export default function AssetsPage({ currentUser }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || !form.name}>
+            <Button onClick={handleSave} disabled={saving || !form.name || !form.category}>
               {saving ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>
+          {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={categoriesOpen} onOpenChange={setCategoriesOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Manage Categories</DialogTitle>
+          </DialogHeader>
+          <div className="flex gap-2">
+            <Input value={categoryName} onChange={event => setCategoryName(event.target.value)} placeholder="Category name" />
+            <Button onClick={handleSaveCategory} disabled={savingCategory || !categoryName.trim()}>
+              {categoryEditId ? 'Save' : 'Add'}
+            </Button>
+          </div>
+          {categoryError && <p className="text-sm text-destructive">{categoryError}</p>}
+          <div className="space-y-1">
+            {categories.map(category => (
+              <div key={category.id} className="flex items-center gap-2 border-b py-2 last:border-0">
+                <span className="flex-1 text-sm">{category.name}</span>
+                <Button size="icon" variant="ghost" onClick={() => openEditCategory(category)} aria-label={`Edit ${category.name}`}>
+                  <Pencil className="w-4 h-4" />
+                </Button>
+                <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => void handleDeleteCategory(category)} aria-label={`Delete ${category.name}`}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

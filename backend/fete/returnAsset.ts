@@ -29,7 +29,7 @@ export default async function (req: { params: Params; user: User }) {
   // Mark as returned
   await retoolDb.query(`
     UPDATE withdrawals
-    SET status = 'returned', returned_at = NOW(), returned_by = $1, notes = COALESCE(NULLIF(notes,''), '') || $2
+    SET status = 'returned', returned_at = CURRENT_TIMESTAMP, returned_by = $1, notes = COALESCE(NULLIF(notes,''), '') || $2
     WHERE id = $3
   `, [returned_by, notes ? (' | Return note: ' + notes) : '', withdrawal_id])
 

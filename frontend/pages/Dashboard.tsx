@@ -39,6 +39,9 @@ export default function Dashboard({ currentUser }: Props) {
   const lowStock = assets.filter(a => a.quantity_available === 0).length
   const itemsOut = withdrawals.length
   const activeFetes = fetes.filter(f => f.status === 'active').length
+  const stockAlerts = assets.filter(a =>
+    a.quantity_available === 0 || (a.quantity_total > 1 && a.quantity_available < 2)
+  )
 
   const recentWithdrawals = withdrawals.slice(0, 5)
 
@@ -100,11 +103,11 @@ export default function Dashboard({ currentUser }: Props) {
             <CardTitle className="text-base">Stock Alert</CardTitle>
           </CardHeader>
           <CardContent>
-            {assets.filter(a => a.quantity_available < 2).length === 0 ? (
+            {stockAlerts.length === 0 ? (
               <p className="text-muted-foreground text-sm">All items well stocked.</p>
             ) : (
               <ul className="space-y-2">
-                {assets.filter(a => a.quantity_available < 2).map(asset => (
+                {stockAlerts.map(asset => (
                   <li key={asset.id} className="flex justify-between items-center text-sm">
                     <span>{asset.name}</span>
                     <span className={`font-semibold ${asset.quantity_available === 0 ? 'text-destructive' : 'text-amber-600 dark:text-amber-400'}`}>

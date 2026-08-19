@@ -467,12 +467,7 @@ export default function AssetsPage({ currentUser }: Props) {
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-<<<<<<< HEAD
-                  {categoryOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  <SelectItem value={CUSTOM_CATEGORY}>+ Add new category</SelectItem>
-=======
                   {categories.map(category => <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>)}
->>>>>>> main
                 </SelectContent>
               </Select>
               {(isCustomCategory || form.category === '') && (

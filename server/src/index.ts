@@ -3,7 +3,7 @@ import express from 'express'
 import { existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { createRetoolDb, db } from './db.js'
+import { activeDatabaseFile, createRetoolDb, db } from './db.js'
 
 // ---------------------------------------------------------------------------
 // 1. Provide the `retoolDb` global the backend functions reference.
@@ -67,7 +67,7 @@ async function main() {
 
   // Health check for load balancers / uptime monitors.
   app.get('/api/health', (_req, res) => {
-    res.json({ ok: true })
+    res.json({ ok: true, database: activeDatabaseFile })
   })
 
   // Every backend function is reachable at POST /api/<functionName>.

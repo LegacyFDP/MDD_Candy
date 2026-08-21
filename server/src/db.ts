@@ -9,6 +9,8 @@ if (!existsSync(dbPath)) {
   throw new Error(`SQLite database not found at ${dbPath}. Run "npm run db:init" only for a new database.`)
 }
 
+export const activeDatabaseFile = path.basename(dbPath)
+
 // SQLite database connection
 export const db = new sqlite3.Database(dbPath, (err) => {
   if (err) console.error('Database connection error:', err)

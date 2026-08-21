@@ -1,9 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGetAssets, useGetWithdrawals, useGetFetes } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../lib/shadcn/card'
-import { Package, ArrowUpFromLine, Tent, AlertTriangle, Printer } from 'lucide-react'
+import { Package, ArrowUpFromLine, Tent, AlertTriangle, Printer, Database } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -20,16 +20,22 @@ type Withdrawal = {
 }
 
 type Fete = { id: number; status: string; name: string }
+type HealthResponse = { ok: boolean; database?: string }
 
 export default function Dashboard({ currentUser }: Props) {
   const { data: assetsRaw, trigger: loadAssets } = useGetAssets()
   const { data: withdrawalsRaw, trigger: loadWithdrawals } = useGetWithdrawals()
   const { data: fetesRaw, trigger: loadFetes } = useGetFetes()
+  const [databaseFile, setDatabaseFile] = useState<string | null>(null)
 
   useEffect(() => {
     void loadAssets({})
     void loadWithdrawals({ status: 'out' })
     void loadFetes({})
+    void fetch('/api/health')
+      .then(response => response.ok ? response.json() as Promise<HealthResponse> : null)
+      .then(health => setDatabaseFile(health?.database ?? null))
+      .catch(() => setDatabaseFile(null))
   }, [])
 
   const assets = (assetsRaw ?? []) as Asset[]
@@ -50,6 +56,10 @@ export default function Dashboard({ currentUser }: Props) {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
         <p className="text-muted-foreground">Welcome back, {currentUser.name}</p>
+        <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+          <Database className="h-3.5 w-3.5" />
+          Data source: {databaseFile ?? 'Unavailable'}
+        </p>
       </div>
 
       {/* Stats */}

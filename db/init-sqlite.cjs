@@ -131,6 +131,15 @@ CREATE TABLE IF NOT EXISTS assets (
   created_at         TEXT        NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS storage_areas (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  location_id   INTEGER NOT NULL REFERENCES store_locations(id) ON DELETE CASCADE,
+  name          TEXT NOT NULL,
+  description   TEXT NOT NULL DEFAULT '',
+  notes         TEXT NOT NULL DEFAULT '',
+  created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS fetes (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   name        TEXT        NOT NULL,

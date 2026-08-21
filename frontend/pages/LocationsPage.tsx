@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
-import { useGetLocations, useSaveLocation, useArchiveLocation } from '../hooks/backend/fete'
+import {
+  useGetLocations, useSaveLocation, useArchiveLocation,
+  useGetStorageAreas, useSaveStorageArea, useDeleteStorageArea,
+} from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Input } from '../lib/shadcn/input'
 import { Label } from '../lib/shadcn/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../lib/shadcn/dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../lib/shadcn/tooltip'
-import { Plus, Pencil, MapPin, Trash2, RotateCcw, Search } from 'lucide-react'
+import { Plus, Pencil, MapPin, Trash2, RotateCcw, Search, Layers } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -24,18 +27,37 @@ type Location = {
   archived_by_name: string | null
 }
 
+type StorageArea = {
+  id: number
+  location_id: number
+  location_name: string
+  name: string
+  description: string
+  notes: string
+  created_at: string
+}
+
 export default function LocationsPage({ currentUser }: Props) {
   const { data: locationsRaw, trigger: loadLocations, loading: loadingLocations, error: locationsError } = useGetLocations()
   const { trigger: saveLocation, loading: saving } = useSaveLocation()
   const { trigger: archiveLocation, loading: archiving } = useArchiveLocation()
+  const { data: areasRaw, trigger: loadAreas } = useGetStorageAreas()
+  const { trigger: saveArea, loading: savingArea } = useSaveStorageArea()
+  const { trigger: deleteArea, loading: deletingArea } = useDeleteStorageArea()
 
   const locations = (locationsRaw ?? []) as Location[]
+  const areas = (areasRaw ?? []) as StorageArea[]
 
   const [open, setOpen] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
   const [saveError, setSaveError] = useState('')
   const [search, setSearch] = useState('')
   const [locationView, setLocationView] = useState<'active' | 'archived' | 'all'>('active')
+  const [areasOpen, setAreasOpen] = useState(false)
+  const [areaLocation, setAreaLocation] = useState<Location | null>(null)
+  const [areaEditId, setAreaEditId] = useState<number | null>(null)
+  const [areaError, setAreaError] = useState('')
+  const [areaForm, setAreaForm] = useState({ name: '', description: '', notes: '' })
   const [form, setForm] = useState<Partial<Location>>({
     name: '',
     description: '',
@@ -47,7 +69,10 @@ export default function LocationsPage({ currentUser }: Props) {
     postcode: ''
   })
 
-  useEffect(() => { void loadLocations({}) }, [])
+  useEffect(() => {
+    void loadLocations({})
+    void loadAreas({})
+  }, [])
 
   const isAdmin = currentUser.role === 'admin'
 
@@ -127,6 +152,55 @@ export default function LocationsPage({ currentUser }: Props) {
     void loadLocations({})
   }
 
+  function openAreas(location: Location) {
+    setAreaLocation(location)
+    setAreaEditId(null)
+    setAreaError('')
+    setAreaForm({ name: '', description: '', notes: '' })
+    setAreasOpen(true)
+  }
+
+  function editArea(area: StorageArea) {
+    setAreaEditId(area.id)
+    setAreaError('')
+    setAreaForm({ name: area.name, description: area.description, notes: area.notes })
+  }
+
+  function clearAreaForm() {
+    setAreaEditId(null)
+    setAreaError('')
+    setAreaForm({ name: '', description: '', notes: '' })
+  }
+
+  async function handleSaveArea() {
+    if (!areaLocation) return
+    setAreaError('')
+    try {
+      await saveArea({
+        ...(areaEditId ? { id: areaEditId } : {}),
+        location_id: areaLocation.id,
+        name: areaForm.name,
+        description: areaForm.description,
+        notes: areaForm.notes,
+      })
+      clearAreaForm()
+      void loadAreas({})
+    } catch (error) {
+      setAreaError(error instanceof Error ? error.message : 'Failed to save Storage Area')
+    }
+  }
+
+  async function handleDeleteArea(area: StorageArea) {
+    if (!confirm(`Delete Storage Area “${area.name}”? This cannot be undone.`)) return
+    try {
+      await deleteArea({ id: area.id })
+      if (areaEditId === area.id) clearAreaForm()
+      void loadAreas({})
+    } catch (error) {
+      setAreaError(error instanceof Error ? error.message : 'Failed to delete Storage Area')
+    }
+  }
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -188,6 +262,12 @@ export default function LocationsPage({ currentUser }: Props) {
                   {loc.archived_by_name && ` by ${loc.archived_by_name}`}
                 </p>
               )}
+              <div className="mt-2 flex items-center gap-2">
+                <Layers className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">
+                  {areas.filter(area => area.location_id === loc.id).length} Storage Area{areas.filter(area => area.location_id === loc.id).length !== 1 ? 's' : ''}
+                </span>
+              </div>
               {loc.description && (
                 <p className="text-sm text-muted-foreground mt-0.5">{loc.description}</p>
               )}
@@ -234,6 +314,16 @@ export default function LocationsPage({ currentUser }: Props) {
                     {loc.archived_at ? `Restore ${loc.name}` : `Archive ${loc.name}; preserve linked history`}
                   </TooltipContent>
                 </Tooltip>
+                {!loc.archived_at && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button size="icon" variant="outline" onClick={() => openAreas(loc)} aria-label={`Manage Storage Areas for ${loc.name}`}>
+                        <Layers className="w-3 h-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Manage Storage Areas</TooltipContent>
+                  </Tooltip>
+                )}
               </div>
             )}
           </div>
@@ -323,6 +413,80 @@ export default function LocationsPage({ currentUser }: Props) {
             >
               {saving ? 'Saving…' : 'Save'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={areasOpen} onOpenChange={setAreasOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Storage Areas · {areaLocation?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2 max-h-56 overflow-y-auto">
+              {areas.filter(area => area.location_id === areaLocation?.id).map(area => (
+                <div key={area.id} className="flex items-start gap-2 border rounded-md p-2">
+                  <Layers className="w-4 h-4 text-muted-foreground mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{area.name}</p>
+                    {area.description && <p className="text-xs text-muted-foreground">{area.description}</p>}
+                    {area.notes && <p className="text-xs text-muted-foreground">Note: {area.notes}</p>}
+                  </div>
+                  {isAdmin && (
+                    <>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="icon" variant="outline" onClick={() => editArea(area)} aria-label={`Edit ${area.name}`}>
+                            <Pencil className="w-3 h-3" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Edit {area.name}</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="icon" variant="outline" onClick={() => void handleDeleteArea(area)} disabled={deletingArea} aria-label={`Delete ${area.name}`}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete {area.name}</TooltipContent>
+                      </Tooltip>
+                    </>
+                  )}
+                </div>
+              ))}
+              {areas.filter(area => area.location_id === areaLocation?.id).length === 0 && (
+                <p className="text-sm text-muted-foreground">No Storage Areas defined yet.</p>
+              )}
+            </div>
+            {isAdmin && (
+              <div className="border-t border-border pt-3 space-y-2">
+                <div className="space-y-1">
+                  <Label>Area Name</Label>
+                  <Input value={areaForm.name} onChange={e => setAreaForm(form => ({ ...form, name: e.target.value }))} placeholder="e.g. Shelf A" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Description</Label>
+                  <Input value={areaForm.description} onChange={e => setAreaForm(form => ({ ...form, description: e.target.value }))} placeholder="Optional" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Label>Notes</Label>
+                    <span className="text-xs text-muted-foreground">{areaForm.notes.length}/120</span>
+                  </div>
+                  <Input value={areaForm.notes} maxLength={120} onChange={e => setAreaForm(form => ({ ...form, notes: e.target.value }))} placeholder="Optional" />
+                </div>
+                {areaError && <p className="text-sm text-red-600">{areaError}</p>}
+                <div className="flex gap-2">
+                  <Button onClick={() => void handleSaveArea()} disabled={savingArea || !areaForm.name.trim()}>
+                    <Plus className="w-4 h-4 mr-1" /> {areaEditId ? 'Save Area' : 'Add Area'}
+                  </Button>
+                  {areaEditId && <Button variant="outline" onClick={clearAreaForm}>Clear</Button>}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAreasOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

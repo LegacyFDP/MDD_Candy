@@ -44,6 +44,15 @@ CREATE TABLE IF NOT EXISTS assets (
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS storage_areas (
+  id            SERIAL PRIMARY KEY,
+  location_id   INTEGER NOT NULL REFERENCES store_locations(id) ON DELETE CASCADE,
+  name          TEXT NOT NULL,
+  description   TEXT NOT NULL DEFAULT '',
+  notes         TEXT NOT NULL DEFAULT '',
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS fetes (
   id          SERIAL PRIMARY KEY,
   name        TEXT        NOT NULL,

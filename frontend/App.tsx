@@ -10,6 +10,7 @@ import PrintListsPage from './pages/PrintListsPage'
 import LocationsPage from './pages/LocationsPage'
 import HelpPage from './pages/HelpPage'
 import { Button } from './lib/shadcn/button'
+import { TooltipProvider } from './lib/shadcn/tooltip'
 import {
   LayoutDashboard, Package, Tent, ArrowUpFromLine,
   Users, Printer, MapPin, LogOut, Menu, X, Shield, HelpCircle
@@ -35,6 +36,7 @@ export default function App() {
   }
 
   return (
+    <TooltipProvider>
     <div className="app-shell flex h-screen bg-background overflow-hidden">
       {/* Mobile overlay */}
       {sidebarOpen && (
@@ -129,6 +131,7 @@ export default function App() {
         </main>
       </div>
     </div>
+    </TooltipProvider>
   )
 }
 

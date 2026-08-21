@@ -81,6 +81,7 @@ export const useDeleteAssetCategory = makeBackendHook('deleteAssetCategory')
 // Locations
 export const useGetLocations = makeBackendHook('getLocations')
 export const useSaveLocation = makeBackendHook('saveLocation')
+export const useArchiveLocation = makeBackendHook('archiveLocation')
 
 // Fete locations (event venues in store_locations where location_type='Fetes')
 export const useGetFeteLocations = makeBackendHook('getFeteLocations')
@@ -90,6 +91,7 @@ export const useDeleteFeteLocation = makeBackendHook('deleteFeteLocation')
 // Fetes
 export const useGetFetes = makeBackendHook('getFetes')
 export const useSaveFete = makeBackendHook('saveFete')
+export const useArchiveFete = makeBackendHook('archiveFete')
 
 // Withdrawals
 export const useGetWithdrawals = makeBackendHook('getWithdrawals')

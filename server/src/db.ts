@@ -84,7 +84,9 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
         town_city     TEXT NOT NULL DEFAULT '',
         county        TEXT NOT NULL DEFAULT '',
         postcode      TEXT NOT NULL DEFAULT '',
-        location_type TEXT NOT NULL DEFAULT 'Store'
+        location_type TEXT NOT NULL DEFAULT 'Store',
+        archived_at   TEXT,
+        archived_by   INTEGER REFERENCES fete_users(id) ON DELETE SET NULL
       )
     `,
     [],
@@ -131,6 +133,8 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
         status      TEXT NOT NULL DEFAULT 'planned',
         created_by  INTEGER REFERENCES fete_users(id) ON DELETE SET NULL,
         location_id INTEGER REFERENCES store_locations(id) ON DELETE SET NULL,
+        archived_at TEXT,
+        archived_by INTEGER REFERENCES fete_users(id) ON DELETE SET NULL,
         created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `,
@@ -182,6 +186,8 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
     { name: 'postcode', sqlType: "TEXT NOT NULL DEFAULT ''" },
     { name: 'location_type', sqlType: "TEXT NOT NULL DEFAULT 'Store'" },
     { name: 'notes', sqlType: "TEXT NOT NULL DEFAULT ''" },
+    { name: 'archived_at', sqlType: 'TEXT' },
+    { name: 'archived_by', sqlType: 'INTEGER REFERENCES fete_users(id) ON DELETE SET NULL' },
   ]
 
   for (const addition of locationAdditions) {
@@ -199,6 +205,14 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
   if (!feteExisting.has('notes')) {
     await run("ALTER TABLE fetes ADD COLUMN notes TEXT NOT NULL DEFAULT '';", [], database)
     console.log('Added missing fetes column: notes')
+  }
+  if (!feteExisting.has('archived_at')) {
+    await run('ALTER TABLE fetes ADD COLUMN archived_at TEXT;', [], database)
+    console.log('Added missing fetes column: archived_at')
+  }
+  if (!feteExisting.has('archived_by')) {
+    await run('ALTER TABLE fetes ADD COLUMN archived_by INTEGER REFERENCES fete_users(id) ON DELETE SET NULL;', [], database)
+    console.log('Added missing fetes column: archived_by')
   }
 
   const withdrawalColumns = await all<{ name: string }>('PRAGMA table_info(withdrawals);', [], database)

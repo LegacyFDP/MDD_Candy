@@ -28,7 +28,9 @@ CREATE TABLE IF NOT EXISTS store_locations (
   town_city     TEXT NOT NULL DEFAULT '',
   county        TEXT NOT NULL DEFAULT '',
   postcode      TEXT NOT NULL DEFAULT '',
-  location_type TEXT NOT NULL DEFAULT 'Store' CHECK (location_type IN ('Store', 'Fetes'))
+  location_type TEXT NOT NULL DEFAULT 'Store' CHECK (location_type IN ('Store', 'Fetes')),
+  archived_at TIMESTAMPTZ,
+  archived_by INTEGER REFERENCES fete_users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS assets (
@@ -51,6 +53,8 @@ CREATE TABLE IF NOT EXISTS fetes (
   status      TEXT        NOT NULL DEFAULT 'planned',
   created_by  INTEGER     REFERENCES fete_users(id) ON DELETE SET NULL,
   location_id INTEGER     REFERENCES store_locations(id) ON DELETE SET NULL,
+  archived_at TIMESTAMPTZ,
+  archived_by INTEGER     REFERENCES fete_users(id) ON DELETE SET NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

@@ -8,7 +8,7 @@ import {
 } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../lib/shadcn/card'
-import { Printer, Calendar, MapPin, Package } from 'lucide-react'
+import { Printer, Calendar, MapPin, Package, Download } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -40,7 +40,9 @@ type Asset = {
   category: string
   quantity_total: number
   quantity_available: number
+  quantity_booked?: number
   location_name: string | null
+  storage_area_name: string | null
   notes: string
 }
 
@@ -135,30 +137,23 @@ export default function PrintListsPage({ currentUser }: Props) {
     [storeLocations, feteLocations],
   )
 
-  const assetsByCategory = useMemo(() => {
-    const grouped = assets.reduce<Record<string, Asset[]>>((acc, asset) => {
-      const category = normalizeAssetCategory(asset.category)
-      if (!acc[category]) acc[category] = []
-      acc[category]!.push({ ...asset, category })
-      return acc
-    }, {})
+  const assetReportRows = useMemo(
+    () => assets
+      .map((asset) => ({ ...asset, category: normalizeAssetCategory(asset.category) }))
+      .sort((left, right) => {
+        const leftLocation = left.location_name ?? 'Unassigned Location'
+        const rightLocation = right.location_name ?? 'Unassigned Location'
+        const locationOrder = leftLocation.localeCompare(rightLocation)
+        if (locationOrder !== 0) return locationOrder
 
-    return Object.entries(grouped)
-      .sort(([left], [right]) => {
-        const leftIndex = CATEGORY_ORDER.indexOf(left)
-        const rightIndex = CATEGORY_ORDER.indexOf(right)
-
-        const leftRank = leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex
-        const rightRank = rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex
-
-        if (leftRank !== rightRank) return leftRank - rightRank
-        return left.localeCompare(right)
-      })
-      .map(([category, items]) => ({
-        category,
-        items: items.sort((left, right) => left.name.localeCompare(right.name)),
-      }))
-  }, [assets])
+        const leftArea = left.storage_area_name ?? 'Unassigned Area'
+        const rightArea = right.storage_area_name ?? 'Unassigned Area'
+        const areaOrder = leftArea.localeCompare(rightArea)
+        if (areaOrder !== 0) return areaOrder
+        return left.name.localeCompare(right.name)
+      }),
+    [assets],
+  )
 
   const pickListsByFete = useMemo(() => {
     const grouped = new Map<number, {
@@ -320,6 +315,32 @@ export default function PrintListsPage({ currentUser }: Props) {
     window.print()
   }
 
+  function downloadAssetCsv() {
+    const columns = ['Store Location', 'Storage Area', 'Asset', 'Category', 'Total', 'Available', 'Booked', 'Notes']
+    const escapeCsv = (value: unknown) => {
+      const text = String(value ?? '')
+      return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+    }
+    const rows = assetReportRows.map((asset) => [
+      asset.location_name ?? 'Unassigned Location',
+      asset.storage_area_name ?? 'Unassigned Area',
+      asset.name,
+      asset.category,
+      asset.quantity_total,
+      asset.quantity_available,
+      asset.quantity_booked ?? 0,
+      asset.notes,
+    ])
+    const csv = [columns, ...rows].map(row => row.map(escapeCsv).join(',')).join('\r\n')
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `asset-location-area-report-${new Date().toISOString().slice(0, 10)}.csv`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="p-6 space-y-4 print-page">
       <div className="flex items-start justify-between gap-3 print-hidden">
@@ -450,53 +471,54 @@ export default function PrintListsPage({ currentUser }: Props) {
         <CardHeader className="print-header">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Package className="w-4 h-4" /> Assets By Type
+              <Package className="w-4 h-4" /> Assets By Location &amp; Area
             </CardTitle>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="print-hidden"
-              onClick={() => printSection('print-assets')}
-            >
-              <Printer className="w-3.5 h-3.5 mr-1" /> Print Assets
-            </Button>
+            <div className="flex gap-2 print-hidden">
+              <Button type="button" variant="outline" size="sm" onClick={() => printSection('print-assets')}>
+                <Printer className="w-3.5 h-3.5 mr-1" /> Print Assets
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={downloadAssetCsv} disabled={assetReportRows.length === 0}>
+                <Download className="w-3.5 h-3.5 mr-1" /> Export CSV
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent id="print-assets" className="space-y-4 print-section">
-          {assetsByCategory.length === 0 && (
+          {assetReportRows.length === 0 && (
             <p className="text-sm text-muted-foreground">No assets available.</p>
           )}
-          {assetsByCategory.map((group) => (
-            <div key={group.category} className="border rounded-md p-3 print-avoid-break">
-              <p className="text-sm font-semibold mb-2">{group.category}</p>
+          {assetReportRows.length > 0 && (
+            <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
-                    <th className="text-left py-1 font-medium">Asset</th>
-                    <th className="text-left py-1 font-medium">Location</th>
-                    <th className="text-right py-1 font-medium">Total</th>
-                    <th className="text-right py-1 font-medium">Available</th>
+                    <th className="text-left py-2 font-medium">Store Location</th>
+                    <th className="text-left py-2 font-medium">Storage Area</th>
+                    <th className="text-left py-2 font-medium">Asset</th>
+                    <th className="text-left py-2 font-medium">Category</th>
+                    <th className="text-right py-2 font-medium">Total</th>
+                    <th className="text-right py-2 font-medium">Available</th>
+                    <th className="text-right py-2 font-medium">Booked</th>
+                    <th className="text-left py-2 font-medium">Notes</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {group.items.map((asset) => (
+                  {assetReportRows.map((asset) => (
                     <tr key={asset.id} className="border-b border-border align-top">
-                      <td className="py-1.5">
-                        <p className="font-medium">{asset.name}</p>
-                        {asset.notes && (
-                          <p className="text-xs text-muted-foreground">{asset.notes}</p>
-                        )}
-                      </td>
-                      <td className="py-1.5">{asset.location_name ?? '-'}</td>
+                      <td className="py-1.5">{asset.location_name ?? 'Unassigned Location'}</td>
+                      <td className="py-1.5">{asset.storage_area_name ?? 'Unassigned Area'}</td>
+                      <td className="py-1.5 font-medium">{asset.name}</td>
+                      <td className="py-1.5">{asset.category}</td>
                       <td className="py-1.5 text-right">{asset.quantity_total}</td>
                       <td className="py-1.5 text-right">{asset.quantity_available}</td>
+                      <td className="py-1.5 text-right">{asset.quantity_booked ?? 0}</td>
+                      <td className="py-1.5">{asset.notes || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          ))}
+          )}
           <p className="print-only-footer text-xs text-muted-foreground mt-3">
             Printed: {generatedAt}
           </p>

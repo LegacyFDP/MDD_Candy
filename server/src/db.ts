@@ -194,6 +194,13 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
     console.log('Added missing fetes column: notes')
   }
 
+  const withdrawalColumns = await all<{ name: string }>('PRAGMA table_info(withdrawals);', [], database)
+  const withdrawalExisting = new Set(withdrawalColumns.map((column) => column.name))
+  if (!withdrawalExisting.has('returned_at')) {
+    await run('ALTER TABLE withdrawals ADD COLUMN returned_at TEXT;', [], database)
+    console.log('Added missing withdrawals column: returned_at')
+  }
+
   await run(
     "UPDATE store_locations SET location_type = 'Store' WHERE location_type IS NULL OR TRIM(location_type) = ''",
     [],

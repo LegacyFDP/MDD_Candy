@@ -149,6 +149,7 @@ CREATE TABLE IF NOT EXISTS withdrawals (
   withdrawn_by INTEGER     NOT NULL REFERENCES fete_users(id),
   returned_by  INTEGER     REFERENCES fete_users(id),
   withdrawn_at TEXT        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  returned_at  TEXT,
   status       TEXT        NOT NULL DEFAULT 'out',
   notes        TEXT        NOT NULL DEFAULT ''
 );

@@ -287,15 +287,16 @@ export default function AssetsPage({ currentUser }: Props) {
   ]
   const pills = groupBy === 'category' ? categoryPills : locationPills
 
+  const managedCategoryNames = categories.map(category => category.name)
   const extraCategories = Array.from(
     new Set(
       assets
         .map(a => a.category.trim())
-        .filter(category => category && !CATEGORIES.includes(category))
+        .filter(category => category && !managedCategoryNames.includes(category))
     )
   ).sort((a, b) => a.localeCompare(b))
 
-  const categoryOptions = [...CATEGORIES, ...extraCategories]
+  const categoryOptions = [...managedCategoryNames, ...extraCategories]
   const currentCategory = (form.category ?? '').trim()
   const isCustomCategory = Boolean(currentCategory) && !categoryOptions.includes(currentCategory)
 

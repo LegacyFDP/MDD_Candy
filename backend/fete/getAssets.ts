@@ -3,7 +3,8 @@ export default async function (_req: { params: Record<string, never>; user: User
     SELECT a.id, a.name, a.category, a.quantity_total, a.quantity_available,
            a.notes, a.created_at,
            COALESCE(b.quantity_booked, 0) AS quantity_booked,
-           sl.id AS location_id, sl.name AS location_name
+           sl.id AS location_id, sl.name AS location_name,
+           sa.id AS storage_area_id, sa.name AS storage_area_name
     FROM assets a
     LEFT JOIN (
       SELECT asset_id, SUM(quantity) AS quantity_booked
@@ -12,6 +13,7 @@ export default async function (_req: { params: Record<string, never>; user: User
       GROUP BY asset_id
     ) b ON b.asset_id = a.id
     LEFT JOIN store_locations sl ON a.location_id = sl.id
+    LEFT JOIN storage_areas sa ON a.storage_area_id = sa.id
     ORDER BY a.category ASC, a.name ASC
   `)
   return result.data

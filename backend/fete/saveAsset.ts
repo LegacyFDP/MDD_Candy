@@ -4,11 +4,24 @@ type Params = {
   category: string
   quantity_total: number
   location_id: number | null
+  storage_area_id: number | null
   notes: string
 }
 
 export default async function (req: { params: Params; user: User }) {
-  const { id, name, category, quantity_total, location_id, notes } = req.params
+  const { id, name, category, quantity_total, location_id, storage_area_id, notes } = req.params
+
+  if (storage_area_id != null) {
+    if (location_id == null) throw new Error('A Storage Area requires a Store Location')
+    const area = await retoolDb.query<{ id: number }>(
+      `SELECT sa.id
+       FROM storage_areas sa
+       INNER JOIN store_locations sl ON sl.id = sa.location_id
+       WHERE sa.id = $1 AND sa.location_id = $2 AND sl.location_type = 'Store' AND sl.archived_at IS NULL`,
+      [storage_area_id, location_id],
+    )
+    if (area.data.length === 0) throw new Error('Storage Area must belong to the selected active Store Location')
+  }
 
   if (id) {
     // Update: recalculate available = total - currently out
@@ -23,9 +36,10 @@ export default async function (req: { params: Params; user: User }) {
             WHERE asset_id = $4 AND status = 'out'
           ),
           location_id = $5,
-          notes = $6
+              storage_area_id = $6,
+              notes = $7
       WHERE id = $4
-    `, [name, category, quantity_total, id, location_id, notes])
+            `, [name, category, quantity_total, id, location_id, storage_area_id ?? null, notes])
     return { success: true }
   } else {
     const duplicate = await retoolDb.query<{ id: number }>(
@@ -37,9 +51,9 @@ export default async function (req: { params: Params; user: User }) {
     }
 
     await retoolDb.query(`
-      INSERT INTO assets (name, category, quantity_total, quantity_available, location_id, notes)
-      VALUES ($1, $2, $3, $4, $5, $6)
-    `, [name, category, quantity_total, quantity_total, location_id, notes])
+      INSERT INTO assets (name, category, quantity_total, quantity_available, location_id, storage_area_id, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [name, category, quantity_total, quantity_total, location_id, storage_area_id ?? null, notes])
     return { success: true }
   }
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import {
   useGetAssets, useGetLocations, useSaveAsset, useDeleteAsset,
-  useGetAssetCategories, useSaveAssetCategory, useDeleteAssetCategory
+  useGetAssetCategories, useSaveAssetCategory, useDeleteAssetCategory,
+  useGetStorageAreas
 } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Input } from '../lib/shadcn/input'
@@ -23,16 +24,18 @@ type Asset = {
   id: number; name: string; category: string
   quantity_total: number; quantity_available: number
   quantity_booked?: number
-  location_id: number | null; location_name: string | null; notes: string
+  location_id: number | null; location_name: string | null
+  storage_area_id: number | null; storage_area_name: string | null; notes: string
 }
 
-type Location = { id: number; name: string; description: string }
+type Location = { id: number; name: string; description: string; archived_at?: string | null }
+type StorageArea = { id: number; location_id: number; name: string; description: string; notes: string }
 type AssetCategory = { id: number; name: string }
 
 const CUSTOM_CATEGORY = '__custom__'
 
-const emptyForm = (): Omit<Asset, 'id' | 'quantity_available' | 'location_name'> => ({
-  name: '', category: 'Equipment', quantity_total: 1, location_id: null, notes: ''
+const emptyForm = (): Omit<Asset, 'id' | 'quantity_available' | 'location_name' | 'storage_area_name'> => ({
+  name: '', category: 'Equipment', quantity_total: 1, location_id: null, storage_area_id: null, notes: ''
 })
 
 function AvailabilityBadge({ available, total }: { available: number; total: number }) {
@@ -87,6 +90,11 @@ function AssetCard({
         {showLocation && asset.location_name && (
           <span className="flex items-center gap-1">
             <MapPin className="w-3 h-3" /> {asset.location_name}
+          </span>
+        )}
+        {showLocation && asset.storage_area_name && (
+          <span className="flex items-center gap-1">
+            <MapPin className="w-3 h-3" /> {asset.storage_area_name}
           </span>
         )}
       </div>
@@ -166,6 +174,7 @@ function GroupSection({
 export default function AssetsPage({ currentUser }: Props) {
   const { data: assetsRaw, trigger: loadAssets } = useGetAssets()
   const { data: locationsRaw, trigger: loadLocations } = useGetLocations()
+  const { data: areasRaw, trigger: loadAreas } = useGetStorageAreas()
   const { data: categoriesRaw, trigger: loadCategories } = useGetAssetCategories()
   const { trigger: saveAsset, loading: saving } = useSaveAsset()
   const { trigger: deleteAsset } = useDeleteAsset()
@@ -174,6 +183,7 @@ export default function AssetsPage({ currentUser }: Props) {
 
   const assets = (assetsRaw ?? []) as Asset[]
   const locations = (locationsRaw ?? []) as Location[]
+  const areas = (areasRaw ?? []) as StorageArea[]
   const categories = (categoriesRaw ?? []) as AssetCategory[]
 
   const [groupBy, setGroupBy] = useState<'category' | 'location'>('location')
@@ -192,6 +202,7 @@ export default function AssetsPage({ currentUser }: Props) {
   useEffect(() => {
     void loadAssets({})
     void loadLocations({})
+    void loadAreas({})
     void loadCategories({})
   }, [])
 
@@ -211,7 +222,7 @@ export default function AssetsPage({ currentUser }: Props) {
   function openEdit(a: Asset) {
     setForm({
       name: a.name, category: a.category, quantity_total: a.quantity_total,
-      location_id: a.location_id, notes: a.notes
+      location_id: a.location_id, storage_area_id: a.storage_area_id, notes: a.notes
     })
     setEditId(a.id)
     setSaveError('')
@@ -227,6 +238,7 @@ export default function AssetsPage({ currentUser }: Props) {
         category: form.category ?? '',
         quantity_total: form.quantity_total ?? 1,
         location_id: form.location_id ?? null,
+        storage_area_id: form.storage_area_id ?? null,
         notes: form.notes ?? ''
       })
       setOpen(false)
@@ -493,17 +505,41 @@ export default function AssetsPage({ currentUser }: Props) {
                 value={form.location_id ? String(form.location_id) : '__none__'}
                 onValueChange={v => setForm(f => ({
                   ...f,
-                  location_id: v === '__none__' ? null : parseInt(v)
+                  location_id: v === '__none__' ? null : parseInt(v),
+                  storage_area_id: null,
                 }))}
               >
                 <SelectTrigger><SelectValue placeholder="Select location…" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">— No location —</SelectItem>
-                  {locations.map(l => (
+                  {locations.filter(l => !l.archived_at).map(l => (
                     <SelectItem key={l.id} value={String(l.id)}>{l.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Storage Area</Label>
+              <Select
+                value={form.storage_area_id ? String(form.storage_area_id) : '__none__'}
+                onValueChange={v => setForm(f => ({
+                  ...f,
+                  storage_area_id: v === '__none__' ? null : parseInt(v),
+                }))}
+              >
+                <SelectTrigger><SelectValue placeholder="Select area…" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— No area —</SelectItem>
+                  {areas
+                    .filter(area => area.location_id === form.location_id)
+                    .map(area => (
+                      <SelectItem key={area.id} value={String(area.id)}>{area.name}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              {form.location_id == null && (
+                <p className="text-xs text-muted-foreground">Select a Store Location first.</p>
+              )}
             </div>
             <div className="space-y-1">
               <Label>Notes</Label>

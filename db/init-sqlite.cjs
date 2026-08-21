@@ -127,6 +127,7 @@ CREATE TABLE IF NOT EXISTS assets (
   quantity_total     INTEGER     NOT NULL DEFAULT 0,
   quantity_available INTEGER     NOT NULL DEFAULT 0,
   location_id        INTEGER     REFERENCES store_locations(id) ON DELETE SET NULL,
+  storage_area_id    INTEGER     REFERENCES storage_areas(id) ON DELETE SET NULL,
   notes              TEXT        NOT NULL DEFAULT '',
   created_at         TEXT        NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

@@ -102,6 +102,7 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
         quantity_total     INTEGER NOT NULL DEFAULT 0,
         quantity_available INTEGER NOT NULL DEFAULT 0,
         location_id        INTEGER REFERENCES store_locations(id) ON DELETE SET NULL,
+        storage_area_id    INTEGER REFERENCES storage_areas(id) ON DELETE SET NULL,
         notes              TEXT NOT NULL DEFAULT '',
         created_at         TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
@@ -213,6 +214,12 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
       database,
     )
     console.log(`Added missing store_locations column: ${addition.name}`)
+  }
+
+  const assetColumns = await all<{ name: string }>('PRAGMA table_info(assets);', [], database)
+  if (!assetColumns.some((column) => column.name === 'storage_area_id')) {
+    await run('ALTER TABLE assets ADD COLUMN storage_area_id INTEGER REFERENCES storage_areas(id) ON DELETE SET NULL;', [], database)
+    console.log('Added missing assets column: storage_area_id')
   }
 
   const feteColumns = await all<{ name: string }>('PRAGMA table_info(fetes);', [], database)

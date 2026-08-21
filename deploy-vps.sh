@@ -152,8 +152,8 @@ ensure_server_env() {
 init_database() {
   log "Initializing SQLite database"
   cd "${APP_ROOT}"
-  node db/init-sqlite.cjs
-  chown "${APP_USER}:${APP_GROUP}" "${APP_ROOT}/MDD_Candy.db"
+  DB_PATH="${APP_ROOT}/server/fete_store.db" node db/init-sqlite.cjs
+  chown "${APP_USER}:${APP_GROUP}" "${APP_ROOT}/server/fete_store.db"
 }
 
 install_root_dependencies() {

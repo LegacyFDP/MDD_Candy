@@ -7,7 +7,7 @@ const here = __dirname
 // the same mounted file the server will open.
 const dbPath = process.env.DB_PATH
   ? path.resolve(process.env.DB_PATH)
-  : path.resolve(here, '..', 'MDD_Candy.db')
+  : path.resolve(here, '..', 'server', 'fete_store.db')
 
 function openDb() {
   return new sqlite3.Database(dbPath, (err) => {

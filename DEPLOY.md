@@ -5,7 +5,7 @@ This app runs as a Node/Express process for the API, while Caddy serves the buil
 ```
 Browser ──▶ Caddy (:80/:443) ──▶ frontend/dist (static React app)
                      │
-                     └─▶ Node server (:8080) ──▶ MDD_Candy.db (SQLite file)
+                     └─▶ Node server (:8080) ──▶ server/fete_store.db (SQLite file)
 ```
 
 > Security note: the original auth model is kept as-is. PINs are stored in plaintext and the session lives only in the browser. That is fine for a trusted internal deployment, but it is not hardened for the public internet.
@@ -70,7 +70,7 @@ npm install
 node db/init-sqlite.cjs
 ```
 
-This creates the database file at /home/timmi/projects/MDD_Candy/MDD_Candy.db with schema and demo data.
+This creates the database file at /home/timmi/projects/MDD_Candy/server/fete_store.db with schema and demo data.
 
 ### 3. Build the frontend and install server dependencies
 
@@ -154,10 +154,10 @@ sudo systemctl reload caddy
 
 ## Backing up the database
 
-The whole database is one file: /home/timmi/projects/MDD_Candy/MDD_Candy.db. Back it up while the app is stopped or use SQLite's online backup:
+The whole database is one file: /home/timmi/projects/MDD_Candy/server/fete_store.db. Back it up while the app is stopped or use SQLite's online backup:
 
 ```bash
-sqlite3 /home/timmi/projects/MDD_Candy/MDD_Candy.db ".backup /home/timmi/backups/MDD_Candy-$(date +%F).db"
+sqlite3 /home/timmi/projects/MDD_Candy/server/fete_store.db ".backup /home/timmi/backups/fete_store-$(date +%F).db"
 ```
 
 ## Local development
@@ -180,7 +180,7 @@ node db/init-sqlite.cjs
 
 ## How the pieces fit together
 
-- server/src/index.ts sets up the global Retool database connection, auto-discovers the backend handlers in backend/fete, and exposes each as POST /api/<functionName>.
-- server/src/db.ts opens MDD_Candy.db, which is the single SQLite database file used by the app.
+- server/src/index.ts starts the API, auto-discovers the backend handlers in backend/fete, and exposes each as POST /api/<functionName>.
+- server/src/db.ts opens server/fete_store.db, which is the single SQLite database file used by the app.
 - frontend/hooks/backend/fete.ts is a small fetch client that posts to /api/<functionName>.
 - In production, the Node server also serves frontend/dist with an SPA fallback, so the API and app share one origin.

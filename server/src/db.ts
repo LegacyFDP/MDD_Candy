@@ -1,8 +1,13 @@
 import sqlite3 from 'sqlite3'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { resolveRuntimePaths } from './config.ts'
 
 const { dbPath } = resolveRuntimePaths()
+
+if (!existsSync(dbPath)) {
+  throw new Error(`SQLite database not found at ${dbPath}. Run "npm run db:init" only for a new database.`)
+}
 
 // SQLite database connection
 export const db = new sqlite3.Database(dbPath, (err) => {

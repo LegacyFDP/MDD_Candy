@@ -317,6 +317,60 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
 
   await run(
     `
+      CREATE TABLE IF NOT EXISTS fete_volunteers (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT NOT NULL,
+        email      TEXT,
+        phone      TEXT,
+        role       TEXT NOT NULL DEFAULT 'Helper',
+        notes      TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `,
+    [],
+    database,
+  )
+
+  await run(
+    `
+      CREATE TABLE IF NOT EXISTS volunteer_shifts (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        volunteer_id INTEGER NOT NULL REFERENCES fete_volunteers(id) ON DELETE CASCADE,
+        fete_id     INTEGER REFERENCES fetes(id) ON DELETE CASCADE,
+        role        TEXT NOT NULL DEFAULT 'Helper',
+        start_date  TEXT NOT NULL,
+        end_date    TEXT NOT NULL,
+        start_time  TEXT NOT NULL,
+        end_time    TEXT NOT NULL,
+        created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `,
+    [],
+    database,
+  )
+
+  const shiftColumns = await all<{ name: string }>('PRAGMA table_info(volunteer_shifts);', [], database)
+  const shiftExisting = new Set(shiftColumns.map((column) => column.name))
+  if (!shiftExisting.has('start_date')) {
+    await run('ALTER TABLE volunteer_shifts ADD COLUMN start_date TEXT NOT NULL DEFAULT CURRENT_DATE;', [], database)
+  }
+  if (!shiftExisting.has('end_date')) {
+    await run('ALTER TABLE volunteer_shifts ADD COLUMN end_date TEXT NOT NULL DEFAULT CURRENT_DATE;', [], database)
+  }
+
+  await run(
+    `
+      UPDATE volunteer_shifts
+      SET start_date = COALESCE(start_date, shift_date, CURRENT_DATE),
+          end_date = COALESCE(end_date, shift_date, CURRENT_DATE)
+      WHERE start_date IS NULL OR end_date IS NULL
+    `,
+    [],
+    database,
+  )
+
+  await run(
+    `
       CREATE TABLE IF NOT EXISTS db_backups (
         id                 INTEGER PRIMARY KEY AUTOINCREMENT,
         filename           TEXT NOT NULL UNIQUE,

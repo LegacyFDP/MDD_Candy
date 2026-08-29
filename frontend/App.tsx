@@ -8,6 +8,7 @@ import WithdrawalsPage from './pages/WithdrawalsPage'
 import UsersPage from './pages/UsersPage'
 import PrintListsPage from './pages/PrintListsPage'
 import LocationsPage from './pages/LocationsPage'
+import VolunteersPage from './pages/VolunteersPage'
 import HelpPage from './pages/HelpPage'
 import { Button } from './lib/shadcn/button'
 import { TooltipProvider } from './lib/shadcn/tooltip'
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
   { path: '/assets', label: 'Store Assets', icon: Package, adminOnly: false },
   { path: '/fetes', label: 'Fete Events', icon: Tent, adminOnly: false },
+  { path: '/volunteers', label: 'Volunteers', icon: Users, adminOnly: true },
   { path: '/withdrawals', label: 'Withdrawals', icon: ArrowUpFromLine, adminOnly: false },
   { path: '/locations', label: 'Locations', icon: MapPin, adminOnly: true },
   { path: '/users', label: 'Users', icon: Users, adminOnly: true },
@@ -114,6 +116,11 @@ export default function App() {
             <Route path="/" element={<Dashboard currentUser={currentUser} />} />
             <Route path="/assets" element={<AssetsPage currentUser={currentUser} />} />
             <Route path="/fetes" element={<FetesPage currentUser={currentUser} />} />
+            <Route path="/volunteers" element={
+              currentUser.role === 'admin'
+                ? <VolunteersPage currentUser={currentUser} />
+                : <Navigate to="/" replace />
+            } />
             <Route path="/withdrawals" element={<WithdrawalsPage currentUser={currentUser} />} />
             <Route path="/locations" element={<LocationsPage currentUser={currentUser} />} />
             <Route path="/users" element={

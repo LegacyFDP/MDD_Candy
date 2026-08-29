@@ -110,6 +110,14 @@ export const useGetUsersWithFetes = makeBackendHook('getUsersWithFetes')
 export const useSaveUser = makeBackendHook('saveUser')
 export const useDeleteUser = makeBackendHook('deleteUser')
 
+// Volunteers
+export const useGetVolunteers = makeBackendHook('getVolunteers')
+export const useSaveVolunteer = makeBackendHook('saveVolunteer')
+export const useDeleteVolunteer = makeBackendHook('deleteVolunteer')
+export const useGetVolunteerShifts = makeBackendHook('getVolunteerShifts')
+export const useSaveVolunteerShift = makeBackendHook('saveVolunteerShift')
+export const useDeleteVolunteerShift = makeBackendHook('deleteVolunteerShift')
+
 // Fete requirements
 export const useGetFeteRequirements = makeBackendHook('getFeteRequirements')
 export const useGetFeteAssetPickList = makeBackendHook('getFeteAssetPickList')

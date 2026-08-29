@@ -1,9 +1,9 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useGetAssets, useGetWithdrawals, useGetFetes } from '../hooks/backend/fete'
+import { useGetAssets, useGetWithdrawals, useGetFetes, useGetVolunteerShifts } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../lib/shadcn/card'
-import { Package, ArrowUpFromLine, Tent, AlertTriangle, Printer } from 'lucide-react'
+import { Package, ArrowUpFromLine, Tent, AlertTriangle, Printer, Users } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -21,26 +21,48 @@ type Withdrawal = {
 
 type Fete = { id: number; status: string; name: string }
 
+type VolunteerShift = {
+  id: number
+  volunteer_name: string
+  fete_name: string | null
+  role: string
+  start_date: string
+  end_date: string
+  start_time: string
+  end_time: string
+}
+
 export default function Dashboard({ currentUser }: Props) {
   const { data: assetsRaw, trigger: loadAssets } = useGetAssets()
   const { data: withdrawalsRaw, trigger: loadWithdrawals } = useGetWithdrawals()
   const { data: fetesRaw, trigger: loadFetes } = useGetFetes()
+  const { data: volunteerShiftsRaw, trigger: loadVolunteerShifts } = useGetVolunteerShifts()
 
   useEffect(() => {
     void loadAssets({})
     void loadWithdrawals({ status: 'out' })
     void loadFetes({})
+    void loadVolunteerShifts({})
   }, [])
 
   const assets = (assetsRaw ?? []) as Asset[]
   const withdrawals = (withdrawalsRaw ?? []) as Withdrawal[]
   const fetes = (fetesRaw ?? []) as Fete[]
+  const volunteerShifts = (volunteerShiftsRaw ?? []) as VolunteerShift[]
 
   const lowStock = assets.filter(a => a.quantity_available === 0).length
   const itemsOut = withdrawals.length
   const activeFetes = fetes.filter(f => f.status === 'active').length
 
   const recentWithdrawals = withdrawals.slice(0, 5)
+
+  const volunteerCoverage = fetes.map(fete => {
+    const shiftsForFete = volunteerShifts.filter(shift => shift.fete_name === fete.name)
+    return {
+      ...fete,
+      shifts: shiftsForFete,
+    }
+  }).filter(fete => fete.shifts.length > 0)
 
   return (
     <div className="p-6 space-y-6">
@@ -142,6 +164,36 @@ export default function Dashboard({ currentUser }: Props) {
           </CardContent>
         </Card>
       </div>
+
+      {currentUser.role === 'admin' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="w-4 h-4" /> Volunteer Coverage Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {volunteerCoverage.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No volunteers are assigned to any events yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {volunteerCoverage.map(fete => (
+                  <div key={fete.id} className="border rounded-md p-3 bg-muted/30">
+                    <p className="font-medium text-sm mb-2">{fete.name}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {fete.shifts.map(shift => (
+                        <span key={shift.id} className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary">
+                          {shift.volunteer_name} ({shift.role})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {currentUser.role === 'admin' && (
         <Card>

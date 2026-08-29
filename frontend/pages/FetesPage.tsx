@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   useGetFetes, useSaveFete, useGetWithdrawals,
-  useGetFeteLocations, useSaveFeteLocation, useDeleteFeteLocation
+  useGetFeteLocations, useSaveFeteLocation, useDeleteFeteLocation, useArchiveFete
 } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Input } from '../lib/shadcn/input'
@@ -11,7 +11,8 @@ import { Textarea } from '../lib/shadcn/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../lib/shadcn/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../lib/shadcn/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
-import { Plus, ChevronDown, ChevronUp, ArrowUpFromLine, MapPin, Settings, Trash2, Pencil } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../lib/shadcn/tooltip'
+import { Plus, ChevronDown, ChevronUp, ArrowUpFromLine, MapPin, Settings, Trash2, Pencil, Archive, RotateCcw, Search } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -21,6 +22,7 @@ type Fete = {
   notes: string
   status: 'planned' | 'active' | 'completed'; created_by_name: string; created_at: string
   location_id: number | null; location_name: string | null
+  archived_at: string | null; archived_by_name: string | null
 }
 type FeteLocation = {
   id: number
@@ -68,10 +70,13 @@ export default function FetesPage({ currentUser }: Props) {
   const { data: locationsRaw, trigger: loadLocations } = useGetFeteLocations()
   const { trigger: saveFeteLocation, loading: savingLocation } = useSaveFeteLocation()
   const { trigger: deleteFeteLocation } = useDeleteFeteLocation()
+  const { trigger: archiveFete, loading: archivingFete } = useArchiveFete()
 
   const fetes = (fetesRaw ?? []) as Fete[]
   const allWithdrawals = (withdrawalsRaw ?? []) as Withdrawal[]
   const locations = (locationsRaw ?? []) as FeteLocation[]
+  const [search, setSearch] = useState('')
+  const [eventView, setEventView] = useState<'active' | 'archived' | 'all'>('all')
 
   const [feteOpen, setFeteOpen] = useState(false)
   const [feteForm, setFeteForm] = useState<Partial<Fete>>(emptyFete())
@@ -84,6 +89,18 @@ export default function FetesPage({ currentUser }: Props) {
   const [locationError, setLocationError] = useState('')
 
   const isAdmin = currentUser.role === 'admin'
+
+  const visibleFetes = fetes.filter(fete => {
+    const archived = Boolean(fete.archived_at)
+    if (eventView === 'active' && archived) return false
+    if (eventView === 'archived' && !archived) return false
+
+    const query = search.trim().toLowerCase()
+    if (!query) return true
+    return [fete.name, fete.description, fete.notes, fete.location_name, fete.status, fete.archived_by_name]
+      .filter(Boolean)
+      .some(value => String(value).toLowerCase().includes(query))
+  })
 
   useEffect(() => {
     void loadFetes({})
@@ -173,6 +190,16 @@ export default function FetesPage({ currentUser }: Props) {
     void loadFetes({})
   }
 
+  async function handleArchiveFete(fete: Fete) {
+    const restoring = Boolean(fete.archived_at)
+    const action = restoring ? 'restore' : 'archive'
+    if (!confirm(`${restoring ? 'Restore' : 'Archive'} “${fete.name}”?`)) return
+
+    await archiveFete({ id: fete.id, archived_by: currentUser.id, ...(restoring ? { restore: true } : {}) })
+    setExpandedFeteId(null)
+    void loadFetes({})
+  }
+
   function toggleExpand(feteId: number) {
     setExpandedFeteId(prev => prev === feteId ? null : feteId)
   }
@@ -189,12 +216,41 @@ export default function FetesPage({ currentUser }: Props) {
         </Button>
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+        <div className="relative flex-1 max-w-xl">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search all events, including archived"
+            className="pl-9"
+            aria-label="Search all fete events"
+          />
+        </div>
+        <div className="flex gap-2" role="group" aria-label="Event view">
+          {(['active', 'archived', 'all'] as const).map(view => (
+            <Button
+              key={view}
+              size="sm"
+              variant={eventView === view ? 'default' : 'outline'}
+              onClick={() => setEventView(view)}
+            >
+              {view[0].toUpperCase() + view.slice(1)}
+            </Button>
+          ))}
+        </div>
+      </div>
+
       {fetes.length === 0 && (
         <p className="text-muted-foreground">No fetes yet. Create one to get started.</p>
       )}
 
+      {fetes.length > 0 && visibleFetes.length === 0 && (
+        <p className="text-muted-foreground">No events match the current search or view.</p>
+      )}
+
       <div className="space-y-3">
-        {fetes.map(fete => {
+        {visibleFetes.map(fete => {
           const isExpanded = expandedFeteId === fete.id
           const feteWithdrawals = allWithdrawals.filter(w => w.fete_id === fete.id)
           const itemsOut = feteWithdrawals.filter(w => w.status === 'out').length
@@ -209,6 +265,7 @@ export default function FetesPage({ currentUser }: Props) {
                     <Badge variant={STATUS_COLORS[fete.status] as 'default' | 'secondary' | 'outline' | 'destructive'}>
                       {fete.status}
                     </Badge>
+                    {fete.archived_at && <Badge variant="outline">Archived</Badge>}
                     {itemsOut > 0 && (
                       <Badge variant="secondary">{itemsOut} item{itemsOut !== 1 ? 's' : ''} out</Badge>
                     )}
@@ -227,6 +284,14 @@ export default function FetesPage({ currentUser }: Props) {
                       <MapPin className="w-3 h-3" />{fete.location_name}
                     </p>
                   )}
+                  {fete.archived_at && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Archived {new Date(fete.archived_at).toLocaleDateString('en-GB', {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                      })}
+                      {fete.archived_by_name && ` by ${fete.archived_by_name}`}
+                    </p>
+                  )}
                   {feteWithdrawals.length > 0 && (
                     <p className="text-xs text-muted-foreground mt-1">
                       {feteWithdrawals.length} withdrawal{feteWithdrawals.length !== 1 ? 's' : ''}
@@ -238,9 +303,37 @@ export default function FetesPage({ currentUser }: Props) {
                   {isAdmin && (
                     <Button size="sm" variant="outline" onClick={() => openEditFete(fete)}>Edit</Button>
                   )}
-                  <Button size="sm" variant="ghost" onClick={() => toggleExpand(fete.id)}>
-                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </Button>
+                  {isAdmin && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          onClick={() => void handleArchiveFete(fete)}
+                          disabled={archivingFete}
+                          aria-label={`${fete.archived_at ? 'Restore' : 'Archive'} ${fete.name}`}
+                        >
+                          {fete.archived_at ? <RotateCcw className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {fete.archived_at ? `Restore ${fete.name}` : `Archive ${fete.name}; keep its history`}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => toggleExpand(fete.id)}
+                        aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${fete.name} details`}
+                      >
+                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{isExpanded ? 'Hide equipment history' : 'Show equipment history'}</TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
 
@@ -431,20 +524,30 @@ export default function FetesPage({ currentUser }: Props) {
                       </div>
                     )}
                   </div>
-                  <Button
-                    size="sm" variant="outline"
-                    onClick={() => openEditLocation(l)}
-                    aria-label={`Edit ${l.name}`}
-                  >
-                    <Pencil className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    size="sm" variant="outline"
-                    onClick={() => handleDeleteLocation(l.id)}
-                    aria-label={`Delete ${l.name}`}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon" variant="outline"
+                        onClick={() => openEditLocation(l)}
+                        aria-label={`Edit ${l.name}`}
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Edit {l.name}</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon" variant="outline"
+                        onClick={() => handleDeleteLocation(l.id)}
+                        aria-label={`Delete ${l.name}`}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete {l.name}</TooltipContent>
+                  </Tooltip>
                 </div>
               ))}
               {locations.length === 0 && (

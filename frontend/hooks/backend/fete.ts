@@ -74,10 +74,17 @@ export const useLoginUser = makeBackendHook('loginUser')
 export const useGetAssets = makeBackendHook('getAssets')
 export const useSaveAsset = makeBackendHook('saveAsset')
 export const useDeleteAsset = makeBackendHook('deleteAsset')
+export const useGetAssetCategories = makeBackendHook('getAssetCategories')
+export const useSaveAssetCategory = makeBackendHook('saveAssetCategory')
+export const useDeleteAssetCategory = makeBackendHook('deleteAssetCategory')
 
 // Locations
 export const useGetLocations = makeBackendHook('getLocations')
 export const useSaveLocation = makeBackendHook('saveLocation')
+export const useArchiveLocation = makeBackendHook('archiveLocation')
+export const useGetStorageAreas = makeBackendHook('getStorageAreas')
+export const useSaveStorageArea = makeBackendHook('saveStorageArea')
+export const useDeleteStorageArea = makeBackendHook('deleteStorageArea')
 
 // Fete locations (event venues in store_locations where location_type='Fetes')
 export const useGetFeteLocations = makeBackendHook('getFeteLocations')
@@ -87,6 +94,7 @@ export const useDeleteFeteLocation = makeBackendHook('deleteFeteLocation')
 // Fetes
 export const useGetFetes = makeBackendHook('getFetes')
 export const useSaveFete = makeBackendHook('saveFete')
+export const useArchiveFete = makeBackendHook('archiveFete')
 
 // Withdrawals
 export const useGetWithdrawals = makeBackendHook('getWithdrawals')

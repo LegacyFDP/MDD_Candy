@@ -1,8 +1,15 @@
 import sqlite3 from 'sqlite3'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { resolveRuntimePaths } from './config.ts'
 
 const { dbPath } = resolveRuntimePaths()
+
+if (!existsSync(dbPath)) {
+  throw new Error(`SQLite database not found at ${dbPath}. Run "npm run db:init" only for a new database.`)
+}
+
+export const activeDatabaseFile = path.basename(dbPath)
 
 // SQLite database connection
 export const db = new sqlite3.Database(dbPath, (err) => {
@@ -77,7 +84,9 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
         town_city     TEXT NOT NULL DEFAULT '',
         county        TEXT NOT NULL DEFAULT '',
         postcode      TEXT NOT NULL DEFAULT '',
-        location_type TEXT NOT NULL DEFAULT 'Store'
+        location_type TEXT NOT NULL DEFAULT 'Store',
+        archived_at   TEXT,
+        archived_by   INTEGER REFERENCES fete_users(id) ON DELETE SET NULL
       )
     `,
     [],
@@ -93,8 +102,36 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
         quantity_total     INTEGER NOT NULL DEFAULT 0,
         quantity_available INTEGER NOT NULL DEFAULT 0,
         location_id        INTEGER REFERENCES store_locations(id) ON DELETE SET NULL,
+        storage_area_id    INTEGER REFERENCES storage_areas(id) ON DELETE SET NULL,
         notes              TEXT NOT NULL DEFAULT '',
         created_at         TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `,
+    [],
+    database,
+  )
+
+  await run(
+    `
+      CREATE TABLE IF NOT EXISTS storage_areas (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        location_id   INTEGER NOT NULL REFERENCES store_locations(id) ON DELETE CASCADE,
+        name          TEXT NOT NULL,
+        description   TEXT NOT NULL DEFAULT '',
+        notes         TEXT NOT NULL DEFAULT '',
+        created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `,
+    [],
+    database,
+  )
+
+  await run(
+    `
+      CREATE TABLE IF NOT EXISTS asset_categories (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT NOT NULL COLLATE NOCASE UNIQUE,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `,
     [],
@@ -112,6 +149,8 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
         status      TEXT NOT NULL DEFAULT 'planned',
         created_by  INTEGER REFERENCES fete_users(id) ON DELETE SET NULL,
         location_id INTEGER REFERENCES store_locations(id) ON DELETE SET NULL,
+        archived_at TEXT,
+        archived_by INTEGER REFERENCES fete_users(id) ON DELETE SET NULL,
         created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `,
@@ -163,6 +202,8 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
     { name: 'postcode', sqlType: "TEXT NOT NULL DEFAULT ''" },
     { name: 'location_type', sqlType: "TEXT NOT NULL DEFAULT 'Store'" },
     { name: 'notes', sqlType: "TEXT NOT NULL DEFAULT ''" },
+    { name: 'archived_at', sqlType: 'TEXT' },
+    { name: 'archived_by', sqlType: 'INTEGER REFERENCES fete_users(id) ON DELETE SET NULL' },
   ]
 
   for (const addition of locationAdditions) {
@@ -175,15 +216,56 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
     console.log(`Added missing store_locations column: ${addition.name}`)
   }
 
+  const assetColumns = await all<{ name: string }>('PRAGMA table_info(assets);', [], database)
+  if (!assetColumns.some((column) => column.name === 'storage_area_id')) {
+    await run('ALTER TABLE assets ADD COLUMN storage_area_id INTEGER REFERENCES storage_areas(id) ON DELETE SET NULL;', [], database)
+    console.log('Added missing assets column: storage_area_id')
+  }
+
   const feteColumns = await all<{ name: string }>('PRAGMA table_info(fetes);', [], database)
   const feteExisting = new Set(feteColumns.map((column) => column.name))
   if (!feteExisting.has('notes')) {
     await run("ALTER TABLE fetes ADD COLUMN notes TEXT NOT NULL DEFAULT '';", [], database)
     console.log('Added missing fetes column: notes')
   }
+  if (!feteExisting.has('archived_at')) {
+    await run('ALTER TABLE fetes ADD COLUMN archived_at TEXT;', [], database)
+    console.log('Added missing fetes column: archived_at')
+  }
+  if (!feteExisting.has('archived_by')) {
+    await run('ALTER TABLE fetes ADD COLUMN archived_by INTEGER REFERENCES fete_users(id) ON DELETE SET NULL;', [], database)
+    console.log('Added missing fetes column: archived_by')
+  }
+
+  const withdrawalColumns = await all<{ name: string }>('PRAGMA table_info(withdrawals);', [], database)
+  const withdrawalExisting = new Set(withdrawalColumns.map((column) => column.name))
+  if (!withdrawalExisting.has('returned_at')) {
+    await run('ALTER TABLE withdrawals ADD COLUMN returned_at TEXT;', [], database)
+    console.log('Added missing withdrawals column: returned_at')
+  }
 
   await run(
     "UPDATE store_locations SET location_type = 'Store' WHERE location_type IS NULL OR TRIM(location_type) = ''",
+    [],
+    database,
+  )
+
+  await run(
+    `
+      INSERT OR IGNORE INTO asset_categories (name) VALUES
+        ('Decoration'), ('Electrical'), ('Equipment'), ('Furniture'), ('Linen'),
+        ('Safety'), ('Shelter'), ('Stationery'), ('Toys'), ('Other')
+    `,
+    [],
+    database,
+  )
+  await run(
+    `
+      INSERT OR IGNORE INTO asset_categories (name)
+      SELECT DISTINCT TRIM(category)
+      FROM assets
+      WHERE TRIM(category) <> ''
+    `,
     [],
     database,
   )

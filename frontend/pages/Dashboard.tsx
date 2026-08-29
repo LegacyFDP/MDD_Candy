@@ -1,9 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGetAssets, useGetWithdrawals, useGetFetes, useGetVolunteerShifts } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../lib/shadcn/card'
-import { Package, ArrowUpFromLine, Tent, AlertTriangle, Printer, Users } from 'lucide-react'
+import { Package, ArrowUpFromLine, Tent, AlertTriangle, Printer, Database } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -20,6 +20,7 @@ type Withdrawal = {
 }
 
 type Fete = { id: number; status: string; name: string }
+type HealthResponse = { ok: boolean; database?: string }
 
 type VolunteerShift = {
   id: number
@@ -36,13 +37,16 @@ export default function Dashboard({ currentUser }: Props) {
   const { data: assetsRaw, trigger: loadAssets } = useGetAssets()
   const { data: withdrawalsRaw, trigger: loadWithdrawals } = useGetWithdrawals()
   const { data: fetesRaw, trigger: loadFetes } = useGetFetes()
-  const { data: volunteerShiftsRaw, trigger: loadVolunteerShifts } = useGetVolunteerShifts()
+  const [databaseFile, setDatabaseFile] = useState<string | null>(null)
 
   useEffect(() => {
     void loadAssets({})
     void loadWithdrawals({ status: 'out' })
     void loadFetes({})
-    void loadVolunteerShifts({})
+    void fetch('/api/health')
+      .then(response => response.ok ? response.json() as Promise<HealthResponse> : null)
+      .then(health => setDatabaseFile(health?.database ?? null))
+      .catch(() => setDatabaseFile(null))
   }, [])
 
   const assets = (assetsRaw ?? []) as Asset[]
@@ -53,6 +57,9 @@ export default function Dashboard({ currentUser }: Props) {
   const lowStock = assets.filter(a => a.quantity_available === 0).length
   const itemsOut = withdrawals.length
   const activeFetes = fetes.filter(f => f.status === 'active').length
+  const stockAlerts = assets.filter(a =>
+    a.quantity_available === 0 || (a.quantity_total > 1 && a.quantity_available < 2)
+  )
 
   const recentWithdrawals = withdrawals.slice(0, 5)
 
@@ -69,6 +76,10 @@ export default function Dashboard({ currentUser }: Props) {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
         <p className="text-muted-foreground">Welcome back, {currentUser.name}</p>
+        <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+          <Database className="h-3.5 w-3.5" />
+          Data source: {databaseFile ?? 'Unavailable'}
+        </p>
       </div>
 
       {/* Stats */}
@@ -122,11 +133,11 @@ export default function Dashboard({ currentUser }: Props) {
             <CardTitle className="text-base">Stock Alert</CardTitle>
           </CardHeader>
           <CardContent>
-            {assets.filter(a => a.quantity_available < 2).length === 0 ? (
+            {stockAlerts.length === 0 ? (
               <p className="text-muted-foreground text-sm">All items well stocked.</p>
             ) : (
               <ul className="space-y-2">
-                {assets.filter(a => a.quantity_available < 2).map(asset => (
+                {stockAlerts.map(asset => (
                   <li key={asset.id} className="flex justify-between items-center text-sm">
                     <span>{asset.name}</span>
                     <span className={`font-semibold ${asset.quantity_available === 0 ? 'text-destructive' : 'text-amber-600 dark:text-amber-400'}`}>

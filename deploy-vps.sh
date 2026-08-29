@@ -152,8 +152,8 @@ ensure_server_env() {
 init_database() {
   log "Initializing SQLite database"
   cd "${APP_ROOT}"
-  node db/init-sqlite.cjs
-  chown "${APP_USER}:${APP_GROUP}" "${APP_ROOT}/MDD_Candy.db"
+  DB_PATH="${APP_ROOT}/server/fete_store.db" node db/init-sqlite.cjs
+  chown "${APP_USER}:${APP_GROUP}" "${APP_ROOT}/server/fete_store.db"
 }
 
 install_root_dependencies() {
@@ -171,6 +171,9 @@ install_dependencies_and_build() {
   log "Installing server dependencies"
   cd "${APP_ROOT}/server"
   run_as_app_user npm install
+
+  log "Applying SQLite schema migrations"
+  run_as_app_user npm run db:migrate
 }
 
 install_systemd_service() {

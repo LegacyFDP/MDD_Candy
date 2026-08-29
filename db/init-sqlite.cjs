@@ -7,7 +7,7 @@ const here = __dirname
 // the same mounted file the server will open.
 const dbPath = process.env.DB_PATH
   ? path.resolve(process.env.DB_PATH)
-  : path.resolve(here, '..', 'MDD_Candy.db')
+  : path.resolve(here, '..', 'server', 'fete_store.db')
 
 function openDb() {
   return new sqlite3.Database(dbPath, (err) => {
@@ -115,7 +115,9 @@ CREATE TABLE IF NOT EXISTS store_locations (
   town_city     TEXT NOT NULL DEFAULT '',
   county        TEXT NOT NULL DEFAULT '',
   postcode      TEXT NOT NULL DEFAULT '',
-  location_type TEXT NOT NULL DEFAULT 'Store'
+  location_type TEXT NOT NULL DEFAULT 'Store',
+  archived_at   TEXT,
+  archived_by   INTEGER REFERENCES fete_users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS assets (
@@ -125,8 +127,18 @@ CREATE TABLE IF NOT EXISTS assets (
   quantity_total     INTEGER     NOT NULL DEFAULT 0,
   quantity_available INTEGER     NOT NULL DEFAULT 0,
   location_id        INTEGER     REFERENCES store_locations(id) ON DELETE SET NULL,
+  storage_area_id    INTEGER     REFERENCES storage_areas(id) ON DELETE SET NULL,
   notes              TEXT        NOT NULL DEFAULT '',
   created_at         TEXT        NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS storage_areas (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  location_id   INTEGER NOT NULL REFERENCES store_locations(id) ON DELETE CASCADE,
+  name          TEXT NOT NULL,
+  description   TEXT NOT NULL DEFAULT '',
+  notes         TEXT NOT NULL DEFAULT '',
+  created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS fetes (
@@ -138,6 +150,8 @@ CREATE TABLE IF NOT EXISTS fetes (
   status      TEXT        NOT NULL DEFAULT 'planned',
   created_by  INTEGER     REFERENCES fete_users(id) ON DELETE SET NULL,
   location_id INTEGER     REFERENCES store_locations(id) ON DELETE SET NULL,
+  archived_at TEXT,
+  archived_by INTEGER     REFERENCES fete_users(id) ON DELETE SET NULL,
   created_at  TEXT        NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -149,6 +163,7 @@ CREATE TABLE IF NOT EXISTS withdrawals (
   withdrawn_by INTEGER     NOT NULL REFERENCES fete_users(id),
   returned_by  INTEGER     REFERENCES fete_users(id),
   withdrawn_at TEXT        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  returned_at  TEXT,
   status       TEXT        NOT NULL DEFAULT 'out',
   notes        TEXT        NOT NULL DEFAULT ''
 );

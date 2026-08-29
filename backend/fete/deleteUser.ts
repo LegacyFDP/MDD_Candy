@@ -5,7 +5,7 @@ export default async function (req: { params: Params; user: User }) {
 
   // Block deletion if the user has any withdrawal records (withdrawn_by is NOT NULL FK)
   const wCheck = await retoolDb.query<{ cnt: number }>(
-    `SELECT COUNT(*)::int AS cnt FROM withdrawals WHERE withdrawn_by = $1 OR returned_by = $2`,
+    `SELECT COUNT(*) AS cnt FROM withdrawals WHERE withdrawn_by = $1 OR returned_by = $2`,
     [id, id]
   )
   if ((wCheck.data[0]?.cnt ?? 0) > 0) {

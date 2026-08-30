@@ -1,6 +1,7 @@
 type Params = { id: number }
 
 export default async function (req: { params: Params; user: User }) {
-  await retoolDb.query(`DELETE FROM fete_volunteers WHERE id = $1`, [req.params.id])
+  const { id } = req.params
+  await retoolDb.query(`DELETE FROM volunteer_shifts WHERE id = $1`, [id])
   return { success: true }
 }

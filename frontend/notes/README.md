@@ -6,14 +6,14 @@ A charity asset-management web app for tracking physical store inventory, fete (
 
 ## Overview
 
-Fete Store Manager helps charity volunteers and administrators:
+Fete Store Manager helps charity teams and administrators:
 
 - Maintain a catalogue of physical assets stored across one or more locations
-- Plan and run fete events, assign volunteers, and track which equipment has been taken to each event
+- Plan and run fete events and track which equipment has been taken to each event
 - Record withdrawals when assets leave storage and mark them as returned when they come back
 - Manage store locations and user accounts (admins only)
 
-The app enforces a two-role access model — **Volunteer** and **Admin** — that is applied to both the UI and the backend.
+The app enforces a two-role access model — **User** and **Admin** — that is applied to both the UI and the backend.
 
 ---
 
@@ -40,13 +40,12 @@ The app enforces a two-role access model — **Volunteer** and **Admin** — tha
 │   │   ├── Login.tsx            # Email + PIN login screen
 │   │   ├── Dashboard.tsx        # Summary stats + stock alerts
 │   │   ├── AssetsPage.tsx       # Asset catalogue (grouped by category or location)
-│   │   ├── FetesPage.tsx        # Fete event list with equipment + volunteer tabs
+│   │   ├── FetesPage.tsx        # Fete event list with equipment history
 │   │   ├── WithdrawalsPage.tsx  # Withdraw / return assets; full history table
 │   │   ├── LocationsPage.tsx    # Storage location CRUD (admin only)
 │   │   ├── UsersPage.tsx        # User management (admin only)
 │   │   ├── HelpPage.tsx         # In-app user guide
 │   │   └── ui/
-│   │       └── FeteVolunteers.tsx  # Volunteer management sub-component
 │   └── hooks/backend/
 │       └── fete.ts              # Auto-generated hooks for all /backend/fete functions
 │
@@ -59,7 +58,6 @@ The app enforces a two-role access model — **Volunteer** and **Admin** — tha
         ├── withdrawAsset.ts / returnAsset.ts
         ├── getLocations.ts / saveLocation.ts
         ├── getUsers.ts / getUsersWithFetes.ts / saveUser.ts / deleteUser.ts
-        ├── getFeteVolunteers.ts / saveFeteVolunteer.ts / deleteFeteVolunteer.ts
         └── getFeteRequirements.ts / saveFeteRequirement.ts / deleteFeteRequirement.ts
 ```
 
@@ -86,9 +84,7 @@ The app enforces a two-role access model — **Volunteer** and **Admin** — tha
 
 ### Fete Events
 - Lists all fetes with status badges (`planned` / `active` / `completed`).
-- Each fete card is expandable and shows two tabs:
-  - **Equipment** — withdrawals linked to the fete (asset name, qty, status, dates).
-  - **Volunteers** — people assigned to the fete with their role notes. Volunteers can be added or removed inline.
+- Each fete card is expandable and shows linked **Equipment** withdrawals with asset name, quantity, status, and dates.
 - Admins can create and edit fetes (name, date, description, location, status).
 
 ### Withdrawals
@@ -103,8 +99,8 @@ The app enforces a two-role access model — **Volunteer** and **Admin** — tha
 - Admins can add or edit locations; they become available immediately in asset and fete dropdowns.
 
 ### Users *(admin only)*
-- Separate sections for Admins and Volunteers.
-- Each user card shows the user's name, email, role, and their fete history (events they have been assigned to as a volunteer).
+- Separate sections for Admins and Users.
+- Each user card shows the user's name, email, role, and their fete history.
 - Admins can create, edit, or delete users; an admin cannot delete their own account.
 
 ### Help
@@ -115,14 +111,13 @@ The app enforces a two-role access model — **Volunteer** and **Admin** — tha
 
 ## Roles & Permissions
 
-| Feature | Volunteer | Admin |
+| Feature | User | Admin |
 |---|:---:|:---:|
 | View Dashboard | ✓ | ✓ |
 | View & filter assets | ✓ | ✓ |
 | Add / edit / delete assets | — | ✓ |
 | View fetes | ✓ | ✓ |
 | Create / edit fetes | — | ✓ |
-| Add / remove volunteers | ✓ | ✓ |
 | Withdraw & return assets | ✓ | ✓ |
 | View withdrawal history | ✓ | ✓ |
 | View locations | ✓ | ✓ |
@@ -140,7 +135,6 @@ The app enforces a two-role access model — **Volunteer** and **Admin** — tha
 | `store_locations` | Physical storage / event venues |
 | `fetes` | Charity sale events |
 | `withdrawals` | Asset movement log (out → returned) |
-| `fete_volunteers` | Join table linking users to fetes with a role and notes |
 | `fete_requirements` | Optional pre-planned equipment requirements per fete |
 
 ---
@@ -173,14 +167,9 @@ All serverless functions live under `/backend/fete/` and are consumed via auto-g
 
 ### Users
 - **`getUsers`** — returns all users (without PINs).
-- **`getUsersWithFetes`** — returns users with their full fete-volunteer history.
+- **`getUsersWithFetes`** — returns users with their fete history.
 - **`saveUser`** — upserts a user.
 - **`deleteUser`** — deletes a user by ID.
-
-### Volunteers
-- **`getFeteVolunteers`** — returns all volunteer assignments.
-- **`saveFeteVolunteer`** — adds or updates a volunteer assignment.
-- **`deleteFeteVolunteer`** — removes a volunteer from a fete.
 
 ### Requirements
 - **`getFeteRequirements`** — returns planned equipment requirements for fetes.
@@ -198,4 +187,17 @@ To sign in, use the demo credentials shown on the login screen:
 |---|---|---|
 | alice@charity.org | 1234 | Admin |
 | bob@charity.org | 2345 | Admin |
-| carol@charity.org | 3456 | Volunteer |
+| carol@charity.org | 3456 | User |
+
+---
+
+## Print Preview Checklist
+
+Use this quick check after any UI or print-style changes to avoid pagination regressions.
+
+- Open **Print Centre** and test each single-list action: **Print Events**, **Print Locations**, **Print Assets**.
+- For each single-list print, confirm no trailing blank page appears when content fits on one page.
+- Confirm long lists still break across multiple pages naturally (no clipped rows/cards).
+- Click **Print All Lists** and confirm each section starts on a new page in the expected order.
+- Verify headers and the **Printed:** footer are visible in print preview.
+- Repeat one quick pass in a second browser (Edge and Chrome) to catch engine-specific print behavior.

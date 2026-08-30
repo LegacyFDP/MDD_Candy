@@ -9,6 +9,17 @@ type Params = {
 export default async function (req: { params: Params; user: User }) {
   const { asset_id, fete_id, quantity, withdrawn_by, notes } = req.params
 
+  const userCheck = await retoolDb.query<{ id: number; role: string }>(
+    `SELECT id, role FROM fete_users WHERE id = $1`, [withdrawn_by]
+  )
+  const actingUser = userCheck.data[0]
+  if (!actingUser) {
+    throw new Error('Withdrawn by user not found')
+  }
+  if (actingUser.role !== 'admin' && actingUser.role !== 'store keeper') {
+    throw new Error('Only admin or store keeper can change asset status')
+  }
+
   // Check available stock
   const check = await retoolDb.query<{ quantity_available: number }>(
     `SELECT quantity_available FROM assets WHERE id = $1`, [asset_id]

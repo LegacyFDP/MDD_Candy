@@ -4,7 +4,7 @@ import { Button } from '../lib/shadcn/button'
 import { Input } from '../lib/shadcn/input'
 import { Label } from '../lib/shadcn/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../lib/shadcn/card'
-import { AlertCircle, Tent } from 'lucide-react'
+import { AlertCircle, Eye, EyeOff, Tent } from 'lucide-react'
 
 export type AppUser = { id: number; name: string; email: string; role: string }
 
@@ -15,6 +15,7 @@ interface LoginProps {
 export default function Login({ onLogin }: LoginProps) {
   const [email, setEmail] = useState('')
   const [pin, setPin] = useState('')
+  const [showPin, setShowPin] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const { trigger, loading } = useLoginUser()
 
@@ -58,15 +59,25 @@ export default function Login({ onLogin }: LoginProps) {
             </div>
             <div className="space-y-1">
               <Label htmlFor="pin">PIN</Label>
-              <Input
-                id="pin"
-                type="password"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                placeholder="••••"
-                maxLength={6}
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="pin"
+                  type={showPin ? 'text' : 'password'}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  placeholder="••••"
+                  maxLength={6}
+                  className="pr-10"
+                  required
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 px-3 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPin((v) => !v)}
+                  aria-label={showPin ? 'Hide PIN' : 'Show PIN'}>
+                  {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             {errorMsg && (
               <div className="flex items-center gap-2 text-destructive text-sm">

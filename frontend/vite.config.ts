@@ -7,7 +7,10 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    host: '127.0.0.1',
+    // 5173 falls inside a Windows/Hyper-V dynamic port exclusion range on some
+    // machines (netsh interface ipv4 show excludedportrange), causing EACCES.
+    port: 5556,
     proxy: {
       '/api': {
         target: process.env.VITE_API_PROXY ?? 'http://localhost:8080',

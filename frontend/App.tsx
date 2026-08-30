@@ -6,21 +6,25 @@ import AssetsPage from './pages/AssetsPage'
 import FetesPage from './pages/FetesPage'
 import WithdrawalsPage from './pages/WithdrawalsPage'
 import UsersPage from './pages/UsersPage'
+import PrintListsPage from './pages/PrintListsPage'
 import LocationsPage from './pages/LocationsPage'
+import VolunteersPage from './pages/VolunteersPage'
 import HelpPage from './pages/HelpPage'
 import { Button } from './lib/shadcn/button'
 import {
   LayoutDashboard, Package, Tent, ArrowUpFromLine,
-  Users, MapPin, LogOut, Menu, X, Shield, HelpCircle
+  Users, Printer, MapPin, LogOut, Menu, X, Shield, HelpCircle
 } from 'lucide-react'
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
   { path: '/assets', label: 'Store Assets', icon: Package, adminOnly: false },
   { path: '/fetes', label: 'Fete Events', icon: Tent, adminOnly: false },
+  { path: '/volunteers', label: 'Volunteers', icon: Users, adminOnly: true },
   { path: '/withdrawals', label: 'Withdrawals', icon: ArrowUpFromLine, adminOnly: false },
   { path: '/locations', label: 'Locations', icon: MapPin, adminOnly: true },
   { path: '/users', label: 'Users', icon: Users, adminOnly: true },
+  { path: '/print-lists', label: 'Print Lists', icon: Printer, adminOnly: true },
   { path: '/help', label: 'Help', icon: HelpCircle, adminOnly: false },
 ]
 
@@ -33,7 +37,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="app-shell flex h-screen bg-background overflow-hidden">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -43,7 +47,7 @@ export default function App() {
       )}
 
       {/* Sidebar */}
-      <aside className={`
+      <aside className={`app-sidebar
         fixed lg:static inset-y-0 left-0 z-30 w-60 bg-card border-r border-border
         flex flex-col transition-transform duration-200
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -95,7 +99,7 @@ export default function App() {
       </aside>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="app-content flex-1 flex flex-col overflow-hidden">
         {/* Mobile top bar */}
         <header className="lg:hidden flex items-center gap-3 px-4 py-3 border-b border-border bg-card">
           <button onClick={() => setSidebarOpen(true)} aria-label="Open menu">
@@ -105,16 +109,26 @@ export default function App() {
           <span className="font-semibold text-sm">Fete Store Manager</span>
         </header>
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="app-main flex-1 overflow-y-auto">
           <Routes>
             <Route path="/" element={<Dashboard currentUser={currentUser} />} />
             <Route path="/assets" element={<AssetsPage currentUser={currentUser} />} />
             <Route path="/fetes" element={<FetesPage currentUser={currentUser} />} />
+            <Route path="/volunteers" element={
+              currentUser.role === 'admin'
+                ? <VolunteersPage currentUser={currentUser} />
+                : <Navigate to="/" replace />
+            } />
             <Route path="/withdrawals" element={<WithdrawalsPage currentUser={currentUser} />} />
             <Route path="/locations" element={<LocationsPage currentUser={currentUser} />} />
             <Route path="/users" element={
               currentUser.role === 'admin'
                 ? <UsersPage currentUser={currentUser} />
+                : <Navigate to="/" replace />
+            } />
+            <Route path="/print-lists" element={
+              currentUser.role === 'admin'
+                ? <PrintListsPage currentUser={currentUser} />
                 : <Navigate to="/" replace />
             } />
             <Route path="/help" element={<HelpPage />} />

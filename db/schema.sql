@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS fete_users (
   id         SERIAL PRIMARY KEY,
   name       TEXT        NOT NULL,
   email      TEXT        NOT NULL UNIQUE,
-  role       TEXT        NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+  role       TEXT        NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'store keeper', 'user')),
   pin        TEXT        NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -63,18 +63,8 @@ CREATE TABLE IF NOT EXISTS withdrawals (
   returned_by  INTEGER     REFERENCES fete_users(id),
   withdrawn_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   returned_at  TIMESTAMPTZ,
-  status       TEXT        NOT NULL DEFAULT 'out' CHECK (status IN ('out', 'returned')),
+  status       TEXT        NOT NULL DEFAULT 'out' CHECK (status IN ('booked', 'out', 'returned')),
   notes        TEXT        NOT NULL DEFAULT ''
-);
-
-CREATE TABLE IF NOT EXISTS fete_volunteers (
-  id       SERIAL PRIMARY KEY,
-  fete_id  INTEGER     NOT NULL REFERENCES fetes(id) ON DELETE CASCADE,
-  user_id  INTEGER     NOT NULL REFERENCES fete_users(id) ON DELETE CASCADE,
-  role     TEXT        NOT NULL DEFAULT '',
-  notes    TEXT        NOT NULL DEFAULT '',
-  added_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (fete_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS fete_requirements (
@@ -90,7 +80,6 @@ CREATE INDEX IF NOT EXISTS idx_assets_location      ON assets(location_id);
 CREATE INDEX IF NOT EXISTS idx_withdrawals_status   ON withdrawals(status);
 CREATE INDEX IF NOT EXISTS idx_withdrawals_asset    ON withdrawals(asset_id);
 CREATE INDEX IF NOT EXISTS idx_withdrawals_fete     ON withdrawals(fete_id);
-CREATE INDEX IF NOT EXISTS idx_volunteers_fete      ON fete_volunteers(fete_id);
 CREATE INDEX IF NOT EXISTS idx_requirements_fete    ON fete_requirements(fete_id);
 
 COMMIT;

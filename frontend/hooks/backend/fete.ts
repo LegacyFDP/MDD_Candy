@@ -91,6 +91,8 @@ export const useSaveFete = makeBackendHook('saveFete')
 // Withdrawals
 export const useGetWithdrawals = makeBackendHook('getWithdrawals')
 export const useGetFeteWithdrawals = makeBackendHook('getFeteWithdrawals')
+export const useBookAsset = makeBackendHook('bookAsset')
+export const useConvertBookingToOut = makeBackendHook('convertBookingToOut')
 export const useWithdrawAsset = makeBackendHook('withdrawAsset')
 export const useReturnAsset = makeBackendHook('returnAsset')
 
@@ -100,12 +102,16 @@ export const useGetUsersWithFetes = makeBackendHook('getUsersWithFetes')
 export const useSaveUser = makeBackendHook('saveUser')
 export const useDeleteUser = makeBackendHook('deleteUser')
 
-// Fete volunteers
-export const useGetFeteVolunteers = makeBackendHook('getFeteVolunteers')
-export const useSaveFeteVolunteer = makeBackendHook('saveFeteVolunteer')
-export const useDeleteFeteVolunteer = makeBackendHook('deleteFeteVolunteer')
+// Volunteers
+export const useGetVolunteers = makeBackendHook('getVolunteers')
+export const useSaveVolunteer = makeBackendHook('saveVolunteer')
+export const useDeleteVolunteer = makeBackendHook('deleteVolunteer')
+export const useGetVolunteerShifts = makeBackendHook('getVolunteerShifts')
+export const useSaveVolunteerShift = makeBackendHook('saveVolunteerShift')
+export const useDeleteVolunteerShift = makeBackendHook('deleteVolunteerShift')
 
 // Fete requirements
 export const useGetFeteRequirements = makeBackendHook('getFeteRequirements')
+export const useGetFeteAssetPickList = makeBackendHook('getFeteAssetPickList')
 export const useSaveFeteRequirement = makeBackendHook('saveFeteRequirement')
 export const useDeleteFeteRequirement = makeBackendHook('deleteFeteRequirement')

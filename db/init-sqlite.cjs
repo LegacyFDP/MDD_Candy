@@ -153,14 +153,6 @@ CREATE TABLE IF NOT EXISTS withdrawals (
   notes        TEXT        NOT NULL DEFAULT ''
 );
 
-CREATE TABLE IF NOT EXISTS fete_volunteers (
-  id   INTEGER PRIMARY KEY AUTOINCREMENT,
-  fete_id INTEGER NOT NULL REFERENCES fetes(id) ON DELETE CASCADE,
-  user_id INTEGER NOT NULL REFERENCES fete_users(id),
-  role TEXT NOT NULL,
-  notes TEXT NOT NULL DEFAULT ''
-);
-
 CREATE TABLE IF NOT EXISTS fete_requirements (
   id               INTEGER PRIMARY KEY AUTOINCREMENT,
   fete_id          INTEGER NOT NULL REFERENCES fetes(id) ON DELETE CASCADE,
@@ -222,11 +214,6 @@ INSERT INTO withdrawals (asset_id, fete_id, quantity, withdrawn_by, status, note
   (1, 1, 4, 3, 'out', 'Taken early for setup');
 
 UPDATE assets SET quantity_available = quantity_available - 4 WHERE id = 1;
-
-INSERT INTO fete_volunteers (fete_id, user_id, role, notes) VALUES
-  (1, 3, 'Stall Lead', 'Tombola stall'),
-  (1, 4, 'Setup Crew', ''),
-  (2, 3, 'Helper',     '');
 
 INSERT INTO fete_requirements (fete_id, asset_id, quantity_needed, notes) VALUES
   (1, 1, 8,  'For stalls'),

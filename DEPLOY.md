@@ -151,7 +151,7 @@ npm install
 npm run dev
 ```
 
-The API runs on port 8080 and the Vite frontend runs on http://localhost:5173.
+The API runs on port 8080 and the Vite frontend runs on http://localhost:5556.
 
 If the database file does not exist yet, create it first:
 

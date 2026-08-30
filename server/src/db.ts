@@ -358,16 +358,29 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
     await run('ALTER TABLE volunteer_shifts ADD COLUMN end_date TEXT NOT NULL DEFAULT CURRENT_DATE;', [], database)
   }
 
-  await run(
-    `
-      UPDATE volunteer_shifts
-      SET start_date = COALESCE(start_date, shift_date, CURRENT_DATE),
-          end_date = COALESCE(end_date, shift_date, CURRENT_DATE)
-      WHERE start_date IS NULL OR end_date IS NULL
-    `,
-    [],
-    database,
-  )
+  if (shiftExisting.has('shift_date')) {
+    await run(
+      `
+        UPDATE volunteer_shifts
+        SET start_date = COALESCE(start_date, shift_date, CURRENT_DATE),
+            end_date = COALESCE(end_date, shift_date, CURRENT_DATE)
+        WHERE start_date IS NULL OR end_date IS NULL
+      `,
+      [],
+      database,
+    )
+  } else {
+    await run(
+      `
+        UPDATE volunteer_shifts
+        SET start_date = COALESCE(start_date, CURRENT_DATE),
+            end_date = COALESCE(end_date, CURRENT_DATE)
+        WHERE start_date IS NULL OR end_date IS NULL
+      `,
+      [],
+      database,
+    )
+  }
 
   await run(
     `

@@ -65,6 +65,7 @@ export default function VolunteersPage({ currentUser }: Props) {
   const [editId, setEditId] = useState<number | null>(null)
   const [shiftOpen, setShiftOpen] = useState(false)
   const [shiftEditId, setShiftEditId] = useState<number | null>(null)
+  const [shiftSaveError, setShiftSaveError] = useState('')
   const [form, setForm] = useState<Partial<Volunteer>>({
     name: '', email: '', phone: '', role: 'Helper', notes: ''
   })
@@ -113,16 +114,18 @@ export default function VolunteersPage({ currentUser }: Props) {
   }
 
   function openNewShift() {
+    const today = new Date().toISOString().slice(0, 10)
     setShiftForm({
       volunteer_id: volunteers[0]?.id ?? null,
       fete_id: null,
       role: 'Helper',
-      start_date: '',
-      end_date: '',
+      start_date: today,
+      end_date: today,
       start_time: '09:00',
       end_time: '12:00',
     })
     setShiftEditId(null)
+    setShiftSaveError('')
     setShiftOpen(true)
   }
 
@@ -137,6 +140,7 @@ export default function VolunteersPage({ currentUser }: Props) {
       end_time: shift.end_time,
     })
     setShiftEditId(shift.id)
+    setShiftSaveError('')
     setShiftOpen(true)
   }
 
@@ -161,18 +165,23 @@ export default function VolunteersPage({ currentUser }: Props) {
   }
 
   async function handleSaveShift() {
-    await saveVolunteerShift({
-      ...(shiftEditId ? { id: shiftEditId } : {}),
-      volunteer_id: shiftForm.volunteer_id ?? 0,
-      fete_id: shiftForm.fete_id ?? null,
-      role: shiftForm.role,
-      start_date: shiftForm.start_date,
-      end_date: shiftForm.end_date || shiftForm.start_date,
-      start_time: shiftForm.start_time,
-      end_time: shiftForm.end_time,
-    })
-    setShiftOpen(false)
-    void loadShifts({})
+    setShiftSaveError('')
+    try {
+      await saveVolunteerShift({
+        ...(shiftEditId ? { id: shiftEditId } : {}),
+        volunteer_id: shiftForm.volunteer_id ?? 0,
+        fete_id: shiftForm.fete_id ?? null,
+        role: shiftForm.role,
+        start_date: shiftForm.start_date,
+        end_date: shiftForm.end_date || shiftForm.start_date,
+        start_time: shiftForm.start_time,
+        end_time: shiftForm.end_time,
+      })
+      setShiftOpen(false)
+      void loadShifts({})
+    } catch (error) {
+      setShiftSaveError(error instanceof Error ? error.message : 'Unable to save shift.')
+    }
   }
 
   async function handleDeleteShift(id: number) {
@@ -299,12 +308,16 @@ export default function VolunteersPage({ currentUser }: Props) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={shiftOpen} onOpenChange={setShiftOpen}>
+      <Dialog open={shiftOpen} onOpenChange={(isOpen) => {
+        setShiftOpen(isOpen)
+        if (!isOpen) setShiftSaveError('')
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{shiftEditId ? 'Edit Shift' : 'Add Shift'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            {shiftSaveError && <p role="alert" className="text-sm text-destructive">{shiftSaveError}</p>}
             <div className="space-y-1">
               <Label>Volunteer</Label>
               <Select value={String(shiftForm.volunteer_id ?? '')} onValueChange={value => setShiftForm(f => ({ ...f, volunteer_id: Number(value) }))}>

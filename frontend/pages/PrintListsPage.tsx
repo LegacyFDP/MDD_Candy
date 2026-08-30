@@ -8,10 +8,13 @@ import {
 } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../lib/shadcn/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
 import { Printer, Calendar, MapPin, Package, Download } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
+
+type PrintReport = 'events' | 'locations' | 'assets' | 'picklists'
 
 type Fete = {
   id: number
@@ -113,6 +116,9 @@ export default function PrintListsPage({ currentUser }: Props) {
   const { data: feteLocationsRaw, trigger: loadFeteLocations } = useGetFeteLocations()
   const { data: assetsRaw, trigger: loadAssets } = useGetAssets()
   const { data: fetePickListRaw, trigger: loadFetePickList } = useGetFeteAssetPickList()
+  const [selectedReport, setSelectedReport] = useState<PrintReport>('events')
+  const [selectedFeteId, setSelectedFeteId] = useState<string>('')
+  const [isPrintingAll, setIsPrintingAll] = useState(false)
   const [showShortagesOnly, setShowShortagesOnly] = useState(false)
 
   useEffect(() => {
@@ -120,7 +126,7 @@ export default function PrintListsPage({ currentUser }: Props) {
     void loadStoreLocations({})
     void loadFeteLocations({})
     void loadAssets({})
-    void loadFetePickList({})
+    void loadFetePickList({ status: 'all' })
   }, [])
 
   const fetes = (fetesRaw ?? []) as Fete[]
@@ -199,9 +205,6 @@ export default function PrintListsPage({ currentUser }: Props) {
       }))
 
     // Keep event pick-list cards visible even when no requirements exist yet.
-    const plannedOrActiveFetes = fetes.filter(
-      (fete) => fete.status === 'planned' || fete.status === 'active',
-    )
 
     const mergedByFete = new Map<number, {
       feteId: number
@@ -216,7 +219,7 @@ export default function PrintListsPage({ currentUser }: Props) {
       mergedByFete.set(group.feteId, group)
     }
 
-    for (const fete of plannedOrActiveFetes) {
+    for (const fete of fetes) {
       if (!mergedByFete.has(fete.id)) {
         mergedByFete.set(fete.id, {
           feteId: fete.id,
@@ -248,6 +251,11 @@ export default function PrintListsPage({ currentUser }: Props) {
       .filter((group) => group.items.length > 0)
   }, [pickListsByFete, showShortagesOnly])
 
+  const selectedPickList = useMemo(
+    () => filteredPickListsByFete.filter((group) => group.feteId === Number(selectedFeteId)),
+    [filteredPickListsByFete, selectedFeteId],
+  )
+
   const generatedAt = new Date().toLocaleString('en-GB', {
     day: '2-digit',
     month: 'short',
@@ -273,11 +281,13 @@ export default function PrintListsPage({ currentUser }: Props) {
 
     const handleAfterPrint = () => {
       clearPrintSectionFilter()
+      setIsPrintingAll(false)
     }
 
     const handleMediaChange = (event: MediaQueryListEvent) => {
       if (!event.matches) {
         clearPrintSectionFilter()
+        setIsPrintingAll(false)
       }
     }
 
@@ -296,6 +306,7 @@ export default function PrintListsPage({ currentUser }: Props) {
         mediaQueryList.removeListener(handleMediaChange)
       }
       clearPrintSectionFilter()
+      setIsPrintingAll(false)
     }
   }, [])
 
@@ -310,9 +321,21 @@ export default function PrintListsPage({ currentUser }: Props) {
     window.print()
   }
 
-  function printAllSections() {
+  function printSelectedReport() {
     clearPrintSectionFilter()
-    window.print()
+    const reportSectionIds: Record<PrintReport, string> = {
+      events: 'print-events',
+      locations: 'print-locations',
+      assets: 'print-assets',
+      picklists: 'print-picklists',
+    }
+    printSection(reportSectionIds[selectedReport])
+  }
+
+  function printAllReports() {
+    clearPrintSectionFilter()
+    setIsPrintingAll(true)
+    window.requestAnimationFrame(() => window.print())
   }
 
   function downloadAssetCsv() {
@@ -350,11 +373,47 @@ export default function PrintListsPage({ currentUser }: Props) {
             Printable lists for events, locations, and assets by type.
           </p>
         </div>
-        <Button onClick={printAllSections} className="flex items-center gap-2">
-          <Printer className="w-4 h-4" /> Print All Lists
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={printSelectedReport} className="flex items-center gap-2">
+            <Printer className="w-4 h-4" /> Print Selected List
+          </Button>
+          <Button onClick={printAllReports} className="flex items-center gap-2">
+            <Printer className="w-4 h-4" /> Print All
+          </Button>
+        </div>
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-2 print-hidden">
+        <div className="space-y-1">
+          <label className="text-sm font-medium" htmlFor="print-report">Print list</label>
+          <Select value={selectedReport} onValueChange={(value) => setSelectedReport(value as PrintReport)}>
+            <SelectTrigger id="print-report"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="events">Events</SelectItem>
+              <SelectItem value="locations">Locations</SelectItem>
+              <SelectItem value="assets">Assets by Location &amp; Area</SelectItem>
+              <SelectItem value="picklists">Event Asset Pick Lists</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {selectedReport === 'picklists' && (
+          <div className="space-y-1">
+            <label className="text-sm font-medium" htmlFor="print-fete">Event</label>
+            <Select value={selectedFeteId} onValueChange={setSelectedFeteId}>
+              <SelectTrigger id="print-fete"><SelectValue placeholder="Select an event" /></SelectTrigger>
+              <SelectContent>
+                {fetes.map((fete) => (
+                  <SelectItem key={fete.id} value={String(fete.id)}>
+                    {fete.name} ({fete.status})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </div>
+
+      {(selectedReport === 'events' || isPrintingAll) && (
       <Card id="card-print-events" className="print-card">
         <CardHeader className="print-header">
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -414,7 +473,9 @@ export default function PrintListsPage({ currentUser }: Props) {
           </p>
         </CardContent>
       </Card>
+      )}
 
+      {(selectedReport === 'locations' || isPrintingAll) && (
       <Card id="card-print-locations" className="print-card">
         <CardHeader className="print-header">
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -466,7 +527,9 @@ export default function PrintListsPage({ currentUser }: Props) {
           </p>
         </CardContent>
       </Card>
+      )}
 
+      {(selectedReport === 'assets' || isPrintingAll) && (
       <Card id="card-print-assets" className="print-card">
         <CardHeader className="print-header">
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -524,7 +587,9 @@ export default function PrintListsPage({ currentUser }: Props) {
           </p>
         </CardContent>
       </Card>
+      )}
 
+      {(selectedReport === 'picklists' || isPrintingAll) && (
       <Card id="card-print-picklists" className="print-card">
         <CardHeader className="print-header">
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -552,15 +617,18 @@ export default function PrintListsPage({ currentUser }: Props) {
           </div>
         </CardHeader>
         <CardContent id="print-picklists" className="space-y-4 print-section">
-          {filteredPickListsByFete.length === 0 && (
+          {!selectedFeteId && (
+            <p className="text-sm text-muted-foreground">Select an event to view its asset pick list.</p>
+          )}
+          {selectedFeteId && selectedPickList.length === 0 && (
             <p className="text-sm text-muted-foreground">
               {showShortagesOnly
-                ? 'No current shortages for planned/active events.'
+                ? 'No shortages for this event.'
                 : 'No event asset requirements available.'}
             </p>
           )}
 
-          {filteredPickListsByFete.map((feteGroup) => (
+          {selectedPickList.map((feteGroup) => (
             <div key={feteGroup.feteId} className="border rounded-md p-3 print-avoid-break">
               <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
                 <div>
@@ -640,6 +708,7 @@ export default function PrintListsPage({ currentUser }: Props) {
           </p>
         </CardContent>
       </Card>
+      )}
     </div>
   )
 }

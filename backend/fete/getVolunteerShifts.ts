@@ -26,8 +26,8 @@ export default async function (req: { params: Params; user: User }) {
       vs.fete_id,
       f.name AS fete_name,
       vs.role,
-      COALESCE(vs.start_date, vs.shift_date, date('now')) AS start_date,
-      COALESCE(vs.end_date, vs.shift_date, date('now')) AS end_date,
+      vs.start_date,
+      vs.end_date,
       vs.start_time,
       vs.end_time,
       vs.created_at
@@ -36,7 +36,7 @@ export default async function (req: { params: Params; user: User }) {
     LEFT JOIN fetes f ON f.id = vs.fete_id
     WHERE ($1 IS NULL OR vs.volunteer_id = $1)
       AND ($2 IS NULL OR vs.fete_id = $2)
-    ORDER BY COALESCE(vs.start_date, vs.shift_date, date('now')) ASC, vs.start_time ASC
+    ORDER BY vs.start_date ASC, vs.start_time ASC
   `, [volunteer_id ?? null, fete_id ?? null])
 
   return result.data

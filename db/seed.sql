@@ -1,18 +1,25 @@
--- Fete Store Manager — demo seed data (PostgreSQL)
+-- Fete Store Manager — demo seed data (SQLite)
 --
--- NOT used by the running app (see schema.sql) — for SQLite, demo data comes
--- from db/init-sqlite.js instead.
+-- NOT used by the running app. For a new SQLite database, use
+-- db/init-sqlite.cjs instead.
 --
--- Run after schema.sql:  psql "$DATABASE_URL" -f db/seed.sql
--- Safe to re-run: it truncates the app tables first.
+-- Run with: sqlite3 server/fete_store.db < db/seed.sql
+-- Safe to re-run: it deletes the app tables first.
 --
 -- NOTE: PINs are stored in plaintext, matching the original Retool app.
 -- The demo credentials below are shown on the login screen.
 
 BEGIN;
 
-TRUNCATE fete_requirements, withdrawals, fetes, assets, store_locations, fete_users
-  RESTART IDENTITY CASCADE;
+DELETE FROM fete_requirements;
+DELETE FROM withdrawals;
+DELETE FROM fetes;
+DELETE FROM assets;
+DELETE FROM storage_areas;
+DELETE FROM store_locations;
+DELETE FROM fete_users;
+DELETE FROM sqlite_sequence
+WHERE name IN ('fete_requirements', 'withdrawals', 'fetes', 'assets', 'storage_areas', 'store_locations', 'fete_users');
 
 -- Users (credentials shown on the login page) ---------------------------------
 INSERT INTO fete_users (name, email, role, pin) VALUES

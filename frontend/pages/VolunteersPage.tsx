@@ -349,7 +349,7 @@ export default function VolunteersPage({ currentUser }: Props) {
                   ...form,
                   fete_id: feteId,
                   start_date: minimumDate && (form.start_date < minimumDate || form.start_date > maximumDate) ? minimumDate : form.start_date,
-                  end_date: minimumDate && (form.end_date < minimumDate || form.end_date > maximumDate) ? minimumDate : form.end_date,
+                  end_date: maximumDate && (form.end_date < minimumDate || form.end_date > maximumDate) ? maximumDate : form.end_date,
                 }))
               }}>
                 <SelectTrigger><SelectValue placeholder="Optional event" /></SelectTrigger>

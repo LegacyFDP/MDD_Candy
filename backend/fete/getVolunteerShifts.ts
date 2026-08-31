@@ -34,8 +34,8 @@ export default async function (req: { params: Params; user: User }) {
     FROM volunteer_shifts vs
     LEFT JOIN fete_volunteers v ON v.id = vs.volunteer_id
     LEFT JOIN fetes f ON f.id = vs.fete_id
-    WHERE ($1::int IS NULL OR vs.volunteer_id = $1)
-      AND ($2::int IS NULL OR vs.fete_id = $2)
+    WHERE ($1 IS NULL OR vs.volunteer_id = $1)
+      AND ($2 IS NULL OR vs.fete_id = $2)
     ORDER BY COALESCE(vs.start_date, vs.shift_date, date('now')) ASC, vs.start_time ASC
   `, [volunteer_id ?? null, fete_id ?? null])
 

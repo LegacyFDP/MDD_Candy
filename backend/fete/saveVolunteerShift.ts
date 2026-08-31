@@ -73,6 +73,25 @@ export default async function (req: { params: Params; user: User }) {
     throw new Error('Volunteer shifts can span up to 3 consecutive days')
   }
 
+  if (fete_id != null) {
+    const fete = await retoolDb.query<{ event_date: string }>(
+      'SELECT event_date FROM fetes WHERE id = $1',
+      [fete_id],
+    )
+    const eventDate = fete.data[0]?.event_date
+
+    if (!eventDate) throw new Error('Selected event was not found')
+
+    const earliestDate = new Date(`${eventDate}T00:00:00`)
+    earliestDate.setDate(earliestDate.getDate() - 1)
+    const latestDate = new Date(`${eventDate}T00:00:00`)
+    latestDate.setDate(latestDate.getDate() + 1)
+
+    if (startMs < earliestDate.getTime() || endMs > latestDate.getTime()) {
+      throw new Error('Volunteer shifts must be between one day before and one day after the event date')
+    }
+  }
+
   if (id) {
     await retoolDb.query(`
       UPDATE volunteer_shifts

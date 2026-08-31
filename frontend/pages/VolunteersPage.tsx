@@ -48,6 +48,12 @@ type Fete = {
 
 const VOLUNTEER_ROLES = ['Lead Volunteer', 'Helper', 'Putting Up', 'Taking Down', 'Transport', 'Stall Holder']
 
+function addDays(date: string, days: number): string {
+  const result = new Date(`${date}T12:00:00Z`)
+  result.setUTCDate(result.getUTCDate() + days)
+  return result.toISOString().slice(0, 10)
+}
+
 export default function VolunteersPage({ currentUser }: Props) {
   const { data: volunteersRaw, trigger: loadVolunteers } = useGetVolunteers()
   const { data: shiftsRaw, trigger: loadShifts } = useGetVolunteerShifts()
@@ -86,6 +92,9 @@ export default function VolunteersPage({ currentUser }: Props) {
     start_time: '09:00',
     end_time: '12:00',
   })
+  const selectedFete = fetes.find(fete => fete.id === shiftForm.fete_id)
+  const shiftDateMin = selectedFete ? addDays(selectedFete.event_date, -1) : undefined
+  const shiftDateMax = selectedFete ? addDays(selectedFete.event_date, 1) : undefined
 
   useEffect(() => {
     void loadVolunteers({})
@@ -331,7 +340,18 @@ export default function VolunteersPage({ currentUser }: Props) {
             </div>
             <div className="space-y-1">
               <Label>Event</Label>
-              <Select value={shiftForm.fete_id == null ? 'none' : String(shiftForm.fete_id)} onValueChange={value => setShiftForm(f => ({ ...f, fete_id: value === 'none' ? null : Number(value) }))}>
+              <Select value={shiftForm.fete_id == null ? 'none' : String(shiftForm.fete_id)} onValueChange={value => {
+                const feteId = value === 'none' ? null : Number(value)
+                const fete = fetes.find(item => item.id === feteId)
+                const minimumDate = fete ? addDays(fete.event_date, -1) : undefined
+                const maximumDate = fete ? addDays(fete.event_date, 1) : undefined
+                setShiftForm(form => ({
+                  ...form,
+                  fete_id: feteId,
+                  start_date: minimumDate && (form.start_date < minimumDate || form.start_date > maximumDate) ? minimumDate : form.start_date,
+                  end_date: minimumDate && (form.end_date < minimumDate || form.end_date > maximumDate) ? minimumDate : form.end_date,
+                }))
+              }}>
                 <SelectTrigger><SelectValue placeholder="Optional event" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No event assigned</SelectItem>
@@ -355,14 +375,14 @@ export default function VolunteersPage({ currentUser }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Start date</Label>
-                <Input type="date" value={shiftForm.start_date} onChange={e => setShiftForm(f => ({ ...f, start_date: e.target.value }))} />
+                <Input type="date" min={shiftDateMin} max={shiftDateMax} value={shiftForm.start_date} onChange={e => setShiftForm(f => ({ ...f, start_date: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <Label>End date</Label>
-                <Input type="date" value={shiftForm.end_date || shiftForm.start_date} onChange={e => setShiftForm(f => ({ ...f, end_date: e.target.value }))} />
+                <Input type="date" min={shiftDateMin} max={shiftDateMax} value={shiftForm.end_date || shiftForm.start_date} onChange={e => setShiftForm(f => ({ ...f, end_date: e.target.value }))} />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">Schedule can run for 1–3 consecutive days, with hourly blocks from 09:00 to 18:00.</p>
+            <p className="text-xs text-muted-foreground">{selectedFete ? 'Schedule is limited to the day before through the day after this event.' : 'Schedule can run for 1–3 consecutive days.'} Hourly blocks run from 09:00 to 18:00.</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Start time</Label>

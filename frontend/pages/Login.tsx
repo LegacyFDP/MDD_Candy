@@ -4,7 +4,7 @@ import { Button } from '../lib/shadcn/button'
 import { Input } from '../lib/shadcn/input'
 import { Label } from '../lib/shadcn/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../lib/shadcn/card'
-import { AlertCircle, Eye, EyeOff, Tent } from 'lucide-react'
+import { AlertCircle, Eye, EyeOff } from 'lucide-react'
 
 export type AppUser = { id: number; name: string; email: string; role: string }
 
@@ -33,12 +33,16 @@ export default function Login({ onLogin }: LoginProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
+    <div className="mdd-login-shell min-h-screen flex items-center justify-center p-4">
+      <Card className="w-full max-w-sm overflow-hidden">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-2">
-            <div className="bg-primary/10 p-3 rounded-full">
-              <Tent className="w-8 h-8 text-primary" />
+            <div className="mdd-mark p-3 rounded-full">
+              <img
+                src="https://www.medicaldetectiondogs.org.uk/fresco/clients/medicaldetectiondogs/assets/mdd-black.svg"
+                alt="Medical Detection Dogs"
+                className="mdd-logo"
+              />
             </div>
           </div>
           <CardTitle className="text-2xl">Fete Store Manager</CardTitle>
@@ -89,11 +93,9 @@ export default function Login({ onLogin }: LoginProps) {
               {loading ? 'Signing in…' : 'Sign In'}
             </Button>
           </form>
-          <div className="mt-6 p-3 bg-muted rounded-md text-xs text-muted-foreground space-y-1">
-            <p className="font-medium">Demo credentials:</p>
-            <p>Admin: alice@charity.org / 1234</p>
-            <p>Admin: bob@charity.org / 2345</p>
-            <p>User: carol@charity.org / 3456</p>
+          <div className="mdd-login-banner mt-6 -mx-6 -mb-6 px-6 py-5">
+            <p className="mdd-login-banner-title">Medical Detection Dogs</p>
+            <p className="mdd-login-banner-copy">Saving lives through the power of dogs.</p>
           </div>
         </CardContent>
       </Card>

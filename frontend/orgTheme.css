@@ -87,3 +87,48 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
 }
+
+/* Medical Detection Dogs-inspired identity tokens, scoped for incremental reuse. */
+:root {
+  --mdd-red: #c8102e;
+  --mdd-deep-red: #971a2b;
+  --mdd-yellow: #f9c800;
+  --mdd-ink: #3b1b22;
+  --mdd-mist: #fff5d6;
+}
+
+.mdd-login-shell {
+  background-color: var(--mdd-mist);
+  background-image: linear-gradient(135deg, rgba(200, 16, 46, 0.12), transparent 55%);
+}
+
+.mdd-mark {
+  background-color: var(--mdd-mist);
+}
+
+.mdd-logo {
+  display: block;
+  width: 8rem;
+  height: 3.25rem;
+}
+
+.mdd-login-banner {
+  border-top: 4px solid var(--mdd-yellow);
+  background-color: var(--mdd-red);
+  color: white;
+}
+
+.mdd-login-banner-title {
+  margin: 0;
+  color: white;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.mdd-login-banner-copy {
+  margin: 0.25rem 0 0;
+  color: #fff2b5;
+  font-size: 0.8125rem;
+}

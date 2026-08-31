@@ -6,7 +6,7 @@ import { Label } from '../lib/shadcn/label'
 import { Badge } from '../lib/shadcn/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../lib/shadcn/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
-import { Plus, Pencil, Trash2, Shield, User, Calendar, Eye, EyeOff } from 'lucide-react'
+import { Plus, Pencil, Trash2, Shield, User, Calendar, Eye, EyeOff, Search } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -45,6 +45,9 @@ export default function UsersPage({ currentUser }: Props) {
   const [open, setOpen] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
   const [showPin, setShowPin] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState('all')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
   const [form, setForm] = useState<Partial<FeteUser>>({
     name: '', email: '', role: 'user', pin: ''
   })
@@ -92,9 +95,16 @@ export default function UsersPage({ currentUser }: Props) {
     void loadUsers({})
   }
 
-  const admins = users.filter(u => u.role === 'admin')
-  const storeKeepers = users.filter(u => u.role === 'store keeper')
-  const regularUsers = users.filter(u => u.role === 'user')
+  const visibleUsers = selectedUserId === 'all'
+    ? users
+    : users.filter(user => user.id === Number(selectedUserId))
+  const matchingUsers = users.filter(user => {
+    const query = searchTerm.trim().toLowerCase()
+    return !query || [user.name, user.email].some(value => value.toLowerCase().includes(query))
+  })
+  const admins = visibleUsers.filter(u => u.role === 'admin')
+  const storeKeepers = visibleUsers.filter(u => u.role === 'store keeper')
+  const regularUsers = visibleUsers.filter(u => u.role === 'user')
 
   return (
     <div className="p-6 space-y-6">
@@ -106,6 +116,58 @@ export default function UsersPage({ currentUser }: Props) {
         <Button onClick={openNew} className="flex items-center gap-2">
           <Plus className="w-4 h-4" /> Add User
         </Button>
+      </div>
+
+      <div className="relative max-w-md">
+        <Label htmlFor="user-search">Search users</Label>
+        <Search className="absolute left-3 top-9 w-4 h-4 text-muted-foreground" />
+        <Input
+          id="user-search"
+          value={searchTerm}
+          onChange={event => {
+            setSearchTerm(event.target.value)
+            setSelectedUserId('all')
+            setSearchOpen(true)
+          }}
+          onFocus={() => setSearchOpen(true)}
+          onBlur={() => window.setTimeout(() => setSearchOpen(false), 150)}
+          placeholder="Search by name or email"
+          aria-label="Search users"
+          aria-expanded={searchOpen}
+          aria-controls="user-search-results"
+          className="mt-1 pl-9"
+        />
+        {searchOpen && (
+          <div id="user-search-results" className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
+            <button
+              type="button"
+              className="w-full rounded-sm px-2 py-2 text-left text-sm hover:bg-accent"
+              onMouseDown={() => {
+                setSelectedUserId('all')
+                setSearchTerm('')
+                setSearchOpen(false)
+              }}>
+              All users
+            </button>
+            {matchingUsers.map(user => (
+              <button
+                key={user.id}
+                type="button"
+                className="w-full rounded-sm px-2 py-2 text-left hover:bg-accent"
+                onMouseDown={() => {
+                  setSelectedUserId(String(user.id))
+                  setSearchTerm(user.name)
+                  setSearchOpen(false)
+                }}>
+                <span className="block text-sm font-medium">{user.name}</span>
+                <span className="block text-xs text-muted-foreground">{user.email}</span>
+              </button>
+            ))}
+            {matchingUsers.length === 0 && (
+              <p className="px-2 py-4 text-center text-sm text-muted-foreground">No users found.</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Admins */}

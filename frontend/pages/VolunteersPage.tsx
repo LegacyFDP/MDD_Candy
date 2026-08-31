@@ -72,6 +72,10 @@ export default function VolunteersPage({ currentUser }: Props) {
   const [shiftOpen, setShiftOpen] = useState(false)
   const [shiftEditId, setShiftEditId] = useState<number | null>(null)
   const [shiftSaveError, setShiftSaveError] = useState('')
+  const [selectedVolunteerId, setSelectedVolunteerId] = useState<number | null>(null)
+  const [selectedFeteId, setSelectedFeteId] = useState<number | null>(null)
+  const [volunteersForEventId, setVolunteersForEventId] = useState<number | null>(null)
+  const [eventsForVolunteerId, setEventsForVolunteerId] = useState<number | null>(null)
   const [form, setForm] = useState<Partial<Volunteer>>({
     name: '', email: '', phone: '', role: 'Helper', notes: ''
   })
@@ -95,6 +99,10 @@ export default function VolunteersPage({ currentUser }: Props) {
   const selectedFete = fetes.find(fete => fete.id === shiftForm.fete_id)
   const shiftDateMin = selectedFete ? addDays(selectedFete.event_date, -1) : undefined
   const shiftDateMax = selectedFete ? addDays(selectedFete.event_date, 1) : undefined
+  const volunteersForEvent = fetes.find(fete => fete.id === volunteersForEventId)
+  const eventVolunteerShifts = shifts.filter(shift => shift.fete_id === volunteersForEventId)
+  const eventsForVolunteer = volunteers.find(volunteer => volunteer.id === eventsForVolunteerId)
+  const volunteerEventShifts = shifts.filter(shift => shift.volunteer_id === eventsForVolunteerId && shift.fete_id != null)
 
   useEffect(() => {
     void loadVolunteers({})
@@ -122,14 +130,17 @@ export default function VolunteersPage({ currentUser }: Props) {
     setOpen(true)
   }
 
-  function openNewShift() {
+  function openNewShift(volunteerId = selectedVolunteerId, feteId = selectedFeteId) {
     const today = new Date().toISOString().slice(0, 10)
+    const fete = fetes.find(item => item.id === feteId)
+    const startDate = fete ? addDays(fete.event_date, -1) : today
+    const endDate = fete ? addDays(fete.event_date, 1) : today
     setShiftForm({
-      volunteer_id: volunteers[0]?.id ?? null,
-      fete_id: null,
+      volunteer_id: volunteerId ?? volunteers[0]?.id ?? null,
+      fete_id: feteId,
       role: 'Helper',
-      start_date: today,
-      end_date: today,
+      start_date: startDate,
+      end_date: endDate,
       start_time: '09:00',
       end_time: '12:00',
     })
@@ -211,68 +222,208 @@ export default function VolunteersPage({ currentUser }: Props) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-        {volunteers.map(v => (
-          <div key={v.id} className="border rounded-lg p-4 bg-card text-card-foreground flex items-start gap-3">
-            <div className="bg-primary/10 p-2 rounded-full flex-shrink-0">
-              <Users className="w-5 h-5 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium">{v.name}</p>
-              <p className="text-sm text-muted-foreground">{v.role}</p>
-              {v.email && <p className="text-xs text-muted-foreground mt-1">{v.email}</p>}
-              {v.phone && <p className="text-xs text-muted-foreground">{v.phone}</p>}
-              {v.notes && <p className="text-xs text-muted-foreground mt-1">{v.notes}</p>}
-            </div>
-            <div className="flex flex-col gap-2">
-              <Button size="sm" variant="outline" onClick={() => openEdit(v)} aria-label="Edit volunteer">
-                <Pencil className="w-3 h-3" />
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => handleDelete(v.id)} aria-label="Delete volunteer">
-                <Trash2 className="w-3 h-3" />
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">Volunteers</h2>
+        <div className="h-[10.25rem] overflow-auto border rounded-lg bg-card">
+          <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 font-medium">Volunteer</th>
+              <th className="px-3 py-2 font-medium">Role</th>
+              <th className="hidden md:table-cell px-3 py-2 font-medium">Email</th>
+              <th className="w-24 px-3 py-2"><span className="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {volunteers.map(v => (
+              <tr
+                key={v.id}
+                tabIndex={0}
+                role="button"
+                aria-pressed={selectedVolunteerId === v.id}
+                onClick={() => {
+                  setSelectedFeteId(null)
+                  setSelectedVolunteerId(v.id)
+                  setEventsForVolunteerId(v.id)
+                }}
+                onKeyDown={event => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return
+                  event.preventDefault()
+                  setSelectedFeteId(null)
+                  setSelectedVolunteerId(v.id)
+                  setEventsForVolunteerId(v.id)
+                }}
+                className={`cursor-pointer transition-colors focus:outline-none ${selectedVolunteerId === v.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted focus:bg-muted'}`}
+              >
+                <td className="h-11 px-3 py-2 font-medium">{v.name}</td>
+                <td className="h-11 px-3 py-2">{v.role}</td>
+                <td className="hidden md:table-cell h-11 px-3 py-2 truncate max-w-64">{v.email || v.phone || '-'}</td>
+                <td className="px-3 py-1.5">
+                  <div className="flex justify-end gap-1">
+                    <Button size="sm" variant="outline" onClick={event => { event.stopPropagation(); openEdit(v) }} aria-label="Edit volunteer">
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={event => { event.stopPropagation(); handleDelete(v.id) }} aria-label="Delete volunteer">
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          </table>
+        </div>
+      </section>
 
       <div className="border rounded-lg bg-card p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CalendarRange className="w-4 h-4 text-primary" />
-            <h2 className="text-lg font-semibold">Shift rota</h2>
+            <h2 className="text-lg font-semibold">Event Shift Rota Management</h2>
           </div>
           <Button onClick={openNewShift} className="flex items-center gap-2">
             <Plus className="w-4 h-4" /> Add Shift
           </Button>
         </div>
 
-        {shifts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No volunteer shifts yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {shifts.map(shift => (
-              <div key={shift.id} className="flex items-center justify-between border rounded-md p-3 gap-3">
-                <div>
-                  <p className="font-medium">{shift.volunteer_name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {shift.role} · {shift.start_date}{shift.start_date !== shift.end_date ? ` to ${shift.end_date}` : ''} · {shift.start_time}–{shift.end_time}
-                  </p>
-                  {shift.fete_name && <p className="text-xs text-muted-foreground">Event: {shift.fete_name}</p>}
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => openEditShift(shift)}>
-                    <Pencil className="w-3 h-3" />
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => handleDeleteShift(shift.id)}>
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold">Events</h3>
+          <div className="h-56 overflow-y-auto border rounded-md divide-y">
+            {fetes.map(fete => {
+              const assignedVolunteers = new Set(shifts.filter(shift => shift.fete_id === fete.id).map(shift => shift.volunteer_id)).size
+              return (
+                <button
+                  key={fete.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedVolunteerId(null)
+                    setSelectedFeteId(id => id === fete.id ? null : fete.id)
+                    setVolunteersForEventId(fete.id)
+                  }}
+                  aria-pressed={selectedFeteId === fete.id}
+                  className={`w-full flex items-center justify-between gap-3 px-3 py-2 text-left text-sm ${selectedFeteId === fete.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                >
+                  <span className="min-w-0"><span className="block font-medium truncate">{fete.name}</span><span className="block text-xs opacity-75">{fete.event_date}</span></span>
+                  <span className="text-xs whitespace-nowrap">{assignedVolunteers} volunteer{assignedVolunteers === 1 ? '' : 's'}</span>
+                </button>
+              )
+            })}
           </div>
-        )}
+        </div>
+
       </div>
+
+      <Dialog open={volunteersForEventId != null} onOpenChange={isOpen => {
+        if (!isOpen) setVolunteersForEventId(null)
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{volunteersForEvent?.name ?? 'Event'} volunteers</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-auto border rounded-md">
+            {eventVolunteerShifts.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">No volunteers are assigned to this event.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Volunteer</th>
+                    <th className="px-3 py-2 font-medium">Role</th>
+                    <th className="px-3 py-2 font-medium">Dates</th>
+                    <th className="px-3 py-2 font-medium">Hours</th>
+                    <th className="w-12 px-3 py-2"><span className="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {eventVolunteerShifts.map(shift => (
+                    <tr
+                      key={shift.id}
+                      tabIndex={0}
+                      role="button"
+                      onClick={() => {
+                        setVolunteersForEventId(null)
+                        openEditShift(shift)
+                      }}
+                      onKeyDown={event => {
+                        if (event.key !== 'Enter' && event.key !== ' ') return
+                        event.preventDefault()
+                        setVolunteersForEventId(null)
+                        openEditShift(shift)
+                      }}
+                      className="cursor-pointer hover:bg-muted focus:bg-muted focus:outline-none"
+                    >
+                      <td className="px-3 py-2 font-medium">{shift.volunteer_name}</td>
+                      <td className="px-3 py-2">{shift.role}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{shift.start_date}{shift.start_date !== shift.end_date ? ` to ${shift.end_date}` : ''}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{shift.start_time}-{shift.end_time}</td>
+                      <td className="px-3 py-1.5">
+                        <Button size="sm" variant="outline" onClick={event => { event.stopPropagation(); handleDeleteShift(shift.id) }} aria-label="Delete volunteer shift">
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={eventsForVolunteerId != null} onOpenChange={isOpen => {
+        if (!isOpen) setEventsForVolunteerId(null)
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{eventsForVolunteer?.name ?? 'Volunteer'} events</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-auto border rounded-md">
+            {volunteerEventShifts.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">This volunteer is not assigned to any events.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Event</th>
+                    <th className="px-3 py-2 font-medium">Role</th>
+                    <th className="px-3 py-2 font-medium">Dates</th>
+                    <th className="px-3 py-2 font-medium">Hours</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {volunteerEventShifts.map(shift => (
+                    <tr
+                      key={shift.id}
+                      tabIndex={0}
+                      role="button"
+                      onClick={() => {
+                        setSelectedVolunteerId(shift.volunteer_id)
+                        setSelectedFeteId(shift.fete_id)
+                        setEventsForVolunteerId(null)
+                        openNewShift(shift.volunteer_id, shift.fete_id)
+                      }}
+                      onKeyDown={event => {
+                        if (event.key !== 'Enter' && event.key !== ' ') return
+                        event.preventDefault()
+                        setSelectedVolunteerId(shift.volunteer_id)
+                        setSelectedFeteId(shift.fete_id)
+                        setEventsForVolunteerId(null)
+                        openNewShift(shift.volunteer_id, shift.fete_id)
+                      }}
+                      className="cursor-pointer hover:bg-muted focus:bg-muted focus:outline-none"
+                    >
+                      <td className="px-3 py-2 font-medium">{shift.fete_name ?? 'Unassigned event'}</td>
+                      <td className="px-3 py-2">{shift.role}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{shift.start_date}{shift.start_date !== shift.end_date ? ` to ${shift.end_date}` : ''}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{shift.start_time}-{shift.end_time}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

@@ -373,19 +373,12 @@ export default function PrintListsPage({ currentUser }: Props) {
             Printable lists for events, locations, and assets by type.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={printSelectedReport} className="flex items-center gap-2">
-            <Printer className="w-4 h-4" /> Print Selected List
-          </Button>
-          <Button onClick={printAllReports} className="flex items-center gap-2">
-            <Printer className="w-4 h-4" /> Print All
-          </Button>
-        </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 print-hidden">
-        <div className="space-y-1">
-          <label className="text-sm font-medium" htmlFor="print-report">Print list</label>
+      <div className="space-y-3 print-hidden">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1 space-y-1">
+          <label className="text-sm font-medium" htmlFor="print-report">Select Print List</label>
           <Select value={selectedReport} onValueChange={(value) => setSelectedReport(value as PrintReport)}>
             <SelectTrigger id="print-report"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -395,9 +388,18 @@ export default function PrintListsPage({ currentUser }: Props) {
               <SelectItem value="picklists">Event Asset Pick Lists</SelectItem>
             </SelectContent>
           </Select>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={printSelectedReport} className="flex items-center gap-2">
+              <Printer className="w-4 h-4" /> Print Selected List
+            </Button>
+            <Button onClick={printAllReports} className="flex items-center gap-2">
+              <Printer className="w-4 h-4" /> Print All
+            </Button>
+          </div>
         </div>
         {selectedReport === 'picklists' && (
-          <div className="space-y-1">
+          <div className="max-w-md space-y-1">
             <label className="text-sm font-medium" htmlFor="print-fete">Event</label>
             <Select value={selectedFeteId} onValueChange={setSelectedFeteId}>
               <SelectTrigger id="print-fete"><SelectValue placeholder="Select an event" /></SelectTrigger>

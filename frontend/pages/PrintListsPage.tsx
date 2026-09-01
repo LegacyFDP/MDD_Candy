@@ -304,6 +304,12 @@ export default function PrintListsPage({ currentUser }: Props) {
       : volunteersByFete.filter(({ fete }) => fete.id === Number(eventVolunteerFeteId))
   ), [eventVolunteerFeteId, volunteersByFete])
 
+  const filteredEventReportFetes = useMemo(() => (
+    eventVolunteerFeteId === 'all'
+      ? fetes
+      : fetes.filter(fete => fete.id === Number(eventVolunteerFeteId))
+  ), [eventVolunteerFeteId, fetes])
+
   const generatedAt = new Date().toLocaleString('en-GB', {
     day: '2-digit',
     month: 'short',
@@ -467,7 +473,7 @@ export default function PrintListsPage({ currentUser }: Props) {
         )}
         {selectedReport === 'events' && (
           <div className="mt-4 max-w-md space-y-2 pl-6">
-            <label className="block text-sm font-medium" htmlFor="event-volunteer-fete">Filter by Event</label>
+            <label className="block rounded-md bg-zinc-300 px-3 py-2 text-sm font-medium dark:bg-zinc-600" htmlFor="event-volunteer-fete">Filter by Event</label>
             <Select value={eventVolunteerFeteId} onValueChange={setEventVolunteerFeteId}>
               <SelectTrigger id="event-volunteer-fete"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -481,7 +487,7 @@ export default function PrintListsPage({ currentUser }: Props) {
 
       {(selectedReport === 'events' || isPrintingAll) && (
       <Card id="card-print-events" className="print-card">
-        <CardHeader className="print-header">
+        <CardHeader className="print-header bg-zinc-300 dark:bg-zinc-600">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <CardTitle className="flex items-center gap-2 text-base">
               <Calendar className="w-4 h-4" /> Events
@@ -494,15 +500,6 @@ export default function PrintListsPage({ currentUser }: Props) {
               onClick={() => printSection('print-events')}
             >
               <Printer className="w-3.5 h-3.5 mr-1" /> Print Events
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="print-hidden"
-              onClick={printEventVolunteers}
-            >
-              <Users className="w-3.5 h-3.5 mr-1" /> Print Event Volunteers
             </Button>
           </div>
         </CardHeader>
@@ -517,7 +514,7 @@ export default function PrintListsPage({ currentUser }: Props) {
               </tr>
             </thead>
             <tbody>
-              {fetes.map((fete) => (
+              {filteredEventReportFetes.map((fete) => (
                 <tr key={fete.id} className="border-b border-border align-top">
                   <td className="py-2 whitespace-nowrap">
                     {fete.event_date
@@ -540,8 +537,8 @@ export default function PrintListsPage({ currentUser }: Props) {
               ))}
             </tbody>
           </table>
-          {fetes.length === 0 && (
-            <p className="text-sm text-muted-foreground">No events available.</p>
+          {filteredEventReportFetes.length === 0 && (
+            <p className="text-sm text-muted-foreground">No events match the selected filter.</p>
           )}
           <p className="print-only-footer text-xs text-muted-foreground mt-3">
             Printed: {generatedAt}
@@ -551,9 +548,16 @@ export default function PrintListsPage({ currentUser }: Props) {
       )}
 
       {selectedReport === 'events' && (
-      <Card id="card-print-event-volunteers" className="print-card print-hidden">
+      <Card id="card-print-event-volunteers" className="print-card">
+        <CardHeader className="print-header bg-zinc-300 dark:bg-zinc-600">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <CardTitle className="flex items-center gap-2 text-base"><Users className="w-4 h-4" /> Event Volunteers</CardTitle>
+            <Button type="button" variant="outline" size="sm" className="print-hidden" onClick={printEventVolunteers}>
+              <Printer className="w-3.5 h-3.5 mr-1" /> Print Event Volunteers
+            </Button>
+          </div>
+        </CardHeader>
         <CardContent id="print-event-volunteers" className="space-y-5 print-section">
-          <h2 className="text-lg font-semibold">Event Volunteers</h2>
           {filteredVolunteersByFete.map(({ fete, volunteers: eventVolunteers }) => (
             <section key={fete.id} className="print-avoid-break">
               <div className="mb-2 border-b border-border pb-1">

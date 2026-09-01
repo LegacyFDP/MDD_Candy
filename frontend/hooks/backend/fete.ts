@@ -95,6 +95,7 @@ export const useDeleteFeteLocation = makeBackendHook('deleteFeteLocation')
 export const useGetFetes = makeBackendHook('getFetes')
 export const useSaveFete = makeBackendHook('saveFete')
 export const useArchiveFete = makeBackendHook('archiveFete')
+export const useDeleteFete = makeBackendHook('deleteFete')
 
 // Withdrawals
 export const useGetWithdrawals = makeBackendHook('getWithdrawals')
@@ -117,6 +118,11 @@ export const useDeleteVolunteer = makeBackendHook('deleteVolunteer')
 export const useGetVolunteerShifts = makeBackendHook('getVolunteerShifts')
 export const useSaveVolunteerShift = makeBackendHook('saveVolunteerShift')
 export const useDeleteVolunteerShift = makeBackendHook('deleteVolunteerShift')
+
+// Contacts
+export const useGetContacts = makeBackendHook('getContacts')
+export const useSaveContact = makeBackendHook('saveContact')
+export const useDeleteContact = makeBackendHook('deleteContact')
 
 // Fete requirements
 export const useGetFeteRequirements = makeBackendHook('getFeteRequirements')

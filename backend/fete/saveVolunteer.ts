@@ -12,7 +12,7 @@ type Params = {
   name: string
   email?: string
   phone?: string
-  role?: string
+  roles?: string[]
   notes?: string
 }
 
@@ -25,12 +25,12 @@ export default async function (req: { params: Params; user: User }) {
   const name = clean(req.params.name)
   const email = clean(req.params.email)
   const phone = clean(req.params.phone)
-  const role = clean(req.params.role) || 'Helper'
+  const roles = [...new Set((req.params.roles ?? []).map(clean).filter(Boolean))]
   const notes = clean(req.params.notes)
 
   if (!name) throw new Error('Volunteer name is required')
-  if (!VOLUNTEER_ROLES.includes(role as typeof VOLUNTEER_ROLES[number])) {
-    throw new Error(`Volunteer role must be one of: ${VOLUNTEER_ROLES.join(', ')}`)
+  if (!roles.every(role => VOLUNTEER_ROLES.includes(role as typeof VOLUNTEER_ROLES[number]))) {
+    throw new Error(`Volunteer roles must be one of: ${VOLUNTEER_ROLES.join(', ')}`)
   }
 
   if (id) {
@@ -42,12 +42,21 @@ export default async function (req: { params: Params; user: User }) {
           role=$4,
           notes=$5
       WHERE id=$6
-    `, [name, email, phone, role, notes, id])
+    `, [name, email, phone, roles[0] ?? '', notes, id])
+    await retoolDb.query('DELETE FROM volunteer_roles WHERE volunteer_id = $1', [id])
+    for (const role of roles) {
+      await retoolDb.query('INSERT INTO volunteer_roles (volunteer_id, role) VALUES ($1, $2)', [id, role])
+    }
   } else {
-    await retoolDb.query(`
+    const created = await retoolDb.query<{ id: number }>(`
       INSERT INTO fete_volunteers (name, email, phone, role, notes)
       VALUES ($1, $2, $3, $4, $5)
-    `, [name, email, phone, role, notes])
+      RETURNING id
+    `, [name, email, phone, roles[0] ?? '', notes])
+    const volunteerId = created.data[0]?.id
+    for (const role of roles) {
+      await retoolDb.query('INSERT INTO volunteer_roles (volunteer_id, role) VALUES ($1, $2)', [volunteerId, role])
+    }
   }
 
   return { success: true }

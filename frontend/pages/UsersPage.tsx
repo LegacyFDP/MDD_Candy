@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useGetUsersWithFetes, useSaveUser, useDeleteUser } from '../hooks/backend/fete'
+import {
+  useGetUsersWithFetes, useSaveUser, useDeleteUser,
+  useGetVolunteers, useSaveVolunteer, useDeleteVolunteer,
+  useGetContacts, useSaveContact, useDeleteContact, useGetFetes,
+} from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Input } from '../lib/shadcn/input'
 import { Label } from '../lib/shadcn/label'
@@ -28,6 +32,51 @@ type FeteUser = {
   fetes: FeteAllocation[]
 }
 
+type Volunteer = {
+  id: number
+  name: string
+  email: string
+  phone: string
+  roles: string[]
+  notes: string
+}
+
+type Contact = {
+  id: number
+  name: string
+  email: string
+  phone: string
+  notes: string
+  fete_ids: number[]
+  fete_names: string[]
+}
+
+type Fete = { id: number; name: string }
+
+type PersonForm = {
+  userId: number | null
+  volunteerId: number | null
+  contactId: number | null
+  isUser: boolean
+  isVolunteer: boolean
+  isContact: boolean
+  name: string
+  email: string
+  userRole: FeteUser['role']
+  pin: string
+  phone: string
+  volunteerRoles: string[]
+  notes: string
+  contactEventIds: number[]
+}
+
+const VOLUNTEER_ROLES = ['Lead Volunteer', 'Helper', 'Putting Up', 'Taking Down', 'Transport', 'Stall Holder']
+
+const emptyPersonForm = (): PersonForm => ({
+  userId: null, volunteerId: null, contactId: null, isUser: true, isVolunteer: false, isContact: false,
+  name: '', email: '', userRole: 'user', pin: '', phone: '', volunteerRoles: [], notes: '', contactEventIds: [],
+})
+
 const STATUS_COLORS: Record<string, string> = {
   planned:   'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
   active:    'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
@@ -39,8 +88,18 @@ export default function UsersPage({ currentUser }: Props) {
   const { data: usersRaw, trigger: loadUsers } = useGetUsersWithFetes()
   const { trigger: saveUser, loading: saving } = useSaveUser()
   const { trigger: deleteUser } = useDeleteUser()
+  const { data: volunteersRaw, trigger: loadVolunteers } = useGetVolunteers()
+  const { trigger: saveVolunteer, loading: savingVolunteer } = useSaveVolunteer()
+  const { trigger: deleteVolunteer } = useDeleteVolunteer()
+  const { data: contactsRaw, trigger: loadContacts } = useGetContacts()
+  const { trigger: saveContact, loading: savingContact } = useSaveContact()
+  const { trigger: deleteContact } = useDeleteContact()
+  const { data: fetesRaw, trigger: loadFetes } = useGetFetes()
 
   const users = (usersRaw ?? []) as FeteUser[]
+  const volunteers = (volunteersRaw ?? []) as Volunteer[]
+  const contacts = (contactsRaw ?? []) as Contact[]
+  const fetes = (fetesRaw ?? []) as Fete[]
 
   const [open, setOpen] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
@@ -48,11 +107,14 @@ export default function UsersPage({ currentUser }: Props) {
   const [selectedUserId, setSelectedUserId] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
-  const [form, setForm] = useState<Partial<FeteUser>>({
-    name: '', email: '', role: 'user', pin: ''
-  })
+  const [form, setForm] = useState<PersonForm>(emptyPersonForm())
 
-  useEffect(() => { void loadUsers({}) }, [])
+  useEffect(() => {
+    void loadUsers({})
+    void loadVolunteers({})
+    void loadContacts({})
+    void loadFetes({})
+  }, [])
 
   if (currentUser.role !== 'admin') {
     return (
@@ -63,29 +125,58 @@ export default function UsersPage({ currentUser }: Props) {
   }
 
   function openNew() {
-    setForm({ name: '', email: '', role: 'user', pin: '' })
+    setForm(emptyPersonForm())
     setEditId(null)
     setShowPin(false)
     setOpen(true)
   }
 
-  function openEdit(u: FeteUser) {
-    setForm({ id: u.id, name: u.name, email: u.email, role: u.role, pin: u.pin })
-    setEditId(u.id)
+  function openEdit(u?: FeteUser, volunteer?: Volunteer, contact?: Contact) {
+    const person = u ?? volunteer ?? contact
+    if (!person) return
+    setForm({
+      userId: u?.id ?? null,
+      volunteerId: volunteer?.id ?? null,
+      contactId: contact?.id ?? null,
+      isUser: Boolean(u),
+      isVolunteer: Boolean(volunteer),
+      isContact: Boolean(contact),
+      name: person.name,
+      email: u?.email ?? volunteer?.email ?? contact?.email ?? '',
+      userRole: u?.role ?? 'user',
+      pin: u?.pin ?? '',
+      phone: volunteer?.phone ?? contact?.phone ?? '',
+      volunteerRoles: volunteer?.roles ?? [],
+      notes: volunteer?.notes ?? contact?.notes ?? '',
+      contactEventIds: contact?.fete_ids ?? [],
+    })
+    setEditId(u?.id ?? null)
     setShowPin(false)
     setOpen(true)
   }
 
   async function handleSave() {
-    await saveUser({
-      ...(editId ? { id: editId } : {}),
-      name: form.name ?? '',
-      email: form.email ?? '',
-      role: form.role ?? 'user',
-      pin: form.pin ?? ''
-    })
+    if (!form.isUser && !form.isVolunteer && !form.isContact) return
+    if (form.isUser) {
+      await saveUser({ id: form.userId ?? undefined, name: form.name, email: form.email, role: form.userRole, pin: form.pin })
+    } else if (form.userId) {
+      if (form.userId === currentUser.id) throw new Error('Cannot remove your own user access.')
+      await deleteUser({ id: form.userId })
+    }
+    if (form.isVolunteer) {
+      await saveVolunteer({ id: form.volunteerId ?? undefined, name: form.name, email: form.email, phone: form.phone, roles: form.volunteerRoles, notes: form.notes })
+    } else if (form.volunteerId) {
+      await deleteVolunteer({ id: form.volunteerId })
+    }
+    if (form.isContact) {
+      await saveContact({ id: form.contactId ?? undefined, name: form.name, email: form.email, phone: form.phone, notes: form.notes, fete_ids: form.contactEventIds })
+    } else if (form.contactId) {
+      await deleteContact({ id: form.contactId })
+    }
     setOpen(false)
     void loadUsers({})
+    void loadVolunteers({})
+    void loadContacts({})
   }
 
   async function handleDelete(id: number) {
@@ -102,6 +193,10 @@ export default function UsersPage({ currentUser }: Props) {
     const query = searchTerm.trim().toLowerCase()
     return !query || [user.name, user.email].some(value => value.toLowerCase().includes(query))
   })
+  const volunteerForUser = (user: FeteUser) => volunteers.find(volunteer =>
+    Boolean(user.email) && user.email.trim().toLowerCase() === volunteer.email.trim().toLowerCase())
+  const volunteersWithoutUser = volunteers.filter(volunteer => !users.some(user =>
+    Boolean(volunteer.email) && user.email.trim().toLowerCase() === volunteer.email.trim().toLowerCase()))
   const admins = visibleUsers.filter(u => u.role === 'admin')
   const storeKeepers = visibleUsers.filter(u => u.role === 'store keeper')
   const regularUsers = visibleUsers.filter(u => u.role === 'user')
@@ -110,11 +205,11 @@ export default function UsersPage({ currentUser }: Props) {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">User Management</h1>
-          <p className="text-muted-foreground text-sm">Manage admins, store keepers, and users · {users.length} total</p>
+          <h1 className="text-2xl font-bold">People Management</h1>
+          <p className="text-muted-foreground text-sm">Manage user access and volunteers in one place</p>
         </div>
         <Button onClick={openNew} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Add User
+          <Plus className="w-4 h-4" /> Add Person
         </Button>
       </div>
 
@@ -178,7 +273,7 @@ export default function UsersPage({ currentUser }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {admins.map(u => (
             <UserCard key={u.id} user={u} currentUser={currentUser}
-              onEdit={openEdit} onDelete={handleDelete} />
+              volunteer={volunteerForUser(u)} onEdit={openEdit} onDelete={handleDelete} />
           ))}
         </div>
       </section>
@@ -191,7 +286,7 @@ export default function UsersPage({ currentUser }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {storeKeepers.map(u => (
             <UserCard key={u.id} user={u} currentUser={currentUser}
-              onEdit={openEdit} onDelete={handleDelete} />
+              volunteer={volunteerForUser(u)} onEdit={openEdit} onDelete={handleDelete} />
           ))}
         </div>
       </section>
@@ -204,16 +299,40 @@ export default function UsersPage({ currentUser }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {regularUsers.map(u => (
             <UserCard key={u.id} user={u} currentUser={currentUser}
-              onEdit={openEdit} onDelete={handleDelete} />
+              volunteer={volunteerForUser(u)} onEdit={openEdit} onDelete={handleDelete} />
           ))}
         </div>
       </section>
+
+      {volunteersWithoutUser.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+            <User className="w-4 h-4" /> Volunteers ({volunteersWithoutUser.length})
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {volunteersWithoutUser.map(volunteer => (
+              <VolunteerCard key={volunteer.id} volunteer={volunteer} onEdit={openEdit} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {contacts.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+            <User className="w-4 h-4" /> Contacts ({contacts.length})
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {contacts.map(contact => <ContactCard key={contact.id} contact={contact} onEdit={openEdit} />)}
+          </div>
+        </section>
+      )}
 
       {/* Edit / Add dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editId ? 'Edit User' : 'Add New User'}</DialogTitle>
+            <DialogTitle>{editId || form.volunteerId ? 'Edit Person' : 'Add Person'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
@@ -221,6 +340,13 @@ export default function UsersPage({ currentUser }: Props) {
               <Input value={form.name ?? ''}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
             </div>
+            <div className="flex gap-6">
+              <Label className="flex items-center gap-2"><input type="checkbox" checked={form.isUser} onChange={e => setForm(f => ({ ...f, isUser: e.target.checked }))} /> User</Label>
+              <Label className="flex items-center gap-2"><input type="checkbox" checked={form.isVolunteer} onChange={e => setForm(f => ({ ...f, isVolunteer: e.target.checked }))} /> Volunteer</Label>
+              <Label className="flex items-center gap-2"><input type="checkbox" checked={form.isContact} onChange={e => setForm(f => ({ ...f, isContact: e.target.checked }))} /> Contact</Label>
+            </div>
+            {!form.isUser && (form.isVolunteer || form.isContact) && <div className="space-y-1"><Label>Email</Label><Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} /></div>}
+            {form.isUser && <>
             <div className="space-y-1">
               <Label>Email</Label>
               <Input type="email" value={form.email ?? ''}
@@ -229,8 +355,8 @@ export default function UsersPage({ currentUser }: Props) {
             <div className="space-y-1">
               <Label>Role</Label>
               <Select
-                {...(form.role ? { value: form.role } : {})}
-                onValueChange={v => setForm(f => ({ ...f, role: v as 'admin' | 'store keeper' | 'user' }))}>
+                value={form.userRole}
+                onValueChange={v => setForm(f => ({ ...f, userRole: v as FeteUser['role'] }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>
@@ -258,11 +384,22 @@ export default function UsersPage({ currentUser }: Props) {
                 </button>
               </div>
             </div>
+            </>}
+            {(form.isVolunteer || form.isContact) && <>
+              <div className="space-y-1"><Label>Phone</Label><Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} /></div>
+            </>}
+            {form.isVolunteer && <>
+              <div className="space-y-2"><Label>Willing volunteer roles</Label><div className="grid grid-cols-2 gap-2">{VOLUNTEER_ROLES.map(role => <Label key={role} className="flex items-center gap-2 text-sm font-normal"><input type="checkbox" checked={form.volunteerRoles.includes(role)} onChange={event => setForm(person => ({ ...person, volunteerRoles: event.target.checked ? [...person.volunteerRoles, role] : person.volunteerRoles.filter(item => item !== role) }))} />{role}</Label>)}</div></div>
+            </>}
+            {(form.isVolunteer || form.isContact) && <>
+              <div className="space-y-1"><Label>Notes</Label><Input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
+            </>}
+            {form.isContact && <div className="space-y-2"><Label>Related events</Label><div className="grid grid-cols-2 gap-2">{fetes.map(fete => <Label key={fete.id} className="flex items-center gap-2 text-sm font-normal"><input type="checkbox" checked={form.contactEventIds.includes(fete.id)} onChange={event => setForm(person => ({ ...person, contactEventIds: event.target.checked ? [...person.contactEventIds, fete.id] : person.contactEventIds.filter(id => id !== fete.id) }))} />{fete.name}</Label>)}</div></div>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || !form.name || !form.email || !form.pin}>
-              {saving ? 'Saving…' : 'Save'}
+            <Button onClick={() => void handleSave()} disabled={saving || savingVolunteer || savingContact || !form.name || (!form.isUser && !form.isVolunteer && !form.isContact) || (form.isUser && (!form.email || !form.pin)) || (form.isContact && form.contactEventIds.length === 0)}>
+              {saving || savingVolunteer || savingContact ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -272,11 +409,12 @@ export default function UsersPage({ currentUser }: Props) {
 }
 
 function UserCard({
-  user, currentUser, onEdit, onDelete
+  user, volunteer, currentUser, onEdit, onDelete
 }: {
   user: FeteUser
+  volunteer?: Volunteer
   currentUser: AppUser
-  onEdit: (u: FeteUser) => void
+  onEdit: (user?: FeteUser, volunteer?: Volunteer, contact?: Contact) => void
   onDelete: (id: number) => void
 }) {
   return (
@@ -299,7 +437,7 @@ function UserCard({
           <p className="text-sm text-muted-foreground truncate">{user.email}</p>
         </div>
         <div className="flex gap-1 shrink-0">
-          <Button size="sm" variant="outline" onClick={() => onEdit(user)} aria-label="Edit user">
+          <Button size="sm" variant="outline" onClick={() => onEdit(user, volunteer)} aria-label="Edit user">
             <Pencil className="w-3 h-3" />
           </Button>
           <Button size="sm" variant="outline"
@@ -310,6 +448,8 @@ function UserCard({
           </Button>
         </div>
       </div>
+
+      {volunteer && <Badge variant="secondary">Volunteer</Badge>}
 
       {/* Fete allocations */}
       {user.fetes.length > 0 ? (
@@ -340,4 +480,18 @@ function UserCard({
       )}
     </div>
   )
+}
+
+function VolunteerCard({ volunteer, onEdit }: { volunteer: Volunteer; onEdit: (user?: FeteUser, volunteer?: Volunteer, contact?: Contact) => void }) {
+  return <div className="border rounded-lg p-4 bg-card text-card-foreground space-y-2">
+    <div className="flex items-start gap-3"><div className="flex-1 min-w-0"><p className="font-medium truncate">{volunteer.name}</p><p className="text-sm text-muted-foreground truncate">{volunteer.email || volunteer.phone || 'No contact details'}</p></div><Button size="sm" variant="outline" onClick={() => onEdit(undefined, volunteer)} aria-label="Edit volunteer"><Pencil className="w-3 h-3" /></Button></div>
+    <Badge variant="secondary">Volunteer: {volunteer.roles.join(', ') || 'No preferred roles'}</Badge>
+  </div>
+}
+
+function ContactCard({ contact, onEdit }: { contact: Contact; onEdit: (user?: FeteUser, volunteer?: Volunteer, contact?: Contact) => void }) {
+  return <div className="border rounded-lg p-4 bg-card text-card-foreground space-y-2">
+    <div className="flex items-start gap-3"><div className="flex-1 min-w-0"><p className="font-medium truncate">{contact.name}</p><p className="text-sm text-muted-foreground truncate">{contact.email || contact.phone || 'No contact details'}</p></div><Button size="sm" variant="outline" onClick={() => onEdit(undefined, undefined, contact)} aria-label="Edit contact"><Pencil className="w-3 h-3" /></Button></div>
+    <p className="text-xs text-muted-foreground">Events: {contact.fete_names.join(', ')}</p>
+  </div>
 }

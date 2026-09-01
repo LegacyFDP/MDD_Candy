@@ -62,7 +62,8 @@ body {
 
   body:not([data-print-section]) #card-print-events,
   body:not([data-print-section]) #card-print-locations,
-  body:not([data-print-section]) #card-print-assets {
+  body:not([data-print-section]) #card-print-assets,
+  body:not([data-print-section]) #card-print-picklists {
     page-break-after: always;
     break-after: page;
   }
@@ -79,7 +80,8 @@ body {
   body[data-print-section='print-events'] .print-section:not(#print-events),
   body[data-print-section='print-locations'] .print-section:not(#print-locations),
   body[data-print-section='print-assets'] .print-section:not(#print-assets),
-  body[data-print-section='print-picklists'] .print-section:not(#print-picklists) {
+  body[data-print-section='print-picklists'] .print-section:not(#print-picklists),
+  body[data-print-section='print-rota'] .print-section:not(#print-rota) {
     display: none !important;
   }
 
@@ -90,9 +92,15 @@ body {
   body[data-print-section='print-assets'] #card-print-events,
   body[data-print-section='print-assets'] #card-print-locations,
   body[data-print-section='print-assets'] #card-print-picklists,
+  body[data-print-section='print-assets'] #card-print-rota,
   body[data-print-section='print-picklists'] #card-print-events,
   body[data-print-section='print-picklists'] #card-print-locations,
-  body[data-print-section='print-picklists'] #card-print-assets {
+  body[data-print-section='print-picklists'] #card-print-assets,
+  body[data-print-section='print-picklists'] #card-print-rota,
+  body[data-print-section='print-rota'] #card-print-events,
+  body[data-print-section='print-rota'] #card-print-locations,
+  body[data-print-section='print-rota'] #card-print-assets,
+  body[data-print-section='print-rota'] #card-print-picklists {
     display: none !important;
   }
 }

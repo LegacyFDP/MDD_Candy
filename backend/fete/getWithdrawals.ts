@@ -6,7 +6,7 @@ export default async function (req: { params: Params; user: User }) {
   if (status === 'out' || status === 'returned' || status === 'booked') {
     const result = await retoolDb.query(`
       SELECT w.id, w.fete_id, w.quantity, w.withdrawn_at, w.returned_at, w.status, w.notes,
-             a.id AS asset_id, a.name AS asset_name, a.category,
+             a.id AS asset_id, a.name AS asset_name, a.category, a.quantity_total,
              sl.name AS store_name,
              u1.name AS withdrawn_by_name,
              u2.name AS returned_by_name,
@@ -25,7 +25,7 @@ export default async function (req: { params: Params; user: User }) {
 
   const result = await retoolDb.query(`
     SELECT w.id, w.fete_id, w.quantity, w.withdrawn_at, w.returned_at, w.status, w.notes,
-           a.id AS asset_id, a.name AS asset_name, a.category,
+           a.id AS asset_id, a.name AS asset_name, a.category, a.quantity_total,
            sl.name AS store_name,
            u1.name AS withdrawn_by_name,
            u2.name AS returned_by_name,

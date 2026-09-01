@@ -5,16 +5,17 @@ import {
   useGetFeteLocations,
   useGetFetes,
   useGetLocations,
+  useGetVolunteerShifts,
 } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../lib/shadcn/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
-import { Printer, Calendar, MapPin, Package, Download } from 'lucide-react'
+import { Printer, Calendar, MapPin, Package, Download, Users } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
 
-type PrintReport = 'events' | 'locations' | 'assets' | 'picklists'
+type PrintReport = 'events' | 'locations' | 'assets' | 'picklists' | 'rota'
 
 type Fete = {
   id: number
@@ -23,6 +24,19 @@ type Fete = {
   status: string
   description: string
   location_name: string | null
+  archived_at: string | null
+}
+
+type VolunteerShift = {
+  id: number
+  volunteer_id: number
+  volunteer_name: string
+  fete_id: number | null
+  roles: string[]
+  start_date: string
+  end_date: string
+  start_time: string
+  end_time: string
 }
 
 type Location = {
@@ -116,10 +130,12 @@ export default function PrintListsPage({ currentUser }: Props) {
   const { data: feteLocationsRaw, trigger: loadFeteLocations } = useGetFeteLocations()
   const { data: assetsRaw, trigger: loadAssets } = useGetAssets()
   const { data: fetePickListRaw, trigger: loadFetePickList } = useGetFeteAssetPickList()
+  const { data: volunteerShiftsRaw, trigger: loadVolunteerShifts } = useGetVolunteerShifts()
   const [selectedReport, setSelectedReport] = useState<PrintReport>('events')
   const [selectedFeteId, setSelectedFeteId] = useState<string>('')
   const [isPrintingAll, setIsPrintingAll] = useState(false)
   const [showShortagesOnly, setShowShortagesOnly] = useState(false)
+  const [rotaStatus, setRotaStatus] = useState<'all' | 'planned' | 'active' | 'archived'>('all')
 
   useEffect(() => {
     void loadFetes({})
@@ -127,6 +143,7 @@ export default function PrintListsPage({ currentUser }: Props) {
     void loadFeteLocations({})
     void loadAssets({})
     void loadFetePickList({ status: 'all' })
+    void loadVolunteerShifts({})
   }, [])
 
   const fetes = (fetesRaw ?? []) as Fete[]
@@ -134,6 +151,7 @@ export default function PrintListsPage({ currentUser }: Props) {
   const feteLocations = (feteLocationsRaw ?? []) as Location[]
   const assets = (assetsRaw ?? []) as Asset[]
   const fetePickList = (fetePickListRaw ?? []) as FeteAssetPickItem[]
+  const volunteerShifts = (volunteerShiftsRaw ?? []) as VolunteerShift[]
 
   const locations = useMemo(
     () => [
@@ -256,6 +274,21 @@ export default function PrintListsPage({ currentUser }: Props) {
     [filteredPickListsByFete, selectedFeteId],
   )
 
+  const rotaEvents = useMemo(() => fetes
+    .filter(fete => {
+      if (selectedFeteId && fete.id !== Number(selectedFeteId)) return false
+      if (rotaStatus === 'archived') return Boolean(fete.archived_at)
+      return !fete.archived_at && (rotaStatus === 'all' || fete.status === rotaStatus)
+    })
+    .map(fete => ({
+      fete,
+      shifts: volunteerShifts
+        .filter(shift => shift.fete_id === fete.id)
+        .sort((left, right) => left.volunteer_name.localeCompare(right.volunteer_name)),
+    })),
+    [fetes, volunteerShifts, selectedFeteId, rotaStatus],
+  )
+
   const generatedAt = new Date().toLocaleString('en-GB', {
     day: '2-digit',
     month: 'short',
@@ -328,6 +361,7 @@ export default function PrintListsPage({ currentUser }: Props) {
       locations: 'print-locations',
       assets: 'print-assets',
       picklists: 'print-picklists',
+      rota: 'print-rota',
     }
     printSection(reportSectionIds[selectedReport])
   }
@@ -386,6 +420,7 @@ export default function PrintListsPage({ currentUser }: Props) {
               <SelectItem value="locations">Locations</SelectItem>
               <SelectItem value="assets">Assets by Location &amp; Area</SelectItem>
               <SelectItem value="picklists">Event Asset Pick Lists</SelectItem>
+              <SelectItem value="rota">Volunteer Event Rota</SelectItem>
             </SelectContent>
           </Select>
           </div>
@@ -398,17 +433,32 @@ export default function PrintListsPage({ currentUser }: Props) {
             </Button>
           </div>
         </div>
-        {selectedReport === 'picklists' && (
+        {(selectedReport === 'picklists' || selectedReport === 'rota') && (
           <div className="max-w-md space-y-1">
             <label className="text-sm font-medium" htmlFor="print-fete">Event</label>
-            <Select value={selectedFeteId} onValueChange={setSelectedFeteId}>
+            <Select value={selectedFeteId || 'all'} onValueChange={value => setSelectedFeteId(value === 'all' ? '' : value)}>
               <SelectTrigger id="print-fete"><SelectValue placeholder="Select an event" /></SelectTrigger>
               <SelectContent>
+                {selectedReport === 'rota' && <SelectItem value="all">All events</SelectItem>}
                 {fetes.map((fete) => (
                   <SelectItem key={fete.id} value={String(fete.id)}>
                     {fete.name} ({fete.status})
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        {selectedReport === 'rota' && (
+          <div className="max-w-md space-y-1">
+            <label className="text-sm font-medium" htmlFor="rota-status">Event status</label>
+            <Select value={rotaStatus} onValueChange={value => setRotaStatus(value as typeof rotaStatus)}>
+              <SelectTrigger id="rota-status"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="planned">Planned</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -708,6 +758,34 @@ export default function PrintListsPage({ currentUser }: Props) {
           <p className="print-only-footer text-xs text-muted-foreground mt-3">
             Printed: {generatedAt}
           </p>
+        </CardContent>
+      </Card>
+      )}
+
+      {(selectedReport === 'rota' || isPrintingAll) && (
+      <Card id="card-print-rota" className="print-card">
+        <CardHeader className="print-header">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <CardTitle className="flex items-center gap-2 text-base"><Users className="w-4 h-4" /> Volunteer Event Rota</CardTitle>
+            <Button type="button" variant="outline" size="sm" className="print-hidden" onClick={() => printSection('print-rota')}>
+              <Printer className="w-3.5 h-3.5 mr-1" /> Print Rota
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent id="print-rota" className="space-y-4 print-section">
+          {rotaEvents.map(({ fete, shifts }) => (
+            <section key={fete.id} className="border rounded-md p-3 print-avoid-break">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div><p className="font-semibold">{fete.name}</p><p className="text-xs text-muted-foreground">{new Date(fete.event_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} · {fete.archived_at ? 'Archived' : fete.status}</p></div>
+                <span className="text-sm font-medium">{shifts.length} volunteer{shifts.length === 1 ? '' : 's'}</span>
+              </div>
+              {shifts.length === 0 ? <p className="text-sm text-muted-foreground">No volunteers assigned.</p> : (
+                <table className="w-full text-sm"><thead><tr className="border-b border-border text-muted-foreground"><th className="text-left py-1 font-medium">No.</th><th className="text-left py-1 font-medium">Volunteer</th><th className="text-left py-1 font-medium">Roles</th><th className="text-left py-1 font-medium">Dates</th><th className="text-left py-1 font-medium">Hours</th></tr></thead><tbody>{shifts.map((shift, index) => <tr key={shift.id} className="border-b border-border last:border-0"><td className="py-1.5">{index + 1}</td><td className="py-1.5 font-medium">{shift.volunteer_name}</td><td className="py-1.5">{shift.roles.join(', ') || 'None'}</td><td className="py-1.5">{shift.start_date}{shift.start_date !== shift.end_date ? ` to ${shift.end_date}` : ''}</td><td className="py-1.5">{shift.start_time} - {shift.end_time}</td></tr>)}</tbody></table>
+              )}
+            </section>
+          ))}
+          {rotaEvents.length === 0 && <p className="text-sm text-muted-foreground">No events match the selected filters.</p>}
+          <p className="print-only-footer text-xs text-muted-foreground mt-3">Printed: {generatedAt}</p>
         </CardContent>
       </Card>
       )}

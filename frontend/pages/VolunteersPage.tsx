@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
 import {
   useGetVolunteers,
-  useSaveVolunteer,
-  useDeleteVolunteer,
   useGetVolunteerShifts,
   useSaveVolunteerShift,
   useDeleteVolunteerShift,
   useGetFetes,
+  useSaveFete,
+  useDeleteFete,
 } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Input } from '../lib/shadcn/input'
 import { Label } from '../lib/shadcn/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../lib/shadcn/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
-import { Plus, Pencil, Trash2, Users, CalendarRange } from 'lucide-react'
+import { Plus, Trash2, Pencil, Users, CalendarRange } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -23,7 +23,7 @@ type Volunteer = {
   name: string
   email: string
   phone: string
-  role: string
+  roles: string[]
   notes: string
 }
 
@@ -33,7 +33,7 @@ type VolunteerShift = {
   volunteer_name: string
   fete_id: number | null
   fete_name: string | null
-  role: string
+  roles: string[]
   start_date: string
   end_date: string
   start_time: string
@@ -44,6 +44,10 @@ type Fete = {
   id: number
   name: string
   event_date: string
+  description: string
+  notes: string
+  status: string
+  location_id: number | null
 }
 
 const VOLUNTEER_ROLES = ['Lead Volunteer', 'Helper', 'Putting Up', 'Taking Down', 'Transport', 'Stall Holder']
@@ -58,17 +62,15 @@ export default function VolunteersPage({ currentUser }: Props) {
   const { data: volunteersRaw, trigger: loadVolunteers } = useGetVolunteers()
   const { data: shiftsRaw, trigger: loadShifts } = useGetVolunteerShifts()
   const { data: fetesRaw, trigger: loadFetes } = useGetFetes()
-  const { trigger: saveVolunteer, loading: savingVolunteer } = useSaveVolunteer()
-  const { trigger: deleteVolunteer } = useDeleteVolunteer()
   const { trigger: saveVolunteerShift, loading: savingShift } = useSaveVolunteerShift()
   const { trigger: deleteVolunteerShift } = useDeleteVolunteerShift()
+  const { trigger: saveFete, loading: savingFete } = useSaveFete()
+  const { trigger: deleteFete } = useDeleteFete()
 
   const volunteers = (volunteersRaw ?? []) as Volunteer[]
   const shifts = (shiftsRaw ?? []) as VolunteerShift[]
   const fetes = (fetesRaw ?? []) as Fete[]
 
-  const [open, setOpen] = useState(false)
-  const [editId, setEditId] = useState<number | null>(null)
   const [shiftOpen, setShiftOpen] = useState(false)
   const [shiftEditId, setShiftEditId] = useState<number | null>(null)
   const [shiftSaveError, setShiftSaveError] = useState('')
@@ -76,13 +78,12 @@ export default function VolunteersPage({ currentUser }: Props) {
   const [selectedFeteId, setSelectedFeteId] = useState<number | null>(null)
   const [volunteersForEventId, setVolunteersForEventId] = useState<number | null>(null)
   const [eventsForVolunteerId, setEventsForVolunteerId] = useState<number | null>(null)
-  const [form, setForm] = useState<Partial<Volunteer>>({
-    name: '', email: '', phone: '', role: 'Helper', notes: ''
-  })
+  const [feteOpen, setFeteOpen] = useState(false)
+  const [feteForm, setFeteForm] = useState<Partial<Fete>>({})
   const [shiftForm, setShiftForm] = useState<{
     volunteer_id: number | null
     fete_id: number | null
-    role: string
+    roles: string[]
     start_date: string
     end_date: string
     start_time: string
@@ -90,7 +91,7 @@ export default function VolunteersPage({ currentUser }: Props) {
   }>({
     volunteer_id: null,
     fete_id: null,
-    role: 'Helper',
+    roles: [],
     start_date: '',
     end_date: '',
     start_time: '09:00',
@@ -118,18 +119,6 @@ export default function VolunteersPage({ currentUser }: Props) {
     )
   }
 
-  function openNew() {
-    setForm({ name: '', email: '', phone: '', role: 'Helper', notes: '' })
-    setEditId(null)
-    setOpen(true)
-  }
-
-  function openEdit(v: Volunteer) {
-    setForm({ ...v })
-    setEditId(v.id)
-    setOpen(true)
-  }
-
   function openNewShift(volunteerId = selectedVolunteerId, feteId = selectedFeteId) {
     const today = new Date().toISOString().slice(0, 10)
     const fete = fetes.find(item => item.id === feteId)
@@ -138,7 +127,7 @@ export default function VolunteersPage({ currentUser }: Props) {
     setShiftForm({
       volunteer_id: volunteerId ?? volunteers[0]?.id ?? null,
       fete_id: feteId,
-      role: 'Helper',
+      roles: [],
       start_date: startDate,
       end_date: endDate,
       start_time: '09:00',
@@ -153,7 +142,7 @@ export default function VolunteersPage({ currentUser }: Props) {
     setShiftForm({
       volunteer_id: shift.volunteer_id,
       fete_id: shift.fete_id,
-      role: shift.role,
+      roles: shift.roles,
       start_date: shift.start_date,
       end_date: shift.end_date,
       start_time: shift.start_time,
@@ -164,26 +153,6 @@ export default function VolunteersPage({ currentUser }: Props) {
     setShiftOpen(true)
   }
 
-  async function handleSave() {
-    await saveVolunteer({
-      ...(editId ? { id: editId } : {}),
-      name: form.name ?? '',
-      email: form.email ?? '',
-      phone: form.phone ?? '',
-      role: form.role ?? 'Helper',
-      notes: form.notes ?? '',
-    })
-    setOpen(false)
-    void loadVolunteers({})
-  }
-
-  async function handleDelete(id: number) {
-    if (!confirm('Delete this volunteer?')) return
-    await deleteVolunteer({ id })
-    void loadVolunteers({})
-    void loadShifts({})
-  }
-
   async function handleSaveShift() {
     setShiftSaveError('')
     try {
@@ -191,7 +160,7 @@ export default function VolunteersPage({ currentUser }: Props) {
         ...(shiftEditId ? { id: shiftEditId } : {}),
         volunteer_id: shiftForm.volunteer_id ?? 0,
         fete_id: shiftForm.fete_id ?? null,
-        role: shiftForm.role,
+        roles: shiftForm.roles,
         start_date: shiftForm.start_date,
         end_date: shiftForm.end_date || shiftForm.start_date,
         start_time: shiftForm.start_time,
@@ -210,16 +179,42 @@ export default function VolunteersPage({ currentUser }: Props) {
     void loadShifts({})
   }
 
+  function openEditFete(fete: Fete) {
+    setFeteForm({ ...fete, event_date: fete.event_date.split('T')[0] ?? fete.event_date })
+    setFeteOpen(true)
+  }
+
+  async function handleSaveFete() {
+    await saveFete({
+      id: feteForm.id,
+      name: feteForm.name ?? '',
+      event_date: feteForm.event_date ?? '',
+      description: feteForm.description ?? '',
+      notes: feteForm.notes ?? '',
+      status: feteForm.status ?? 'planned',
+      created_by: currentUser.id,
+      location_id: feteForm.location_id ?? null,
+    })
+    setFeteOpen(false)
+    void loadFetes({})
+  }
+
+  async function handleDeleteFete(fete: Fete) {
+    if (!confirm(`Delete “${fete.name}”? This will remove its rota, contact links, and requirements.`)) return
+    await deleteFete({ id: fete.id })
+    setSelectedFeteId(null)
+    setVolunteersForEventId(null)
+    void loadFetes({})
+    void loadShifts({})
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Volunteer Management</h1>
-          <p className="text-muted-foreground text-sm">Track volunteers, roles, events and shift coverage</p>
+          <h1 className="text-2xl font-bold">Volunteer Rota</h1>
+          <p className="text-muted-foreground text-sm">Assign volunteers to events and manage shift coverage</p>
         </div>
-        <Button onClick={openNew} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Add Volunteer
-        </Button>
       </div>
 
       <section className="space-y-2">
@@ -229,9 +224,8 @@ export default function VolunteersPage({ currentUser }: Props) {
           <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
             <tr>
               <th className="px-3 py-2 font-medium">Volunteer</th>
-              <th className="px-3 py-2 font-medium">Role</th>
+              <th className="px-3 py-2 font-medium">Willing roles</th>
               <th className="hidden md:table-cell px-3 py-2 font-medium">Email</th>
-              <th className="w-24 px-3 py-2"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -256,18 +250,8 @@ export default function VolunteersPage({ currentUser }: Props) {
                 className={`cursor-pointer transition-colors focus:outline-none ${selectedVolunteerId === v.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted focus:bg-muted'}`}
               >
                 <td className="h-11 px-3 py-2 font-medium">{v.name}</td>
-                <td className="h-11 px-3 py-2">{v.role}</td>
+                <td className="h-11 px-3 py-2">{v.roles.join(', ') || 'None'}</td>
                 <td className="hidden md:table-cell h-11 px-3 py-2 truncate max-w-64">{v.email || v.phone || '-'}</td>
-                <td className="px-3 py-1.5">
-                  <div className="flex justify-end gap-1">
-                    <Button size="sm" variant="outline" onClick={event => { event.stopPropagation(); openEdit(v) }} aria-label="Edit volunteer">
-                      <Pencil className="w-3 h-3" />
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={event => { event.stopPropagation(); handleDelete(v.id) }} aria-label="Delete volunteer">
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </td>
               </tr>
             ))}
           </tbody>
@@ -292,26 +276,46 @@ export default function VolunteersPage({ currentUser }: Props) {
             {fetes.map(fete => {
               const assignedVolunteers = new Set(shifts.filter(shift => shift.fete_id === fete.id).map(shift => shift.volunteer_id)).size
               return (
-                <button
-                  key={fete.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedVolunteerId(null)
-                    setSelectedFeteId(id => id === fete.id ? null : fete.id)
-                    setVolunteersForEventId(fete.id)
-                  }}
-                  aria-pressed={selectedFeteId === fete.id}
-                  className={`w-full flex items-center justify-between gap-3 px-3 py-2 text-left text-sm ${selectedFeteId === fete.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
-                >
-                  <span className="min-w-0"><span className="block font-medium truncate">{fete.name}</span><span className="block text-xs opacity-75">{fete.event_date}</span></span>
-                  <span className="text-xs whitespace-nowrap">{assignedVolunteers} volunteer{assignedVolunteers === 1 ? '' : 's'}</span>
-                </button>
+                <div key={fete.id} className={`flex items-center gap-1 px-1 ${selectedFeteId === fete.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedVolunteerId(null)
+                      setSelectedFeteId(id => id === fete.id ? null : fete.id)
+                      setVolunteersForEventId(fete.id)
+                    }}
+                    aria-pressed={selectedFeteId === fete.id}
+                    className="flex-1 min-w-0 flex items-center justify-between gap-3 px-2 py-2 text-left text-sm"
+                  >
+                    <span className="min-w-0"><span className="block font-medium truncate">{fete.name}</span><span className="block text-xs opacity-75">{fete.event_date}</span></span>
+                    <span className="text-xs whitespace-nowrap">{assignedVolunteers} volunteer{assignedVolunteers === 1 ? '' : 's'}</span>
+                  </button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => openEditFete(fete)} aria-label={`Edit ${fete.name}`}>
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-destructive hover:text-destructive" onClick={() => void handleDeleteFete(fete)} aria-label={`Delete ${fete.name}`}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               )
             })}
           </div>
         </div>
 
       </div>
+
+      <Dialog open={feteOpen} onOpenChange={setFeteOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Event</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1"><Label>Name</Label><Input value={feteForm.name ?? ''} onChange={event => setFeteForm(form => ({ ...form, name: event.target.value }))} /></div>
+            <div className="space-y-1"><Label>Date</Label><Input type="date" value={feteForm.event_date ?? ''} onChange={event => setFeteForm(form => ({ ...form, event_date: event.target.value }))} /></div>
+            <div className="space-y-1"><Label>Description</Label><Input value={feteForm.description ?? ''} onChange={event => setFeteForm(form => ({ ...form, description: event.target.value }))} /></div>
+            <div className="space-y-1"><Label>Status</Label><Select value={feteForm.status ?? 'planned'} onValueChange={status => setFeteForm(form => ({ ...form, status }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="planned">Planned</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="completed">Completed</SelectItem></SelectContent></Select></div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setFeteOpen(false)}>Cancel</Button><Button onClick={() => void handleSaveFete()} disabled={savingFete || !feteForm.name || !feteForm.event_date}>{savingFete ? 'Saving…' : 'Save'}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={volunteersForEventId != null} onOpenChange={isOpen => {
         if (!isOpen) setVolunteersForEventId(null)
@@ -353,7 +357,7 @@ export default function VolunteersPage({ currentUser }: Props) {
                       className="cursor-pointer hover:bg-muted focus:bg-muted focus:outline-none"
                     >
                       <td className="px-3 py-2 font-medium">{shift.volunteer_name}</td>
-                      <td className="px-3 py-2">{shift.role}</td>
+                      <td className="px-3 py-2">{shift.roles.join(', ') || 'None'}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{shift.start_date}{shift.start_date !== shift.end_date ? ` to ${shift.end_date}` : ''}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{shift.start_time}-{shift.end_time}</td>
                       <td className="px-3 py-1.5">
@@ -413,7 +417,7 @@ export default function VolunteersPage({ currentUser }: Props) {
                       className="cursor-pointer hover:bg-muted focus:bg-muted focus:outline-none"
                     >
                       <td className="px-3 py-2 font-medium">{shift.fete_name ?? 'Unassigned event'}</td>
-                      <td className="px-3 py-2">{shift.role}</td>
+                      <td className="px-3 py-2">{shift.roles.join(', ') || 'None'}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{shift.start_date}{shift.start_date !== shift.end_date ? ` to ${shift.end_date}` : ''}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{shift.start_time}-{shift.end_time}</td>
                     </tr>
@@ -422,49 +426,6 @@ export default function VolunteersPage({ currentUser }: Props) {
               </table>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editId ? 'Edit Volunteer' : 'Add Volunteer'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label>Name</Label>
-              <Input value={form.name ?? ''} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-            </div>
-            <div className="space-y-1">
-              <Label>Email</Label>
-              <Input type="email" value={form.email ?? ''} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-            </div>
-            <div className="space-y-1">
-              <Label>Phone</Label>
-              <Input value={form.phone ?? ''} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
-            </div>
-            <div className="space-y-1">
-              <Label>Role</Label>
-              <Select value={form.role ?? 'Helper'} onValueChange={value => setForm(f => ({ ...f, role: value }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {VOLUNTEER_ROLES.map(role => (
-                    <SelectItem key={role} value={role}>{role}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Notes</Label>
-              <Input value={form.notes ?? ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={savingVolunteer || !form.name}>
-              {savingVolunteer ? 'Saving…' : 'Save'}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -512,16 +473,16 @@ export default function VolunteersPage({ currentUser }: Props) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label>Role</Label>
-              <Select value={shiftForm.role} onValueChange={value => setShiftForm(f => ({ ...f, role: value }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {VOLUNTEER_ROLES.map(role => (
-                    <SelectItem key={role} value={role}>{role}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-2">
+              <Label>Event roles</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {VOLUNTEER_ROLES.map(role => (
+                  <Label key={role} className="flex items-center gap-2 text-sm font-normal">
+                    <input type="checkbox" checked={shiftForm.roles.includes(role)} onChange={event => setShiftForm(form => ({ ...form, roles: event.target.checked ? [...form.roles, role] : form.roles.filter(item => item !== role) }))} />
+                    {role}
+                  </Label>
+                ))}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">

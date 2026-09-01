@@ -11,7 +11,7 @@ type Params = {
   id?: number
   volunteer_id: number
   fete_id?: number | null
-  role?: string
+  roles?: string[]
   start_date?: string
   end_date?: string
   shift_date?: string
@@ -32,7 +32,7 @@ export default async function (req: { params: Params; user: User }) {
     id,
     volunteer_id,
     fete_id,
-    role = 'Helper',
+    roles = [],
     start_date,
     end_date,
     shift_date,
@@ -50,8 +50,9 @@ export default async function (req: { params: Params; user: User }) {
     throw new Error('Shift times must be in HH:MM format')
   }
 
-  if (!VOLUNTEER_ROLES.includes(role as typeof VOLUNTEER_ROLES[number])) {
-    throw new Error(`Volunteer role must be one of: ${VOLUNTEER_ROLES.join(', ')}`)
+  const uniqueRoles = [...new Set(roles)]
+  if (!uniqueRoles.every(role => VOLUNTEER_ROLES.includes(role as typeof VOLUNTEER_ROLES[number]))) {
+    throw new Error(`Event roles must be one of: ${VOLUNTEER_ROLES.join(', ')}`)
   }
 
   const startMinutes = toMinutes(start_time)
@@ -103,12 +104,21 @@ export default async function (req: { params: Params; user: User }) {
           start_time=$6,
           end_time=$7
       WHERE id=$8
-    `, [volunteer_id, fete_id ?? null, role, actualStartDate, actualEndDate, start_time, end_time, id])
+    `, [volunteer_id, fete_id ?? null, uniqueRoles[0] ?? '', actualStartDate, actualEndDate, start_time, end_time, id])
+    await retoolDb.query('DELETE FROM volunteer_shift_roles WHERE shift_id = $1', [id])
+    for (const role of uniqueRoles) {
+      await retoolDb.query('INSERT INTO volunteer_shift_roles (shift_id, role) VALUES ($1, $2)', [id, role])
+    }
   } else {
-    await retoolDb.query(`
+    const created = await retoolDb.query<{ id: number }>(`
       INSERT INTO volunteer_shifts (volunteer_id, fete_id, role, start_date, end_date, start_time, end_time)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, [volunteer_id, fete_id ?? null, role, actualStartDate, actualEndDate, start_time, end_time])
+      RETURNING id
+    `, [volunteer_id, fete_id ?? null, uniqueRoles[0] ?? '', actualStartDate, actualEndDate, start_time, end_time])
+    const shiftId = created.data[0]?.id
+    for (const role of uniqueRoles) {
+      await retoolDb.query('INSERT INTO volunteer_shift_roles (shift_id, role) VALUES ($1, $2)', [shiftId, role])
+    }
   }
 
   return { success: true }

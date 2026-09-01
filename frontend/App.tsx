@@ -21,10 +21,10 @@ const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
   { path: '/assets', label: 'Store Assets', icon: Package, adminOnly: false },
   { path: '/fetes', label: 'Fete Events', icon: Tent, adminOnly: false },
-  { path: '/volunteers', label: 'Volunteers', icon: Users, adminOnly: true },
+  { path: '/volunteers', label: 'Volunteer Rota', icon: Users, adminOnly: true },
   { path: '/withdrawals', label: 'Withdrawals', icon: ArrowUpFromLine, adminOnly: false },
   { path: '/locations', label: 'Locations', icon: MapPin, adminOnly: true },
-  { path: '/users', label: 'Users', icon: Users, adminOnly: true },
+  { path: '/users', label: 'People', icon: Users, adminOnly: true },
   { path: '/print-lists', label: 'Print Lists', icon: Printer, adminOnly: true },
   { path: '/help', label: 'Help', icon: HelpCircle, adminOnly: false },
 ]

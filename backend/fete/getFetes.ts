@@ -12,7 +12,14 @@ export default async function (_req: { params: Record<string, never>; user: User
     LEFT JOIN store_locations sl
       ON f.location_id = sl.id
      AND sl.location_type = 'Fetes'
-    ORDER BY f.archived_at IS NOT NULL, f.event_date DESC
+    ORDER BY CASE f.status
+      WHEN 'active' THEN 1
+      WHEN 'planned' THEN 2
+      WHEN 'completed' THEN 3
+      ELSE 4
+    END,
+    f.event_date ASC,
+    f.name ASC
   `)
   return result.data
 }

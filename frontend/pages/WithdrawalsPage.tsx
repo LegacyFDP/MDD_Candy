@@ -25,7 +25,7 @@ type Asset = {
 }
 type Fete = { id: number; name: string; status: string }
 type Withdrawal = {
-  id: number; asset_name: string; quantity: number; store_name?: string
+  id: number; asset_name: string; quantity: number; quantity_total: number; store_name?: string
   withdrawn_by_name: string; withdrawn_at: string
   returned_by_name?: string; returned_at?: string
   fete_name?: string; status: string; notes?: string; asset_id: number
@@ -253,7 +253,7 @@ export default function WithdrawalsPage({ currentUser }: Props) {
                         {w.asset_name}
                         {w.store_name && <span className="text-muted-foreground font-normal"> ({w.store_name})</span>}
                       </p>
-                      <p className="text-sm text-muted-foreground">Qty: {w.quantity}</p>
+                      <p className="text-sm text-muted-foreground">Qty: {w.quantity} of {w.quantity_total}</p>
                     </div>
                     <Badge variant="secondary">Out</Badge>
                   </div>
@@ -289,7 +289,7 @@ export default function WithdrawalsPage({ currentUser }: Props) {
                         {w.asset_name}
                         {w.store_name && <span className="text-muted-foreground font-normal"> ({w.store_name})</span>}
                       </p>
-                      <p className="text-sm text-muted-foreground">Qty: {w.quantity}</p>
+                      <p className="text-sm text-muted-foreground">Qty: {w.quantity} of {w.quantity_total}</p>
                     </div>
                     <Badge variant="outline">Booked</Badge>
                   </div>
@@ -339,7 +339,7 @@ export default function WithdrawalsPage({ currentUser }: Props) {
                       {w.asset_name}
                       {w.store_name && <span className="text-muted-foreground font-normal"> ({w.store_name})</span>}
                     </td>
-                    <td className="py-2 pr-4 text-center">{w.quantity}</td>
+                    <td className="py-2 pr-4 text-center">{w.quantity} of {w.quantity_total}</td>
                     <td className="py-2 pr-4">{w.withdrawn_by_name}</td>
                     <td className="py-2 pr-4 text-muted-foreground">
                       {new Date(w.withdrawn_at).toLocaleString('en-GB')}

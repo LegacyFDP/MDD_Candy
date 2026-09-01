@@ -279,11 +279,9 @@ export default function FetesPage({ currentUser }: Props) {
                   {fete.notes && (
                     <p className="text-xs text-muted-foreground mt-0.5">Note: {fete.notes}</p>
                   )}
-                  {fete.location_name && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                      <MapPin className="w-3 h-3" />{fete.location_name}
-                    </p>
-                  )}
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <MapPin className="w-3 h-3" />{fete.location_name || 'None'}
+                  </p>
                   {fete.archived_at && (
                     <p className="text-xs text-muted-foreground mt-1">
                       Archived {new Date(fete.archived_at).toLocaleDateString('en-GB', {

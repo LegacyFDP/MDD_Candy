@@ -349,6 +349,77 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
     database,
   )
 
+  await run(
+    `
+      CREATE TABLE IF NOT EXISTS volunteer_roles (
+        volunteer_id INTEGER NOT NULL REFERENCES fete_volunteers(id) ON DELETE CASCADE,
+        role         TEXT NOT NULL,
+        PRIMARY KEY (volunteer_id, role)
+      )
+    `,
+    [],
+    database,
+  )
+
+  await run(
+    `
+      CREATE TABLE IF NOT EXISTS volunteer_shift_roles (
+        shift_id INTEGER NOT NULL REFERENCES volunteer_shifts(id) ON DELETE CASCADE,
+        role     TEXT NOT NULL,
+        PRIMARY KEY (shift_id, role)
+      )
+    `,
+    [],
+    database,
+  )
+
+  await run(
+    `
+      CREATE TABLE IF NOT EXISTS fete_contacts (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT NOT NULL,
+        email      TEXT NOT NULL DEFAULT '',
+        phone      TEXT NOT NULL DEFAULT '',
+        notes      TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `,
+    [],
+    database,
+  )
+
+  await run(
+    `
+      CREATE TABLE IF NOT EXISTS fete_contact_events (
+        contact_id INTEGER NOT NULL REFERENCES fete_contacts(id) ON DELETE CASCADE,
+        fete_id    INTEGER NOT NULL REFERENCES fetes(id) ON DELETE CASCADE,
+        PRIMARY KEY (contact_id, fete_id)
+      )
+    `,
+    [],
+    database,
+  )
+
+  await run(
+    `
+      INSERT OR IGNORE INTO volunteer_roles (volunteer_id, role)
+      SELECT id, role FROM fete_volunteers
+      WHERE TRIM(role) <> ''
+    `,
+    [],
+    database,
+  )
+
+  await run(
+    `
+      INSERT OR IGNORE INTO volunteer_shift_roles (shift_id, role)
+      SELECT id, role FROM volunteer_shifts
+      WHERE TRIM(role) <> ''
+    `,
+    [],
+    database,
+  )
+
   const shiftColumns = await all<{ name: string }>('PRAGMA table_info(volunteer_shifts);', [], database)
   const shiftExisting = new Set(shiftColumns.map((column) => column.name))
   if (!shiftExisting.has('start_date')) {

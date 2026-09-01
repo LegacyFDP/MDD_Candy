@@ -113,14 +113,12 @@ body {
 }
 
 .mdd-login-banner {
-  border-top: 4px solid var(--mdd-yellow);
-  background-color: var(--mdd-red);
-  color: white;
+  border-top: 1px solid hsl(var(--border));
 }
 
 .mdd-login-banner-title {
   margin: 0;
-  color: white;
+  color: hsl(var(--foreground));
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 1.25rem;
   font-weight: 700;
@@ -129,6 +127,6 @@ body {
 
 .mdd-login-banner-copy {
   margin: 0.25rem 0 0;
-  color: #fff2b5;
+  color: hsl(var(--muted-foreground));
   font-size: 0.8125rem;
 }

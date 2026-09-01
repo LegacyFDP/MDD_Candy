@@ -45,6 +45,10 @@ body {
     display: none !important;
   }
 
+  #card-print-event-volunteers {
+    display: block !important;
+  }
+
   .print-page {
     background: white !important;
     color: black !important;
@@ -78,29 +82,28 @@ body {
   }
 
   body[data-print-section='print-events'] .print-section:not(#print-events),
+  body[data-print-section='print-event-volunteers'] .print-section:not(#print-event-volunteers),
   body[data-print-section='print-locations'] .print-section:not(#print-locations),
   body[data-print-section='print-assets'] .print-section:not(#print-assets),
-  body[data-print-section='print-picklists'] .print-section:not(#print-picklists),
-  body[data-print-section='print-rota'] .print-section:not(#print-rota) {
+  body[data-print-section='print-picklists'] .print-section:not(#print-picklists) {
     display: none !important;
   }
 
   body[data-print-section='print-events'] #card-print-locations,
   body[data-print-section='print-events'] #card-print-assets,
+  body[data-print-section='print-events'] #card-print-event-volunteers,
+  body[data-print-section='print-event-volunteers'] #card-print-events,
+  body[data-print-section='print-event-volunteers'] #card-print-locations,
+  body[data-print-section='print-event-volunteers'] #card-print-assets,
+  body[data-print-section='print-event-volunteers'] #card-print-picklists,
   body[data-print-section='print-locations'] #card-print-events,
   body[data-print-section='print-locations'] #card-print-assets,
   body[data-print-section='print-assets'] #card-print-events,
   body[data-print-section='print-assets'] #card-print-locations,
   body[data-print-section='print-assets'] #card-print-picklists,
-  body[data-print-section='print-assets'] #card-print-rota,
   body[data-print-section='print-picklists'] #card-print-events,
   body[data-print-section='print-picklists'] #card-print-locations,
-  body[data-print-section='print-picklists'] #card-print-assets,
-  body[data-print-section='print-picklists'] #card-print-rota,
-  body[data-print-section='print-rota'] #card-print-events,
-  body[data-print-section='print-rota'] #card-print-locations,
-  body[data-print-section='print-rota'] #card-print-assets,
-  body[data-print-section='print-rota'] #card-print-picklists {
+  body[data-print-section='print-picklists'] #card-print-assets {
     display: none !important;
   }
 }

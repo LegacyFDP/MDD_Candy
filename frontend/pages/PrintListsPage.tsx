@@ -145,7 +145,7 @@ export default function PrintListsPage({ currentUser }: Props) {
   const { data: fetePickListRaw, trigger: loadFetePickList } = useGetFeteAssetPickList()
   const { data: volunteersRaw, trigger: loadVolunteers } = useGetVolunteers()
   const { data: volunteerShiftsRaw, trigger: loadVolunteerShifts } = useGetVolunteerShifts()
-  const [selectedReport, setSelectedReport] = useState<PrintReport>('events')
+  const [selectedReport, setSelectedReport] = useState<PrintReport>()
   const [selectedFeteId, setSelectedFeteId] = useState<string>('')
   const [isPrintingAll, setIsPrintingAll] = useState(false)
   const [showShortagesOnly, setShowShortagesOnly] = useState(false)
@@ -168,6 +168,17 @@ export default function PrintListsPage({ currentUser }: Props) {
   const fetePickList = (fetePickListRaw ?? []) as FeteAssetPickItem[]
   const volunteers = (volunteersRaw ?? []) as Volunteer[]
   const volunteerShifts = (volunteerShiftsRaw ?? []) as VolunteerShift[]
+
+  const eventFilterFetes = useMemo(() => {
+    const statusOrder: Record<string, number> = { active: 0, planned: 1, archived: 2 }
+
+    return [...fetes].sort((left, right) => {
+      const leftStatusOrder = statusOrder[left.status.toLowerCase()] ?? Number.MAX_SAFE_INTEGER
+      const rightStatusOrder = statusOrder[right.status.toLowerCase()] ?? Number.MAX_SAFE_INTEGER
+      if (leftStatusOrder !== rightStatusOrder) return leftStatusOrder - rightStatusOrder
+      return left.name.localeCompare(right.name)
+    })
+  }, [fetes])
 
   const locations = useMemo(
     () => [
@@ -376,6 +387,8 @@ export default function PrintListsPage({ currentUser }: Props) {
   }
 
   function printSelectedReport() {
+    if (!selectedReport) return
+
     clearPrintSectionFilter()
     const reportSectionIds: Record<PrintReport, string> = {
       events: 'print-events',
@@ -435,20 +448,20 @@ export default function PrintListsPage({ currentUser }: Props) {
 
       <div className="space-y-3 print-hidden">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="flex-1 space-y-1">
-          <label className="text-sm font-medium" htmlFor="print-report">Select Print List</label>
-          <Select value={selectedReport} onValueChange={(value) => setSelectedReport(value as PrintReport)}>
-            <SelectTrigger id="print-report"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="events">Events</SelectItem>
-              <SelectItem value="locations">Locations</SelectItem>
-              <SelectItem value="assets">Assets by Location &amp; Area</SelectItem>
-              <SelectItem value="picklists">Event Asset Pick Lists</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex-1 rounded-md border border-primary/40 bg-primary/5 p-3 space-y-1">
+            <label className="text-sm font-medium" htmlFor="print-report">Select Print List</label>
+            <Select value={selectedReport} onValueChange={(value) => setSelectedReport(value as PrintReport)}>
+              <SelectTrigger id="print-report"><SelectValue placeholder="Choose a print list" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="assets">Assets by Location &amp; Area</SelectItem>
+                <SelectItem value="picklists">Event Asset Pick Lists</SelectItem>
+                <SelectItem value="events">Events</SelectItem>
+                <SelectItem value="locations">Locations</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={printSelectedReport} className="flex items-center gap-2">
+            <Button variant="outline" onClick={printSelectedReport} disabled={!selectedReport} className="flex items-center gap-2">
               <Printer className="w-4 h-4" /> Print Selected List
             </Button>
             <Button onClick={printAllReports} className="flex items-center gap-2">
@@ -478,7 +491,7 @@ export default function PrintListsPage({ currentUser }: Props) {
               <SelectTrigger id="event-volunteer-fete"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All events</SelectItem>
-                {fetes.map(fete => <SelectItem key={fete.id} value={String(fete.id)}>{fete.name}</SelectItem>)}
+                {eventFilterFetes.map(fete => <SelectItem key={fete.id} value={String(fete.id)}>{fete.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -492,15 +505,21 @@ export default function PrintListsPage({ currentUser }: Props) {
             <CardTitle className="flex items-center gap-2 text-base">
               <Calendar className="w-4 h-4" /> Events
             </CardTitle>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="print-hidden"
-              onClick={() => printSection('print-events')}
-            >
-              <Printer className="w-3.5 h-3.5 mr-1" /> Print Events
-            </Button>
+            <div className="flex items-center gap-2 print-hidden">
+              {eventVolunteerFeteId !== 'all' && (
+                <Button type="button" variant="outline" size="sm" onClick={() => setEventVolunteerFeteId('all')}>
+                  Show all events
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => printSection('print-events')}
+              >
+                <Printer className="w-3.5 h-3.5 mr-1" /> Print Events
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent id="print-events" className="print-section">
@@ -526,7 +545,15 @@ export default function PrintListsPage({ currentUser }: Props) {
                       : '-'}
                   </td>
                   <td className="py-2">
-                    <p className="font-medium">{fete.name}</p>
+                    <button
+                      type="button"
+                      className="font-medium text-left hover:underline print:pointer-events-none"
+                      onClick={() => setEventVolunteerFeteId((currentId) => (
+                        currentId === String(fete.id) ? 'all' : String(fete.id)
+                      ))}
+                    >
+                      {fete.name}
+                    </button>
                     {fete.description && (
                       <p className="text-xs text-muted-foreground">{fete.description}</p>
                     )}

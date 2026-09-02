@@ -1,10 +1,10 @@
-fete.oxongroup.co.uk {
+staging.oxongroup.co.uk {
     handle /api/* {
-        reverse_proxy 127.0.0.1:8080
+        reverse_proxy 127.0.0.1:8081
     }
 
     handle {
-        root * /home/timmi/projects/MDD_Candy/frontend/dist
+        root * /home/timmi/projects/MDD_Candy_staging/frontend/dist
         try_files {path} {path}/ /index.html
         file_server
     }

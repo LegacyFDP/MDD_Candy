@@ -32,6 +32,13 @@ export default function Login({ onLogin }: LoginProps) {
     }
   }
 
+  function handleKeyDown(e: React.KeyboardEvent<HTMLFormElement>) {
+    if (e.key === 'Enter' && !loading) {
+      e.preventDefault()
+      e.currentTarget.requestSubmit()
+    }
+  }
+
   return (
     <div className="mdd-login-shell min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-sm overflow-hidden">
@@ -49,7 +56,7 @@ export default function Login({ onLogin }: LoginProps) {
           <CardDescription>Sign in with your email and PIN</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="space-y-4">
             <div className="space-y-1">
               <Label htmlFor="email">Email</Label>
               <Input

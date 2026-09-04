@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/index.ts",
-    "dev": "fuser -k 8081/tcp 2>/dev/null || true; tsx watch --ignore \"*.db*\" src/index.ts",
+    "dev": "tsx watch --ignore \"*.db*\" src/index.ts",
     "db:init": "node ../db/init-sqlite.cjs",
     "db:migrate": "tsx src/migrate.ts"
   },

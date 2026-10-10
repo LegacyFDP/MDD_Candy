@@ -59,7 +59,12 @@ function addDays(date: string, days: number): string {
 }
 
 export default function VolunteersPage({ currentUser }: Props) {
-  const { data: volunteersRaw, trigger: loadVolunteers } = useGetVolunteers()
+  const {
+    data: volunteersRaw,
+    loading: volunteersLoading,
+    error: volunteersError,
+    trigger: loadVolunteers,
+  } = useGetVolunteers()
   const { data: shiftsRaw, trigger: loadShifts } = useGetVolunteerShifts()
   const { data: fetesRaw, trigger: loadFetes } = useGetFetes()
   const { trigger: saveVolunteerShift, loading: savingShift } = useSaveVolunteerShift()
@@ -106,7 +111,7 @@ export default function VolunteersPage({ currentUser }: Props) {
   const volunteerEventShifts = shifts.filter(shift => shift.volunteer_id === eventsForVolunteerId && shift.fete_id != null)
 
   useEffect(() => {
-    void loadVolunteers({})
+    void loadVolunteers({}).catch(() => {})
     void loadShifts({})
     void loadFetes({})
   }, [])
@@ -444,11 +449,34 @@ export default function VolunteersPage({ currentUser }: Props) {
               <Select value={String(shiftForm.volunteer_id ?? '')} onValueChange={value => setShiftForm(f => ({ ...f, volunteer_id: Number(value) }))}>
                 <SelectTrigger><SelectValue placeholder="Select volunteer" /></SelectTrigger>
                 <SelectContent>
+                  {volunteersLoading && volunteers.length === 0 && (
+                    <SelectItem value="loading" disabled>Loading volunteers…</SelectItem>
+                  )}
+                  {volunteersError && volunteers.length === 0 && (
+                    <SelectItem value="error" disabled>Unable to load volunteers</SelectItem>
+                  )}
+                  {!volunteersLoading && !volunteersError && volunteers.length === 0 && (
+                    <SelectItem value="empty" disabled>No volunteers found</SelectItem>
+                  )}
                   {volunteers.map(vol => (
                     <SelectItem key={vol.id} value={String(vol.id)}>{vol.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {volunteersError && volunteers.length === 0 && (
+                <div className="flex items-center justify-between gap-2">
+                  <p role="alert" className="text-sm text-destructive">{volunteersError.message}</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={volunteersLoading}
+                    onClick={() => { void loadVolunteers({}).catch(() => {}) }}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="space-y-1">
               <Label>Event</Label>

@@ -1,7 +1,7 @@
 // Ambient declarations that replace the globals Retool injected at runtime.
 // These let the existing backend/fete/*.ts functions type-check and run
 // unchanged outside Retool. The actual `retoolDb` value is provided at
-// startup by the server (see server/src/index.ts), backed by the pg driver.
+// startup by the server (see server/src/index.ts), backed by the SQLite driver.
 
 declare global {
   interface RetoolQueryResult<T> {
@@ -13,6 +13,7 @@ declare global {
       text: string,
       params?: unknown[],
     ): Promise<RetoolQueryResult<T>>
+    transaction?<T>(fn: () => Promise<T>): Promise<T>
   }
 
   // Retool passed the authenticated user on each request. Auth is handled
@@ -26,3 +27,4 @@ declare global {
 }
 
 export {}
+

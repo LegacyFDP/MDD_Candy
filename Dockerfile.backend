@@ -8,9 +8,8 @@ WORKDIR /app
 # Copy package files
 COPY server/package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# Install production dependencies (includes tsx and sqlite3)
+RUN npm ci --omit=dev
 
 # Copy server source
 COPY server/src ./src

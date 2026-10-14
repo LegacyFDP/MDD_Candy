@@ -57,6 +57,8 @@ async function runWithMeta(
 }
 
 export async function ensureRuntimeSchema(database: sqlite3.Database = db): Promise<void> {
+  await run('PRAGMA foreign_keys = ON;', [], database)
+
   await run(
     `
       CREATE TABLE IF NOT EXISTS fete_users (
@@ -358,16 +360,29 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
     await run('ALTER TABLE volunteer_shifts ADD COLUMN end_date TEXT NOT NULL DEFAULT CURRENT_DATE;', [], database)
   }
 
-  await run(
-    `
-      UPDATE volunteer_shifts
-      SET start_date = COALESCE(start_date, shift_date, CURRENT_DATE),
-          end_date = COALESCE(end_date, shift_date, CURRENT_DATE)
-      WHERE start_date IS NULL OR end_date IS NULL
-    `,
-    [],
-    database,
-  )
+  if (shiftExisting.has('shift_date')) {
+    await run(
+      `
+        UPDATE volunteer_shifts
+        SET start_date = COALESCE(start_date, shift_date, CURRENT_DATE),
+            end_date = COALESCE(end_date, shift_date, CURRENT_DATE)
+        WHERE start_date IS NULL OR end_date IS NULL
+      `,
+      [],
+      database,
+    )
+  } else {
+    await run(
+      `
+        UPDATE volunteer_shifts
+        SET start_date = COALESCE(start_date, CURRENT_DATE),
+            end_date = COALESCE(end_date, CURRENT_DATE)
+        WHERE start_date IS NULL OR end_date IS NULL
+      `,
+      [],
+      database,
+    )
+  }
 
   await run(
     `
@@ -493,23 +508,48 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
  *   result.data // -> rows
  */
 export function createRetoolDb(database: sqlite3.Database = db) {
-  return {
-    async query<T = Record<string, unknown>>(text: string, params: unknown[] = []) {
-      // Retool-exported handlers use Postgres placeholders ($1, $2, ...).
-      // SQLite expects positional placeholders (?); remap to keep handlers unchanged.
-      const sqliteParams: unknown[] = []
-      const sqliteText = text.replace(/\$(\d+)/g, (_match, indexText: string) => {
-        const index = Number(indexText) - 1
-        sqliteParams.push(params[index])
-        return '?'
-      })
+  let txChain: Promise<unknown> = Promise.resolve()
 
-      return new Promise((resolve, reject) => {
-        database.all(sqliteText, sqliteParams, (err, rows) => {
-          if (err) reject(err)
-          else resolve({ data: (rows as T[]) ?? [] })
-        })
+  async function query<T = Record<string, unknown>>(text: string, params: unknown[] = []) {
+    // Retool-exported handlers use Postgres placeholders ($1, $2, ...) and optional ::type casts.
+    // SQLite expects positional placeholders (?); remap to keep handlers unchanged.
+    const sqliteParams: unknown[] = []
+    const sqliteText = text.replace(/\$(\d+)(?:::[a-zA-Z_][a-zA-Z0-9_]*)?/g, (_match, indexText: string) => {
+      const index = Number(indexText) - 1
+      sqliteParams.push(params[index])
+      return '?'
+    })
+
+    return new Promise<{ data: T[] }>((resolve, reject) => {
+      database.all(sqliteText, sqliteParams, (err, rows) => {
+        if (err) reject(err)
+        else resolve({ data: (rows as T[]) ?? [] })
       })
-    },
+    })
+  }
+
+  async function transaction<T>(fn: () => Promise<T>): Promise<T> {
+    const runTx = txChain.then(async () => {
+      await run('BEGIN IMMEDIATE TRANSACTION', [], database)
+      try {
+        const result = await fn()
+        await run('COMMIT', [], database)
+        return result
+      } catch (err) {
+        try {
+          await run('ROLLBACK', [], database)
+        } catch {
+          // ignore rollback error
+        }
+        throw err
+      }
+    })
+    txChain = runTx.then(() => undefined, () => undefined)
+    return runTx
+  }
+
+  return {
+    query,
+    transaction,
   }
 }

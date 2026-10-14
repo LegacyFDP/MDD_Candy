@@ -12,9 +12,16 @@ export default async function (req: { params: Params; user: User }) {
     throw new Error('Cannot delete this user — they have withdrawal records. Reassign or archive those first.')
   }
 
-  // Nullify fetes they created (created_by is nullable)
-  await retoolDb.query(`UPDATE fetes SET created_by = NULL WHERE created_by = $1`, [id])
+  const applyDelete = async () => {
+    // Nullify fetes they created (created_by is nullable)
+    await retoolDb.query(`UPDATE fetes SET created_by = NULL WHERE created_by = $1`, [id])
+    await retoolDb.query(`DELETE FROM fete_users WHERE id = $1`, [id])
+  }
 
-  await retoolDb.query(`DELETE FROM fete_users WHERE id = $1`, [id])
+  if (retoolDb.transaction) {
+    await retoolDb.transaction(applyDelete)
+  } else {
+    await applyDelete()
+  }
   return { success: true }
 }

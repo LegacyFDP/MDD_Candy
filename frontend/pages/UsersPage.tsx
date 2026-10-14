@@ -24,7 +24,7 @@ type FeteUser = {
   name: string
   email: string
   role: 'admin' | 'store keeper' | 'user'
-  pin: string
+  pin?: string
   fetes: FeteAllocation[]
 }
 
@@ -67,7 +67,7 @@ export default function UsersPage({ currentUser }: Props) {
   }
 
   function openEdit(u: FeteUser) {
-    setForm({ id: u.id, name: u.name, email: u.email, role: u.role, pin: u.pin })
+    setForm({ id: u.id, name: u.name, email: u.email, role: u.role, pin: '' })
     setEditId(u.id)
     setShowPin(false)
     setOpen(true)
@@ -79,7 +79,7 @@ export default function UsersPage({ currentUser }: Props) {
       name: form.name ?? '',
       email: form.email ?? '',
       role: form.role ?? 'user',
-      pin: form.pin ?? ''
+      ...(form.pin?.trim() ? { pin: form.pin.trim() } : {}),
     })
     setOpen(false)
     void loadUsers({})
@@ -178,7 +178,7 @@ export default function UsersPage({ currentUser }: Props) {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>PIN (up to 6 digits)</Label>
+              <Label>{editId ? 'New PIN (leave blank to keep current)' : 'PIN (up to 6 digits)'}</Label>
               <div className="relative">
                 <Input
                   type={showPin ? 'text' : 'password'}
@@ -186,7 +186,7 @@ export default function UsersPage({ currentUser }: Props) {
                   className="pr-10"
                   value={form.pin ?? ''}
                   onChange={e => setForm(f => ({ ...f, pin: e.target.value }))}
-                  placeholder="••••" />
+                  placeholder={editId ? 'Leave blank to keep current' : '••••'} />
                 <button
                   type="button"
                   className="absolute inset-y-0 right-0 px-3 text-muted-foreground hover:text-foreground"
@@ -199,7 +199,7 @@ export default function UsersPage({ currentUser }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || !form.name || !form.email || !form.pin}>
+            <Button onClick={handleSave} disabled={saving || !form.name || !form.email || (!editId && !form.pin)}>
               {saving ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>

@@ -5,9 +5,12 @@ const fs = require('node:fs')
 const here = __dirname
 // DB_PATH mirrors server/src/db.ts so containerized first-run init writes to
 // the same mounted file the server will open.
+const defaultServerDir = fs.existsSync(path.resolve(here, '..', 'server'))
+  ? path.resolve(here, '..', 'server')
+  : path.resolve(here, '..')
 const dbPath = process.env.DB_PATH
   ? path.resolve(process.env.DB_PATH)
-  : path.resolve(here, '..', 'server', 'fete_store.db')
+  : path.resolve(defaultServerDir, 'fete_store.db')
 
 function openDb() {
   return new sqlite3.Database(dbPath, (err) => {

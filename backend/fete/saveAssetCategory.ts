@@ -20,8 +20,15 @@ export default async function (req: { params: Params; user: User }) {
     )
     if (!current.data[0]) throw new Error('Category not found')
 
-    await retoolDb.query(`UPDATE assets SET category = $1 WHERE category = $2 COLLATE NOCASE`, [name, current.data[0].name])
-    await retoolDb.query(`UPDATE asset_categories SET name = $1 WHERE id = $2`, [name, id])
+    const applyUpdate = async () => {
+      await retoolDb.query(`UPDATE assets SET category = $1 WHERE category = $2 COLLATE NOCASE`, [name, current.data[0].name])
+      await retoolDb.query(`UPDATE asset_categories SET name = $1 WHERE id = $2`, [name, id])
+    }
+    if (retoolDb.transaction) {
+      await retoolDb.transaction(applyUpdate)
+    } else {
+      await applyUpdate()
+    }
   } else {
     await retoolDb.query(`INSERT INTO asset_categories (name) VALUES ($1)`, [name])
   }

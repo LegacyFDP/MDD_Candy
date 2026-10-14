@@ -122,7 +122,11 @@ export default function App() {
                 : <Navigate to="/" replace />
             } />
             <Route path="/withdrawals" element={<WithdrawalsPage currentUser={currentUser} />} />
-            <Route path="/locations" element={<LocationsPage currentUser={currentUser} />} />
+            <Route path="/locations" element={
+              currentUser.role === 'admin'
+                ? <LocationsPage currentUser={currentUser} />
+                : <Navigate to="/" replace />
+            } />
             <Route path="/users" element={
               currentUser.role === 'admin'
                 ? <UsersPage currentUser={currentUser} />

@@ -235,8 +235,8 @@ main() {
   sync_repo
   ensure_server_env
   install_root_dependencies
-  install_dependencies_and_build
   init_database
+  install_dependencies_and_build
   install_systemd_service
   write_caddyfile
   configure_firewall

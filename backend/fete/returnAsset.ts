@@ -25,18 +25,29 @@ export default async function (req: { params: Params; user: User }) {
   const w = check.data[0]
   if (!w) throw new Error('Withdrawal not found')
   if (w.status === 'returned') throw new Error('Item already returned')
+  if (w.status !== 'out') throw new Error('Only items currently checked out can be returned')
 
-  // Mark as returned
-  await retoolDb.query(`
-    UPDATE withdrawals
-    SET status = 'returned', returned_at = CURRENT_TIMESTAMP, returned_by = $1, notes = COALESCE(NULLIF(notes,''), '') || $2
-    WHERE id = $3
-  `, [returned_by, notes ? (' | Return note: ' + notes) : '', withdrawal_id])
+  const applyReturn = async () => {
+    // Mark as returned
+    await retoolDb.query(`
+      UPDATE withdrawals
+      SET status = 'returned', returned_at = CURRENT_TIMESTAMP, returned_by = $1, notes = COALESCE(NULLIF(notes,''), '') || $2
+      WHERE id = $3 AND status = 'out'
+    `, [returned_by, notes ? (' | Return note: ' + notes) : '', withdrawal_id])
 
-  // Add quantity back to available
-  await retoolDb.query(`
-    UPDATE assets SET quantity_available = quantity_available + $1 WHERE id = $2
-  `, [w.quantity, w.asset_id])
+    // Add quantity back to available, capped at quantity_total
+    await retoolDb.query(`
+      UPDATE assets
+      SET quantity_available = MIN(quantity_total, quantity_available + $1)
+      WHERE id = $2
+    `, [w.quantity, w.asset_id])
+  }
+
+  if (retoolDb.transaction) {
+    await retoolDb.transaction(applyReturn)
+  } else {
+    await applyReturn()
+  }
 
   return { success: true }
 }

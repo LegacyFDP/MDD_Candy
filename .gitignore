@@ -50,6 +50,12 @@ server/dist/
 
 # Database Files
 /MDD_Candy.db
+*.bak
+
+# Diagnostic bundles
+git-diagnostics-*.zip
+git-bugreport-*.txt
+
 
 # Notes
 notes/

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useGetAssets, useGetWithdrawals, useGetFetes, useGetVolunteerShifts } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../lib/shadcn/card'
-import { Package, ArrowUpFromLine, Tent, AlertTriangle, Printer, Database } from 'lucide-react'
+import { Package, ArrowUpFromLine, Tent, AlertTriangle, Printer, Database, Users } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -37,12 +37,14 @@ export default function Dashboard({ currentUser }: Props) {
   const { data: assetsRaw, trigger: loadAssets } = useGetAssets()
   const { data: withdrawalsRaw, trigger: loadWithdrawals } = useGetWithdrawals()
   const { data: fetesRaw, trigger: loadFetes } = useGetFetes()
+  const { data: volunteerShiftsRaw, trigger: loadVolunteerShifts } = useGetVolunteerShifts()
   const [databaseFile, setDatabaseFile] = useState<string | null>(null)
 
   useEffect(() => {
     void loadAssets({})
     void loadWithdrawals({ status: 'out' })
     void loadFetes({})
+    void loadVolunteerShifts({})
     void fetch('/api/health')
       .then(response => response.ok ? response.json() as Promise<HealthResponse> : null)
       .then(health => setDatabaseFile(health?.database ?? null))

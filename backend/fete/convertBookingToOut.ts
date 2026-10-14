@@ -38,22 +38,30 @@ export default async function (req: { params: Params; user: User }) {
     )
   }
 
-  await retoolDb.query(
-    `UPDATE assets SET quantity_available = quantity_available - $1 WHERE id = $2`,
-    [booking.quantity, booking.asset_id],
-  )
+  const applyConvert = async () => {
+    await retoolDb.query(
+      `UPDATE assets SET quantity_available = quantity_available - $1 WHERE id = $2`,
+      [booking.quantity, booking.asset_id],
+    )
 
-  await retoolDb.query(
-    `
-      UPDATE withdrawals
-      SET status = 'out',
-          withdrawn_by = $1,
-          withdrawn_at = CURRENT_TIMESTAMP,
-          notes = COALESCE(NULLIF(notes,''), '') || $2
-      WHERE id = $3
-    `,
-    [withdrawn_by, notes ? (' | Converted from booking: ' + notes) : '', withdrawal_id],
-  )
+    await retoolDb.query(
+      `
+        UPDATE withdrawals
+        SET status = 'out',
+            withdrawn_by = $1,
+            withdrawn_at = CURRENT_TIMESTAMP,
+            notes = COALESCE(NULLIF(notes,''), '') || $2
+        WHERE id = $3 AND status = 'booked'
+      `,
+      [withdrawn_by, notes ? (' | Converted from booking: ' + notes) : '', withdrawal_id],
+    )
+  }
+
+  if (retoolDb.transaction) {
+    await retoolDb.transaction(applyConvert)
+  } else {
+    await applyConvert()
+  }
 
   return { success: true }
 }

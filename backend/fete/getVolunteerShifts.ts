@@ -12,6 +12,7 @@ export default async function (req: { params: Params; user: User }) {
     volunteer_name: string
     fete_id: number | null
     fete_name: string | null
+    role: string
     roles: string | null
     start_date: string
     end_date: string
@@ -25,6 +26,7 @@ export default async function (req: { params: Params; user: User }) {
       v.name AS volunteer_name,
       vs.fete_id,
       f.name AS fete_name,
+      vs.role,
       GROUP_CONCAT(vsr.role, '|') AS roles,
       vs.start_date,
       vs.end_date,
@@ -43,6 +45,7 @@ export default async function (req: { params: Params; user: User }) {
 
   return result.data.map(shift => ({
     ...shift,
+    role: shift.role || (shift.roles ? shift.roles.split('|')[0] : '') || 'Helper',
     roles: shift.roles ? shift.roles.split('|') : [],
   }))
 }

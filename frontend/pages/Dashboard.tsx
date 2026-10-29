@@ -89,7 +89,7 @@ export default function Dashboard({ currentUser }: Props) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Package className="w-4 h-4" /> Asset Types
+              <Package className="w-4 h-4" /> Number of Assets
             </CardTitle>
           </CardHeader>
           <CardContent>

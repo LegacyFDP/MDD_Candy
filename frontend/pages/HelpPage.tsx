@@ -44,7 +44,7 @@ const SECTIONS: Section[] = [
           The Dashboard gives you an at-a-glance summary of the store's current status.
         </p>
         <div className="space-y-2">
-          <ManualRow label="Total Assets" description="Number of distinct asset types registered in the store." />
+          <ManualRow label="Number of Assets" description="Number of assets registered in the store." />
           <ManualRow label="Items Out" description="Count of assets currently on withdrawal (not yet returned)." />
           <ManualRow label="Active Fetes" description="Number of fete events currently marked as active." />
           <ManualRow label="Out of Stock" description="Assets where zero units are currently available for withdrawal." />

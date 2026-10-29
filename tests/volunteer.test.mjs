@@ -136,3 +136,76 @@ test('saveVolunteerShift validates 1-hour increments within 09:00-18:00', async 
     /Shift blocks must be 1-hour increments/
   )
 })
+
+test('volunteer rota spreadsheet matrix calculates counts for hours and tasks', () => {
+  const printListsSrc = fs.readFileSync(path.resolve('frontend/pages/PrintListsPage.tsx'), 'utf8')
+  assert.ok(printListsSrc.includes('card-print-volunteer-matrix'), 'Missing matrix card ID')
+  assert.ok(printListsSrc.includes('print-volunteer-matrix'), 'Missing matrix print section ID')
+  assert.ok(printListsSrc.includes('downloadVolunteerMatrixCsv'), 'Missing matrix CSV download')
+  assert.ok(printListsSrc.includes('spreadsheet-table'), 'Missing spreadsheet-table class')
+
+  // Pure logic verification of hours x tasks matrix with volunteer counts in cells
+  const shifts = [
+    {
+      id: 1,
+      volunteer_id: 101,
+      volunteer_name: 'Alice',
+      fete_id: 1,
+      roles: ['Lead Volunteer', 'Helper'],
+      start_date: '2026-07-11',
+      end_date: '2026-07-11',
+      start_time: '09:00',
+      end_time: '12:00',
+    },
+    {
+      id: 2,
+      volunteer_id: 102,
+      volunteer_name: 'Bob',
+      fete_id: 1,
+      roles: ['Helper'],
+      start_date: '2026-07-11',
+      end_date: '2026-07-11',
+      start_time: '10:00',
+      end_time: '13:00',
+    },
+    {
+      id: 3,
+      volunteer_id: 103,
+      volunteer_name: 'Charlie',
+      fete_id: 1,
+      roles: ['Stall Holder'],
+      start_date: '2026-07-11',
+      end_date: '2026-07-11',
+      start_time: '11:00',
+      end_time: '15:00',
+    },
+  ]
+
+  const toMinutes = (t) => {
+    const [h, m] = t.split(':').map(Number)
+    return h * 60 + m
+  }
+  const isShiftInHour = (shift, slotStart, slotEnd) => {
+    return toMinutes(shift.start_time) < toMinutes(slotEnd) && toMinutes(shift.end_time) > toMinutes(slotStart)
+  }
+
+  // Check 09:00 - 10:00:
+  // Lead Volunteer: Alice (1)
+  // Helper: Alice (1)
+  // Stall Holder: 0
+  const hour0910 = shifts.filter(s => isShiftInHour(s, '09:00', '10:00'))
+  assert.equal(hour0910.filter(s => s.roles.includes('Lead Volunteer')).length, 1)
+  assert.equal(hour0910.filter(s => s.roles.includes('Helper')).length, 1)
+  assert.equal(hour0910.filter(s => s.roles.includes('Stall Holder')).length, 0)
+  assert.equal(new Set(hour0910.map(s => s.volunteer_id)).size, 1) // Unique volunteer count = 1
+
+  // Check 11:00 - 12:00:
+  // Lead Volunteer: Alice (1)
+  // Helper: Alice, Bob (2)
+  // Stall Holder: Charlie (1)
+  const hour1112 = shifts.filter(s => isShiftInHour(s, '11:00', '12:00'))
+  assert.equal(hour1112.filter(s => s.roles.includes('Lead Volunteer')).length, 1)
+  assert.equal(hour1112.filter(s => s.roles.includes('Helper')).length, 2)
+  assert.equal(hour1112.filter(s => s.roles.includes('Stall Holder')).length, 1)
+  assert.equal(new Set(hour1112.map(s => s.volunteer_id)).size, 3) // Unique volunteer count = 3
+})

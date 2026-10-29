@@ -1,10 +1,15 @@
 type Params = {
-  volunteer_id?: number
-  fete_id?: number
+  volunteer_id?: number | string
+  fete_id?: number | string
 }
 
 export default async function (req: { params: Params; user: User }) {
-  const { volunteer_id, fete_id } = req.params
+  const volunteerId = (req.params.volunteer_id != null && req.params.volunteer_id !== '' && !isNaN(Number(req.params.volunteer_id)))
+    ? Number(req.params.volunteer_id)
+    : null
+  const feteId = (req.params.fete_id != null && req.params.fete_id !== '' && !isNaN(Number(req.params.fete_id)))
+    ? Number(req.params.fete_id)
+    : null
 
   const result = await retoolDb.query<{
     id: number
@@ -41,7 +46,7 @@ export default async function (req: { params: Params; user: User }) {
       AND ($2 IS NULL OR vs.fete_id = $2)
     GROUP BY vs.id
     ORDER BY vs.start_date ASC, vs.start_time ASC
-  `, [volunteer_id ?? null, fete_id ?? null])
+  `, [volunteerId, feteId])
 
   return result.data.map(shift => ({
     ...shift,

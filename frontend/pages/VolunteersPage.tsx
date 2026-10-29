@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   useGetVolunteers,
   useGetVolunteerShifts,
@@ -13,7 +14,7 @@ import { Input } from '../lib/shadcn/input'
 import { Label } from '../lib/shadcn/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../lib/shadcn/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
-import { Plus, Trash2, Pencil, Users, CalendarRange } from 'lucide-react'
+import { Plus, Trash2, Pencil, Users, CalendarRange, Printer } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -540,14 +541,21 @@ export default function VolunteersPage({ currentUser }: Props) {
       </section>
 
       <div className="border rounded-lg bg-card p-4 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <CalendarRange className="w-4 h-4 text-primary" />
             <h2 className="text-lg font-semibold">Event Shift Rota Management</h2>
           </div>
-          <Button onClick={openNewShift} className="flex items-center gap-2">
-            <Plus className="w-4 h-4" /> Add Shift
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" className="flex items-center gap-2">
+              <Link to={`/print-lists?report=volunteer-matrix${selectedFeteId ? `&feteId=${selectedFeteId}` : ''}`}>
+                <Printer className="w-4 h-4" /> Print Rota Spreadsheet
+              </Link>
+            </Button>
+            <Button onClick={openNewShift} className="flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Add Shift
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -570,6 +578,17 @@ export default function VolunteersPage({ currentUser }: Props) {
                     <span className="min-w-0"><span className="block font-medium truncate">{fete.name}</span><span className="block text-xs opacity-75">{fete.event_date}</span></span>
                     <span className="text-xs whitespace-nowrap">{assignedVolunteers} volunteer{assignedVolunteers === 1 ? '' : 's'}</span>
                   </button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                    asChild
+                    aria-label={`Print spreadsheet for ${fete.name}`}
+                  >
+                    <Link to={`/print-lists?report=volunteer-matrix&feteId=${fete.id}${fete.event_date ? `&date=${fete.event_date.split('T')[0]}` : ''}`}>
+                      <Printer className="w-3.5 h-3.5" />
+                    </Link>
+                  </Button>
                   <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => openEditFete(fete)} aria-label={`Edit ${fete.name}`}>
                     <Pencil className="w-3.5 h-3.5" />
                   </Button>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   useGetAssets,
   useGetFeteAssetPickList,
@@ -11,12 +12,13 @@ import {
 import { Button } from '../lib/shadcn/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../lib/shadcn/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
-import { Printer, Calendar, MapPin, Package, Download, Users } from 'lucide-react'
+import { Input } from '../lib/shadcn/input'
+import { Printer, Calendar, MapPin, Package, Download, Users, Table } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
 
-type PrintReport = 'events' | 'locations' | 'assets' | 'picklists'
+type PrintReport = 'volunteer-matrix' | 'event-volunteers' | 'events' | 'locations' | 'assets' | 'picklists'
 
 type Fete = {
   id: number
@@ -74,6 +76,7 @@ type FeteAssetPickItem = {
 
 type Volunteer = {
   id: number
+  name?: string
   email: string
   phone: string
 }
@@ -83,6 +86,8 @@ type VolunteerShift = {
   volunteer_id: number
   volunteer_name: string
   fete_id: number | null
+  fete_name?: string | null
+  role?: string
   roles: string[]
   start_date: string
   end_date: string
@@ -137,6 +142,41 @@ function formatDayMonth(date: string): string {
   })
 }
 
+function isShiftForFete(shift: VolunteerShift, fete: Fete): boolean {
+  if (shift.fete_id != null && fete.id != null) {
+    if (Number(shift.fete_id) === Number(fete.id)) return true
+    if (String(shift.fete_id) === String(fete.id)) return true
+  }
+  if (shift.fete_name && fete.name) {
+    if (shift.fete_name.trim().toLowerCase() === fete.name.trim().toLowerCase()) return true
+  }
+  return false
+}
+
+function shiftHasTask(shift: VolunteerShift, task: string): boolean {
+  if (Array.isArray(shift.roles) && shift.roles.length > 0) {
+    return shift.roles.includes(task)
+  }
+  if ((shift as unknown as { role?: string }).role) {
+    return (shift as unknown as { role?: string }).role === task
+  }
+  return task === 'Helper'
+}
+
+function isShiftInHourSlot(shift: VolunteerShift, slotStart: string, slotEnd: string): boolean {
+  const [sh, sm] = (shift.start_time || '00:00').split(':').map(Number)
+  const [eh, em] = (shift.end_time || '00:00').split(':').map(Number)
+  const [ssh, ssm] = slotStart.split(':').map(Number)
+  const [seh, sem] = slotEnd.split(':').map(Number)
+
+  const sStart = (sh || 0) * 60 + (sm || 0)
+  const sEnd = (eh || 0) * 60 + (em || 0)
+  const slStart = (ssh || 0) * 60 + (ssm || 0)
+  const slEnd = (seh || 0) * 60 + (sem || 0)
+
+  return sStart < slEnd && sEnd > slStart
+}
+
 export default function PrintListsPage({ currentUser }: Props) {
   const { data: fetesRaw, trigger: loadFetes } = useGetFetes()
   const { data: storeLocationsRaw, trigger: loadStoreLocations } = useGetLocations()
@@ -145,11 +185,16 @@ export default function PrintListsPage({ currentUser }: Props) {
   const { data: fetePickListRaw, trigger: loadFetePickList } = useGetFeteAssetPickList()
   const { data: volunteersRaw, trigger: loadVolunteers } = useGetVolunteers()
   const { data: volunteerShiftsRaw, trigger: loadVolunteerShifts } = useGetVolunteerShifts()
-  const [selectedReport, setSelectedReport] = useState<PrintReport>()
+  const [searchParams] = useSearchParams()
+  const initialReport = (searchParams.get('report') as PrintReport) || undefined
+  const [selectedReport, setSelectedReport] = useState<PrintReport | undefined>(initialReport)
   const [selectedFeteId, setSelectedFeteId] = useState<string>('')
   const [isPrintingAll, setIsPrintingAll] = useState(false)
   const [showShortagesOnly, setShowShortagesOnly] = useState(false)
   const [eventVolunteerFeteId, setEventVolunteerFeteId] = useState('all')
+
+  const [matrixFeteId, setMatrixFeteId] = useState<string>(searchParams.get('feteId') ?? '')
+  const [matrixDate, setMatrixDate] = useState<string>(searchParams.get('date') ?? '')
 
   useEffect(() => {
     void loadFetes({})
@@ -179,6 +224,100 @@ export default function PrintListsPage({ currentUser }: Props) {
       return left.name.localeCompare(right.name)
     })
   }, [fetes])
+
+  useEffect(() => {
+    if (!matrixFeteId && eventFilterFetes.length > 0) {
+      const defaultFete = eventFilterFetes[0]
+      if (defaultFete) {
+        setMatrixFeteId(String(defaultFete.id))
+        if (!matrixDate && defaultFete.event_date) {
+          setMatrixDate(defaultFete.event_date.split('T')[0])
+        }
+      }
+    }
+  }, [eventFilterFetes, matrixFeteId, matrixDate])
+
+  const selectedMatrixFete = useMemo(() => {
+    const fId = Number(matrixFeteId)
+    return fetes.find(f => f.id === fId) ?? null
+  }, [matrixFeteId, fetes])
+
+  useEffect(() => {
+    if (selectedMatrixFete?.event_date && !matrixDate) {
+      setMatrixDate(selectedMatrixFete.event_date.split('T')[0])
+    }
+  }, [selectedMatrixFete, matrixDate])
+
+  const availableDatesForMatrix = useMemo(() => {
+    if (!selectedMatrixFete) return []
+    const dates = new Set<string>()
+    if (selectedMatrixFete.event_date) {
+      dates.add(selectedMatrixFete.event_date.split('T')[0])
+    }
+    for (const s of volunteerShifts) {
+      if (isShiftForFete(s, selectedMatrixFete)) {
+        if (s.start_date) dates.add(s.start_date.split('T')[0])
+        if (s.end_date) dates.add(s.end_date.split('T')[0])
+      }
+    }
+    return Array.from(dates).sort()
+  }, [selectedMatrixFete, volunteerShifts])
+
+  const shiftsForMatrix = useMemo(() => {
+    if (!selectedMatrixFete || !matrixDate) return []
+    return volunteerShifts.filter(shift => {
+      if (!isShiftForFete(shift, selectedMatrixFete)) return false
+      const sDate = shift.start_date.split('T')[0]
+      const eDate = (shift.end_date || shift.start_date).split('T')[0]
+      return matrixDate >= sDate && matrixDate <= eDate
+    })
+  }, [selectedMatrixFete, matrixDate, volunteerShifts])
+
+  const matrixTaskColumns = useMemo(() => {
+    const defaultTasks = [
+      'Lead Volunteer',
+      'Helper',
+      'Putting Up',
+      'Taking Down',
+      'Transport',
+      'Stall Holder',
+    ]
+    const extraTasks = new Set<string>()
+    for (const shift of shiftsForMatrix) {
+      if (Array.isArray(shift.roles)) {
+        for (const r of shift.roles) {
+          if (r && r.trim() && !defaultTasks.includes(r.trim())) {
+            extraTasks.add(r.trim())
+          }
+        }
+      }
+    }
+    return [...defaultTasks, ...Array.from(extraTasks)]
+  }, [shiftsForMatrix])
+
+  const matrixHours = useMemo(() => {
+    let minH = 9
+    let maxH = 18
+    for (const s of shiftsForMatrix) {
+      if (s.start_time) {
+        const h = parseInt(s.start_time.slice(0, 2), 10)
+        if (!isNaN(h) && h < minH) minH = h
+      }
+      if (s.end_time) {
+        const h = parseInt(s.end_time.slice(0, 2), 10)
+        const m = parseInt(s.end_time.slice(3, 5), 10)
+        const totalH = m > 0 ? h + 1 : h
+        if (!isNaN(totalH) && totalH > maxH) maxH = totalH
+      }
+    }
+    const result: Array<{ start: string; end: string; label: string }> = []
+    for (let h = minH; h < maxH; h++) {
+      const sStr = String(h).padStart(2, '0') + ':00'
+      const eStr = String(h + 1).padStart(2, '0') + ':00'
+      result.push({ start: sStr, end: eStr, label: `${sStr} – ${eStr}` })
+    }
+    return result
+  }, [shiftsForMatrix])
 
   const locations = useMemo(
     () => [
@@ -304,21 +443,42 @@ export default function PrintListsPage({ currentUser }: Props) {
   const volunteersByFete = useMemo(() => fetes.map(fete => ({
     fete,
     volunteers: volunteerShifts
-      .filter(shift => shift.fete_id === fete.id)
-      .map(shift => ({ ...shift, volunteer: volunteers.find(volunteer => volunteer.id === shift.volunteer_id) }))
-      .sort((left, right) => left.volunteer_name.localeCompare(right.volunteer_name)),
+      .filter(shift => isShiftForFete(shift, fete))
+      .map(shift => {
+        const vol = volunteers.find(v => String(v.id) === String(shift.volunteer_id) || Number(v.id) === Number(shift.volunteer_id))
+        return {
+          ...shift,
+          volunteer: vol,
+          volunteer_name: shift.volunteer_name || vol?.name || `Volunteer #${shift.volunteer_id}`,
+        }
+      })
+      .sort((left, right) => (left.volunteer_name || '').localeCompare(right.volunteer_name || '')),
   })), [fetes, volunteerShifts, volunteers])
+
+  const unassignedEventShifts = useMemo(() => {
+    return volunteerShifts
+      .filter(shift => !fetes.some(fete => isShiftForFete(shift, fete)))
+      .map(shift => {
+        const vol = volunteers.find(v => String(v.id) === String(shift.volunteer_id) || Number(v.id) === Number(shift.volunteer_id))
+        return {
+          ...shift,
+          volunteer: vol,
+          volunteer_name: shift.volunteer_name || vol?.name || `Volunteer #${shift.volunteer_id}`,
+        }
+      })
+      .sort((left, right) => (left.volunteer_name || '').localeCompare(right.volunteer_name || ''))
+  }, [volunteerShifts, fetes, volunteers])
 
   const filteredVolunteersByFete = useMemo(() => (
     eventVolunteerFeteId === 'all'
       ? volunteersByFete
-      : volunteersByFete.filter(({ fete }) => fete.id === Number(eventVolunteerFeteId))
+      : volunteersByFete.filter(({ fete }) => String(fete.id) === String(eventVolunteerFeteId) || Number(fete.id) === Number(eventVolunteerFeteId))
   ), [eventVolunteerFeteId, volunteersByFete])
 
   const filteredEventReportFetes = useMemo(() => (
     eventVolunteerFeteId === 'all'
       ? fetes
-      : fetes.filter(fete => fete.id === Number(eventVolunteerFeteId))
+      : fetes.filter(fete => String(fete.id) === String(eventVolunteerFeteId) || Number(fete.id) === Number(eventVolunteerFeteId))
   ), [eventVolunteerFeteId, fetes])
 
   const generatedAt = new Date().toLocaleString('en-GB', {
@@ -391,6 +551,8 @@ export default function PrintListsPage({ currentUser }: Props) {
 
     clearPrintSectionFilter()
     const reportSectionIds: Record<PrintReport, string> = {
+      'volunteer-matrix': 'print-volunteer-matrix',
+      'event-volunteers': 'print-event-volunteers',
       events: 'print-events',
       locations: 'print-locations',
       assets: 'print-assets',
@@ -407,6 +569,48 @@ export default function PrintListsPage({ currentUser }: Props) {
 
   function printEventVolunteers() {
     printSection('print-event-volunteers')
+  }
+
+  function downloadVolunteerMatrixCsv() {
+    if (!selectedMatrixFete || !matrixDate) return
+    const escapeCsv = (val: unknown) => {
+      const text = String(val ?? '')
+      return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+    }
+
+    const headers = ['Hour', ...matrixTaskColumns, 'Total Volunteers']
+    const rows = matrixHours.map(h => {
+      const counts = matrixTaskColumns.map(t => {
+        const cShifts = shiftsForMatrix.filter(s =>
+          isShiftInHourSlot(s, h.start, h.end) && shiftHasTask(s, t)
+        )
+        return new Set(cShifts.map(s => s.volunteer_name)).size
+      })
+      const totalHour = new Set(
+        shiftsForMatrix.filter(s => isShiftInHourSlot(s, h.start, h.end)).map(s => s.volunteer_name)
+      ).size
+      return [h.label, ...counts, totalHour]
+    })
+
+    const summaryRow = [
+      'Total Volunteers (All Day)',
+      ...matrixTaskColumns.map(t => {
+        return new Set(shiftsForMatrix.filter(s => shiftHasTask(s, t)).map(s => s.volunteer_name)).size
+      }),
+      new Set(shiftsForMatrix.map(s => s.volunteer_name)).size,
+    ]
+
+    const csvContent = [headers, ...rows, summaryRow]
+      .map(row => row.map(escapeCsv).join(','))
+      .join('\r\n')
+
+    const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `volunteer-rota-spreadsheet-${selectedMatrixFete.name.replace(/\s+/g, '-')}-${matrixDate}.csv`
+    anchor.click()
+    URL.revokeObjectURL(url)
   }
 
   function downloadAssetCsv() {
@@ -453,9 +657,11 @@ export default function PrintListsPage({ currentUser }: Props) {
             <Select value={selectedReport} onValueChange={(value) => setSelectedReport(value as PrintReport)}>
               <SelectTrigger id="print-report"><SelectValue placeholder="Choose a print list" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="assets">Assets by Location &amp; Area</SelectItem>
+                <SelectItem value="volunteer-matrix">Volunteer Rota Spreadsheet (Hours × Tasks)</SelectItem>
+                <SelectItem value="event-volunteers">Event Volunteers List</SelectItem>
+                <SelectItem value="events">Events Summary List</SelectItem>
                 <SelectItem value="picklists">Event Asset Pick Lists</SelectItem>
-                <SelectItem value="events">Events</SelectItem>
+                <SelectItem value="assets">Assets by Location &amp; Area</SelectItem>
                 <SelectItem value="locations">Locations</SelectItem>
               </SelectContent>
             </Select>
@@ -469,6 +675,62 @@ export default function PrintListsPage({ currentUser }: Props) {
             </Button>
           </div>
         </div>
+        {selectedReport === 'volunteer-matrix' && (
+          <div className="rounded-lg border border-primary/30 bg-card p-4 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium" htmlFor="matrix-fete">Event</label>
+                <Select value={matrixFeteId} onValueChange={(val) => {
+                  setMatrixFeteId(val)
+                  const f = fetes.find(item => item.id === Number(val))
+                  if (f && f.event_date) {
+                    setMatrixDate(f.event_date.split('T')[0])
+                  }
+                }}>
+                  <SelectTrigger id="matrix-fete"><SelectValue placeholder="Select an event" /></SelectTrigger>
+                  <SelectContent>
+                    {eventFilterFetes.map(fete => (
+                      <SelectItem key={fete.id} value={String(fete.id)}>
+                        {fete.name} ({fete.status})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium" htmlFor="matrix-date">Date for Rota Spreadsheet</label>
+                <Input
+                  id="matrix-date"
+                  type="date"
+                  value={matrixDate}
+                  onChange={(e) => setMatrixDate(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {availableDatesForMatrix.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap pt-1 text-xs">
+                <span className="text-muted-foreground font-medium">Quick Dates:</span>
+                {availableDatesForMatrix.map(d => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setMatrixDate(d)}
+                    className={`px-2 py-1 rounded border transition-colors ${
+                      matrixDate === d
+                        ? 'bg-primary text-primary-foreground border-primary font-medium'
+                        : 'bg-muted hover:bg-muted/80 text-foreground border-border'
+                    }`}
+                  >
+                    {formatDayMonth(d)}
+                    {selectedMatrixFete?.event_date?.split('T')[0] === d ? ' (Event Day)' : ''}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {selectedReport === 'picklists' && (
           <div className="max-w-md space-y-1">
             <label className="text-sm font-medium" htmlFor="print-fete">Event</label>
@@ -484,7 +746,7 @@ export default function PrintListsPage({ currentUser }: Props) {
             </Select>
           </div>
         )}
-        {selectedReport === 'events' && (
+        {(selectedReport === 'events' || selectedReport === 'event-volunteers') && (
           <div className="mt-4 max-w-md space-y-2 pl-6">
             <label className="block rounded-md bg-zinc-300 px-3 py-2 text-sm font-medium dark:bg-zinc-600" htmlFor="event-volunteer-fete">Filter by Event</label>
             <Select value={eventVolunteerFeteId} onValueChange={setEventVolunteerFeteId}>
@@ -574,14 +836,29 @@ export default function PrintListsPage({ currentUser }: Props) {
       </Card>
       )}
 
-      {selectedReport === 'events' && (
+      {(selectedReport === 'events' || selectedReport === 'event-volunteers' || isPrintingAll) && (
       <Card id="card-print-event-volunteers" className="print-card">
         <CardHeader className="print-header bg-zinc-300 dark:bg-zinc-600">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <CardTitle className="flex items-center gap-2 text-base"><Users className="w-4 h-4" /> Event Volunteers</CardTitle>
-            <Button type="button" variant="outline" size="sm" className="print-hidden" onClick={printEventVolunteers}>
-              <Printer className="w-3.5 h-3.5 mr-1" /> Print Event Volunteers
-            </Button>
+            <div className="flex items-center gap-2 print-hidden">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedReport('volunteer-matrix')
+                  if (eventVolunteerFeteId !== 'all') {
+                    setMatrixFeteId(eventVolunteerFeteId)
+                  }
+                }}
+              >
+                <Table className="w-3.5 h-3.5 mr-1" /> View Volunteer Spreadsheet
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={printEventVolunteers}>
+                <Printer className="w-3.5 h-3.5 mr-1" /> Print Event Volunteers
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent id="print-event-volunteers" className="space-y-5 print-section">
@@ -594,17 +871,273 @@ export default function PrintListsPage({ currentUser }: Props) {
                 </p>
               </div>
               {eventVolunteers.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No volunteers assigned.</p>
+                <p className="text-sm text-muted-foreground py-2 italic">No volunteers assigned to this event.</p>
               ) : (
                 <table className="w-full text-sm">
-                  <thead><tr className="border-b border-border text-muted-foreground"><th className="text-left py-1 font-medium">Volunteer</th><th className="text-left py-1 font-medium">Email</th><th className="text-left py-1 font-medium">Phone</th><th className="text-left py-1 font-medium">Roles for this event</th><th className="text-left py-1 font-medium">Dates</th><th className="text-left py-1 font-medium">Times</th></tr></thead>
-                  <tbody>{eventVolunteers.map(({ id, volunteer_name, volunteer, roles, start_date, end_date, start_time, end_time }) => <tr key={id} className="border-b border-border last:border-0"><td className="py-1.5 font-medium">{volunteer_name}</td><td className="py-1.5">{volunteer?.email || 'None'}</td><td className="py-1.5">{volunteer?.phone || 'None'}</td><td className="py-1.5">{roles.join(', ') || 'None'}</td><td className="py-1.5 whitespace-nowrap">{formatDayMonth(start_date)}{start_date !== end_date ? ` to ${formatDayMonth(end_date)}` : ''}</td><td className="py-1.5 whitespace-nowrap">{start_time} - {end_time}</td></tr>)}</tbody>
+                  <thead>
+                    <tr className="border-b border-border text-muted-foreground">
+                      <th className="text-left py-1 font-medium">Volunteer</th>
+                      <th className="text-left py-1 font-medium">Email</th>
+                      <th className="text-left py-1 font-medium">Phone</th>
+                      <th className="text-left py-1 font-medium">Roles for this event</th>
+                      <th className="text-left py-1 font-medium">Dates</th>
+                      <th className="text-left py-1 font-medium">Times</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {eventVolunteers.map(({ id, volunteer_name, volunteer, roles, start_date, end_date, start_time, end_time }) => (
+                      <tr key={id} className="border-b border-border last:border-0">
+                        <td className="py-1.5 font-medium">{volunteer_name}</td>
+                        <td className="py-1.5">{volunteer?.email || 'None'}</td>
+                        <td className="py-1.5">{volunteer?.phone || 'None'}</td>
+                        <td className="py-1.5">{Array.isArray(roles) && roles.length > 0 ? roles.join(', ') : 'None'}</td>
+                        <td className="py-1.5 whitespace-nowrap">{formatDayMonth(start_date)}{start_date !== end_date ? ` to ${formatDayMonth(end_date)}` : ''}</td>
+                        <td className="py-1.5 whitespace-nowrap">{start_time} - {end_time}</td>
+                      </tr>
+                    ))}
+                  </tbody>
                 </table>
               )}
             </section>
           ))}
-          {filteredVolunteersByFete.length === 0 && <p className="text-sm text-muted-foreground">No events available.</p>}
+          {unassignedEventShifts.length > 0 && eventVolunteerFeteId === 'all' && (
+            <section className="print-avoid-break">
+              <div className="mb-2 border-b border-border pb-1">
+                <h3 className="font-semibold text-amber-700 dark:text-amber-400">General Volunteers (Unassigned Event)</h3>
+                <p className="text-xs text-muted-foreground">Volunteers with scheduled shifts not linked to a specific event</p>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-muted-foreground">
+                    <th className="text-left py-1 font-medium">Volunteer</th>
+                    <th className="text-left py-1 font-medium">Email</th>
+                    <th className="text-left py-1 font-medium">Phone</th>
+                    <th className="text-left py-1 font-medium">Roles</th>
+                    <th className="text-left py-1 font-medium">Dates</th>
+                    <th className="text-left py-1 font-medium">Times</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {unassignedEventShifts.map(({ id, volunteer_name, volunteer, roles, start_date, end_date, start_time, end_time }) => (
+                    <tr key={id} className="border-b border-border last:border-0">
+                      <td className="py-1.5 font-medium">{volunteer_name}</td>
+                      <td className="py-1.5">{volunteer?.email || 'None'}</td>
+                      <td className="py-1.5">{volunteer?.phone || 'None'}</td>
+                      <td className="py-1.5">{Array.isArray(roles) && roles.length > 0 ? roles.join(', ') : 'None'}</td>
+                      <td className="py-1.5 whitespace-nowrap">{formatDayMonth(start_date)}{start_date !== end_date ? ` to ${formatDayMonth(end_date)}` : ''}</td>
+                      <td className="py-1.5 whitespace-nowrap">{start_time} - {end_time}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+          {filteredVolunteersByFete.length === 0 && unassignedEventShifts.length === 0 && (
+            <p className="text-sm text-muted-foreground">No events or volunteers available.</p>
+          )}
           <p className="print-only-footer text-xs text-muted-foreground mt-3">Printed: {generatedAt}</p>
+        </CardContent>
+      </Card>
+      )}
+
+      {(selectedReport === 'volunteer-matrix' || isPrintingAll) && (
+      <Card id="card-print-volunteer-matrix" className="print-card">
+        <CardHeader className="print-header bg-zinc-300 dark:bg-zinc-600">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Table className="w-4 h-4" /> Volunteer Rota Spreadsheet
+              </CardTitle>
+              {selectedMatrixFete && (
+                <p className="text-xs text-muted-foreground mt-0.5 print:text-black">
+                  <span className="font-semibold text-foreground print:text-black">{selectedMatrixFete.name}</span>
+                  {matrixDate && (
+                    <span> · {new Date(`${matrixDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                  )}
+                  {selectedMatrixFete.location_name && <span> · {selectedMatrixFete.location_name}</span>}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 print-hidden">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={downloadVolunteerMatrixCsv}
+                disabled={!selectedMatrixFete || !matrixDate}
+              >
+                <Download className="w-3.5 h-3.5 mr-1" /> Export CSV
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => printSection('print-volunteer-matrix')}
+                disabled={!selectedMatrixFete || !matrixDate}
+              >
+                <Printer className="w-3.5 h-3.5 mr-1" /> Print Spreadsheet
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent id="print-volunteer-matrix" className="space-y-6 print-section">
+          {!selectedMatrixFete ? (
+            <p className="text-sm text-muted-foreground p-4">Please select an event above.</p>
+          ) : !matrixDate ? (
+            <p className="text-sm text-muted-foreground p-4">Please select a date above.</p>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse border border-border spreadsheet-table">
+                  <thead>
+                    <tr className="bg-muted/80 text-foreground border-b border-border">
+                      <th className="py-2.5 px-3 text-left font-semibold border-r border-border min-w-28">
+                        Hour
+                      </th>
+                      {matrixTaskColumns.map(task => (
+                        <th key={task} className="py-2.5 px-2 text-center font-semibold border-r border-border min-w-24">
+                          {task}
+                        </th>
+                      ))}
+                      <th className="py-2.5 px-2 text-center font-semibold bg-muted/60 min-w-20">
+                        Total
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matrixHours.map((hour, idx) => {
+                      const hourShifts = shiftsForMatrix.filter(s => isShiftInHourSlot(s, hour.start, hour.end))
+                      const hourVolunteers = Array.from(new Set(hourShifts.map(s => s.volunteer_name))).sort()
+                      const hourCount = hourVolunteers.length
+
+                      return (
+                        <tr
+                          key={hour.start}
+                          className={`border-b border-border ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`}
+                        >
+                          <td className="py-2 px-3 font-medium text-foreground border-r border-border whitespace-nowrap">
+                            {hour.label}
+                          </td>
+                          {matrixTaskColumns.map(task => {
+                            const matchingShifts = shiftsForMatrix.filter(s =>
+                              isShiftInHourSlot(s, hour.start, hour.end) && shiftHasTask(s, task)
+                            )
+                            const volunteersInCell = Array.from(new Set(matchingShifts.map(s => s.volunteer_name))).sort()
+                            const cellCount = volunteersInCell.length
+
+                            return (
+                              <td
+                                key={task}
+                                className={`py-1.5 px-2 text-center border-r border-border align-middle ${
+                                  cellCount > 0 ? 'bg-primary/5 dark:bg-primary/10 font-semibold' : ''
+                                }`}
+                              >
+                                {cellCount > 0 ? (
+                                  <div>
+                                    <span className="text-sm font-bold text-foreground">
+                                      {cellCount}
+                                    </span>
+                                    <div className="text-[10px] text-muted-foreground font-normal leading-tight mt-0.5 print:text-[9px] print:text-black">
+                                      {volunteersInCell.join(', ')}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground/30 text-xs">—</span>
+                                )}
+                              </td>
+                            )
+                          })}
+                          <td className="py-1.5 px-2 text-center font-bold bg-muted/30 align-middle">
+                            {hourCount > 0 ? (
+                              <span className="text-sm text-foreground">{hourCount}</span>
+                            ) : (
+                              <span className="text-muted-foreground/30 text-xs">0</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-muted font-bold border-t-2 border-border text-foreground">
+                      <td className="py-2.5 px-3 border-r border-border">
+                        Total / Peak
+                      </td>
+                      {matrixTaskColumns.map(task => {
+                        const dayTaskVols = Array.from(new Set(
+                          shiftsForMatrix.filter(s => shiftHasTask(s, task)).map(s => s.volunteer_name)
+                        ))
+                        const peak = Math.max(
+                          0,
+                          ...matrixHours.map(h => {
+                            const active = shiftsForMatrix.filter(s => isShiftInHourSlot(s, h.start, h.end) && shiftHasTask(s, task))
+                            return new Set(active.map(s => s.volunteer_name)).size
+                          })
+                        )
+
+                        return (
+                          <td key={task} className="py-2 px-2 text-center border-r border-border">
+                            <span className="text-xs">{dayTaskVols.length}</span>
+                            {peak > 0 && (
+                              <span className="block text-[10px] text-muted-foreground font-normal print:text-[9px]">
+                                peak {peak}
+                              </span>
+                            )}
+                          </td>
+                        )
+                      })}
+                      <td className="py-2 px-2 text-center text-xs">
+                        {new Set(shiftsForMatrix.map(s => s.volunteer_name)).size}
+                        <span className="block text-[10px] text-muted-foreground font-normal print:text-[9px]">
+                          distinct
+                        </span>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              {/* Roster breakdown for that day */}
+              <div className="pt-2 print-avoid-break">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Volunteer Roster for {matrixDate} ({shiftsForMatrix.length} shift allocations)
+                </h4>
+                {shiftsForMatrix.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">No volunteer shifts allocated for this event on this date.</p>
+                ) : (
+                  <div className="border border-border rounded overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted text-muted-foreground">
+                        <tr className="border-b border-border text-left">
+                          <th className="py-1.5 px-3 font-medium">Volunteer</th>
+                          <th className="py-1.5 px-3 font-medium">Contact</th>
+                          <th className="py-1.5 px-3 font-medium">Allocated Roles / Tasks</th>
+                          <th className="py-1.5 px-3 font-medium">Hours</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {shiftsForMatrix.map(shift => {
+                          const vol = volunteers.find(v => v.id === shift.volunteer_id)
+                          return (
+                            <tr key={shift.id}>
+                              <td className="py-1 px-3 font-medium">{shift.volunteer_name}</td>
+                              <td className="py-1 px-3 text-muted-foreground">{vol?.email || vol?.phone || '—'}</td>
+                              <td className="py-1 px-3">{shift.roles?.join(', ') || 'Helper'}</td>
+                              <td className="py-1 px-3 whitespace-nowrap">{shift.start_time} – {shift.end_time}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              <p className="print-only-footer text-xs text-muted-foreground mt-3">
+                Printed: {generatedAt}
+              </p>
+            </>
+          )}
         </CardContent>
       </Card>
       )}

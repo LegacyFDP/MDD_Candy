@@ -5,6 +5,7 @@
     "migrate": "npm run db:migrate --prefix server"
   },
   "dependencies": {
+    "dotenv": "^18.0.9",
     "sqlite3": "^6.0.1"
   },
   "devDependencies": {

@@ -10,7 +10,7 @@ import { Label } from '../lib/shadcn/label'
 import { Badge } from '../lib/shadcn/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../lib/shadcn/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
-import { Plus, Pencil, Trash2, Shield, User, Calendar, Eye, EyeOff, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, Eye, EyeOff, Search } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -77,11 +77,26 @@ const emptyPersonForm = (): PersonForm => ({
   name: '', email: '', userRole: 'user', pin: '', phone: '', volunteerRoles: [], notes: '', contactEventIds: [],
 })
 
-const STATUS_COLORS: Record<string, string> = {
-  planned:   'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-  active:    'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-  completed: 'bg-muted text-muted-foreground',
-  cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+type PersonRole = 'Admin' | 'Store Keeper' | 'User' | 'Volunteer' | 'Contact'
+
+const PERSON_ROLES: PersonRole[] = ['Admin', 'Store Keeper', 'User', 'Volunteer', 'Contact']
+
+const USER_ROLE_LABELS: Record<FeteUser['role'], PersonRole> = {
+  admin: 'Admin',
+  'store keeper': 'Store Keeper',
+  user: 'User',
+}
+
+type PersonRow = {
+  key: string
+  role: PersonRole
+  name: string
+  email: string
+  phone: string
+  details: string
+  user?: FeteUser
+  volunteer?: Volunteer
+  contact?: Contact
 }
 
 export default function UsersPage({ currentUser }: Props) {
@@ -104,9 +119,8 @@ export default function UsersPage({ currentUser }: Props) {
   const [open, setOpen] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
   const [showPin, setShowPin] = useState(false)
-  const [selectedUserId, setSelectedUserId] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const [searchOpen, setSearchOpen] = useState(false)
+  const [roleFilter, setRoleFilter] = useState<'all' | PersonRole>('all')
   const [form, setForm] = useState<PersonForm>(emptyPersonForm())
 
   useEffect(() => {
@@ -179,23 +193,52 @@ export default function UsersPage({ currentUser }: Props) {
     void loadContacts({})
   }
 
-  async function handleDelete(id: number) {
-    if (id === currentUser.id) return alert('Cannot delete yourself.')
-    if (!confirm('Delete this user?')) return
-    await deleteUser({ id })
+  async function handleDelete(row: PersonRow) {
+    if (row.user && row.user.id === currentUser.id) return alert('Cannot delete yourself.')
+    if (!confirm(`Delete ${row.name} (${row.role})?`)) return
+    if (row.user) await deleteUser({ id: row.user.id })
+    else if (row.volunteer) await deleteVolunteer({ id: row.volunteer.id })
+    else if (row.contact) await deleteContact({ id: row.contact.id })
     void loadUsers({})
+    void loadVolunteers({})
+    void loadContacts({})
   }
 
-  const visibleUsers = selectedUserId === 'all'
-    ? users
-    : users.filter(user => user.id === Number(selectedUserId))
-  const matchingUsers = users.filter(user => {
-    const query = searchTerm.trim().toLowerCase()
-    return !query || [user.name, user.email].some(value => value.toLowerCase().includes(query))
-  })
-  const admins = visibleUsers.filter(u => u.role === 'admin')
-  const storeKeepers = visibleUsers.filter(u => u.role === 'store keeper')
-  const regularUsers = visibleUsers.filter(u => u.role === 'user')
+  const people: PersonRow[] = [
+    ...users.map((user): PersonRow => ({
+      key: `user-${user.id}`,
+      role: USER_ROLE_LABELS[user.role] ?? 'User',
+      name: user.name,
+      email: user.email ?? '',
+      phone: '',
+      details: user.fetes.map(f => f.fete_name).join(', '),
+      user,
+    })),
+    ...volunteers.map((volunteer): PersonRow => ({
+      key: `volunteer-${volunteer.id}`,
+      role: 'Volunteer',
+      name: volunteer.name,
+      email: volunteer.email ?? '',
+      phone: volunteer.phone ?? '',
+      details: volunteer.roles.join(', '),
+      volunteer,
+    })),
+    ...contacts.map((contact): PersonRow => ({
+      key: `contact-${contact.id}`,
+      role: 'Contact',
+      name: contact.name,
+      email: contact.email ?? '',
+      phone: contact.phone ?? '',
+      details: contact.fete_names.join(', '),
+      contact,
+    })),
+  ]
+
+  const query = searchTerm.trim().toLowerCase()
+  const visiblePeople = people
+    .filter(row => roleFilter === 'all' || row.role === roleFilter)
+    .filter(row => !query || [row.name, row.email, row.phone].some(value => value.toLowerCase().includes(query)))
+    .sort((left, right) => left.name.localeCompare(right.name) || PERSON_ROLES.indexOf(left.role) - PERSON_ROLES.indexOf(right.role))
 
   return (
     <div className="p-6 space-y-6">
@@ -209,120 +252,72 @@ export default function UsersPage({ currentUser }: Props) {
         </Button>
       </div>
 
-      <div className="relative max-w-md">
-        <Label htmlFor="user-search">Search users</Label>
-        <Search className="absolute left-3 top-9 w-4 h-4 text-muted-foreground" />
-        <Input
-          id="user-search"
-          value={searchTerm}
-          onChange={event => {
-            setSearchTerm(event.target.value)
-            setSelectedUserId('all')
-            setSearchOpen(true)
-          }}
-          onFocus={() => setSearchOpen(true)}
-          onBlur={() => window.setTimeout(() => setSearchOpen(false), 150)}
-          placeholder="Search by name or email"
-          aria-label="Search users"
-          aria-expanded={searchOpen}
-          aria-controls="user-search-results"
-          className="mt-1 pl-9"
-        />
-        {searchOpen && (
-          <div id="user-search-results" className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
-            <button
-              type="button"
-              className="w-full rounded-sm px-2 py-2 text-left text-sm hover:bg-accent"
-              onMouseDown={() => {
-                setSelectedUserId('all')
-                setSearchTerm('')
-                setSearchOpen(false)
-              }}>
-              All users
-            </button>
-            {matchingUsers.map(user => (
-              <button
-                key={user.id}
-                type="button"
-                className="w-full rounded-sm px-2 py-2 text-left hover:bg-accent"
-                onMouseDown={() => {
-                  setSelectedUserId(String(user.id))
-                  setSearchTerm(user.name)
-                  setSearchOpen(false)
-                }}>
-                <span className="block text-sm font-medium">{user.name}</span>
-                <span className="block text-xs text-muted-foreground">{user.email}</span>
-              </button>
-            ))}
-            {matchingUsers.length === 0 && (
-              <p className="px-2 py-4 text-center text-sm text-muted-foreground">No users found.</p>
-            )}
-          </div>
-        )}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="relative w-full max-w-md">
+          <Label htmlFor="user-search">Search people</Label>
+          <Search className="absolute left-3 top-9 w-4 h-4 text-muted-foreground" />
+          <Input
+            id="user-search"
+            value={searchTerm}
+            onChange={event => setSearchTerm(event.target.value)}
+            placeholder="Search by name, email or phone"
+            className="mt-1 pl-9"
+          />
+        </div>
+        <div className="w-48">
+          <Label>Role</Label>
+          <Select value={roleFilter} onValueChange={value => setRoleFilter(value as 'all' | PersonRole)}>
+            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All roles</SelectItem>
+              {PERSON_ROLES.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Admins */}
-      <section>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-          <Shield className="w-4 h-4" /> Admins ({admins.length})
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {admins.map(u => (
-            <UserCard key={u.id} user={u} currentUser={currentUser}
-              onEdit={openEdit} onDelete={handleDelete} />
-          ))}
-        </div>
-      </section>
-
-      {/* Store keepers */}
-      <section>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-          <Shield className="w-4 h-4" /> Store keepers ({storeKeepers.length})
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {storeKeepers.map(u => (
-            <UserCard key={u.id} user={u} currentUser={currentUser}
-              onEdit={openEdit} onDelete={handleDelete} />
-          ))}
-        </div>
-      </section>
-
-      {/* Regular users */}
-      <section>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-          <User className="w-4 h-4" /> Users ({regularUsers.length})
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {regularUsers.map(u => (
-            <UserCard key={u.id} user={u} currentUser={currentUser}
-              onEdit={openEdit} onDelete={handleDelete} />
-          ))}
-        </div>
-      </section>
-
-      {volunteers.length > 0 && (
-        <section>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-            <User className="w-4 h-4" /> Volunteers ({volunteers.length})
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {volunteers.map(volunteer => (
-              <VolunteerCard key={volunteer.id} volunteer={volunteer} onEdit={openEdit} />
+      <div className="border rounded-lg bg-card overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-muted text-left text-xs text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 font-medium">Name</th>
+              <th className="px-3 py-2 font-medium">Role</th>
+              <th className="px-3 py-2 font-medium">Email</th>
+              <th className="px-3 py-2 font-medium">Phone</th>
+              <th className="hidden lg:table-cell px-3 py-2 font-medium">Details</th>
+              <th className="px-3 py-2 font-medium text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {visiblePeople.map(row => (
+              <tr key={row.key}>
+                <td className="px-3 py-2 font-medium">
+                  {row.name}
+                  {row.user?.id === currentUser.id && <Badge variant="outline" className="ml-2 text-xs">You</Badge>}
+                </td>
+                <td className="px-3 py-2"><Badge variant="secondary">{row.role}</Badge></td>
+                <td className="px-3 py-2">{row.email || '—'}</td>
+                <td className="px-3 py-2">{row.phone || '—'}</td>
+                <td className="hidden lg:table-cell px-3 py-2 text-muted-foreground max-w-xs truncate">{row.details || '—'}</td>
+                <td className="px-3 py-2">
+                  <div className="flex justify-end gap-1">
+                    <Button size="sm" variant="outline" onClick={() => openEdit(row.user, row.volunteer, row.contact)} aria-label={`Edit ${row.name} (${row.role})`}>
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-destructive hover:text-destructive"
+                      onClick={() => void handleDelete(row)} aria-label={`Delete ${row.name} (${row.role})`}>
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </td>
+              </tr>
             ))}
-          </div>
-        </section>
-      )}
-
-      {contacts.length > 0 && (
-        <section>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-            <User className="w-4 h-4" /> Contacts ({contacts.length})
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {contacts.map(contact => <ContactCard key={contact.id} contact={contact} onEdit={openEdit} />)}
-          </div>
-        </section>
-      )}
+            {visiblePeople.length === 0 && (
+              <tr><td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">No people found.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
       {/* Edit / Add dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
@@ -336,10 +331,26 @@ export default function UsersPage({ currentUser }: Props) {
               <Input value={form.name ?? ''}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
             </div>
-            <div className="flex gap-6">
-              <Label className="flex items-center gap-2"><input type="checkbox" checked={form.isUser} onChange={e => setForm(f => ({ ...f, isUser: e.target.checked }))} /> User</Label>
-              <Label className="flex items-center gap-2"><input type="checkbox" checked={form.isVolunteer} onChange={e => setForm(f => ({ ...f, isVolunteer: e.target.checked }))} /> Volunteer</Label>
-              <Label className="flex items-center gap-2"><input type="checkbox" checked={form.isContact} onChange={e => setForm(f => ({ ...f, isContact: e.target.checked }))} /> Contact</Label>
+            <div className="space-y-1">
+              <Label>Role</Label>
+              <Select
+                value={form.isUser ? form.userRole : form.isVolunteer ? 'volunteer' : 'contact'}
+                onValueChange={v => setForm(f => ({
+                  ...f,
+                  isUser: v !== 'volunteer' && v !== 'contact',
+                  isVolunteer: v === 'volunteer',
+                  isContact: v === 'contact',
+                  userRole: v === 'volunteer' || v === 'contact' ? f.userRole : v as FeteUser['role'],
+                }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="volunteer">Volunteer</SelectItem>
+                  <SelectItem value="contact">Contact</SelectItem>
+                  <SelectItem value="store keeper">Store Keeper</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             {!form.isUser && (form.isVolunteer || form.isContact) && <div className="space-y-1"><Label>Email</Label><Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} /></div>}
             {form.isUser && <>
@@ -347,19 +358,6 @@ export default function UsersPage({ currentUser }: Props) {
               <Label>Email</Label>
               <Input type="email" value={form.email ?? ''}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-            </div>
-            <div className="space-y-1">
-              <Label>Role</Label>
-              <Select
-                value={form.userRole}
-                onValueChange={v => setForm(f => ({ ...f, userRole: v as FeteUser['role'] }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="store keeper">Store keeper</SelectItem>
-                  <SelectItem value="user">User</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             <div className="space-y-1">
               <Label>PIN (up to 6 digits)</Label>
@@ -402,91 +400,4 @@ export default function UsersPage({ currentUser }: Props) {
       </Dialog>
     </div>
   )
-}
-
-function UserCard({
-  user, currentUser, onEdit, onDelete
-}: {
-  user: FeteUser
-  currentUser: AppUser
-  onEdit: (user?: FeteUser, volunteer?: Volunteer, contact?: Contact) => void
-  onDelete: (id: number) => void
-}) {
-  return (
-    <div className="border rounded-lg p-4 bg-card text-card-foreground space-y-3">
-      {/* User identity row */}
-      <div className="flex items-center gap-3">
-        <div className={`p-2 rounded-full shrink-0 ${user.role === 'admin' || user.role === 'store keeper' ? 'bg-primary/10' : 'bg-muted'}`}>
-          {user.role === 'admin' || user.role === 'store keeper'
-            ? <Shield className="w-5 h-5 text-primary" />
-            : <User className="w-5 h-5 text-muted-foreground" />
-          }
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium truncate">{user.name}</span>
-            {user.id === currentUser.id && (
-              <Badge variant="outline" className="text-xs shrink-0">You</Badge>
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground truncate">{user.email}</p>
-        </div>
-        <div className="flex gap-1 shrink-0">
-          <Button size="sm" variant="outline" onClick={() => onEdit(user)} aria-label="Edit user">
-            <Pencil className="w-3 h-3" />
-          </Button>
-          <Button size="sm" variant="outline"
-            className="text-destructive hover:text-destructive"
-            onClick={() => onDelete(user.id)}
-            aria-label="Delete user">
-            <Trash2 className="w-3 h-3" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Fete allocations */}
-      {user.fetes.length > 0 ? (
-        <div className="space-y-1.5 pl-1">
-          {user.fetes.map(f => (
-            <div key={f.fete_id}
-              className="flex items-start gap-2 text-sm rounded-md border bg-muted/40 px-3 py-2">
-              <Calendar className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0" />
-              <div className="flex-1 min-w-0">
-                <span className="font-medium">{f.fete_name}</span>
-                {f.notes && (
-                  <p className="text-xs text-muted-foreground truncate">{f.notes}</p>
-                )}
-              </div>
-              <div className="flex flex-col items-end gap-1 shrink-0">
-                <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium capitalize ${STATUS_COLORS[f.fete_status] ?? 'bg-muted text-muted-foreground'}`}>
-                  {f.fete_status}
-                </span>
-                {f.event_date && (
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(f.event_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-muted-foreground pl-1 italic">No event history</p>
-      )}
-    </div>
-  )
-}
-
-function VolunteerCard({ volunteer, onEdit }: { volunteer: Volunteer; onEdit: (user?: FeteUser, volunteer?: Volunteer, contact?: Contact) => void }) {
-  return <div className="border rounded-lg p-4 bg-card text-card-foreground space-y-2">
-    <div className="flex items-start gap-3"><div className="flex-1 min-w-0"><p className="font-medium truncate">{volunteer.name}</p><p className="text-sm text-muted-foreground truncate">{volunteer.email || volunteer.phone || 'No contact details'}</p></div><Button size="sm" variant="outline" onClick={() => onEdit(undefined, volunteer)} aria-label="Edit volunteer"><Pencil className="w-3 h-3" /></Button></div>
-    <Badge variant="secondary">Volunteer: {volunteer.roles.join(', ') || 'No preferred roles'}</Badge>
-  </div>
-}
-
-function ContactCard({ contact, onEdit }: { contact: Contact; onEdit: (user?: FeteUser, volunteer?: Volunteer, contact?: Contact) => void }) {
-  return <div className="border rounded-lg p-4 bg-card text-card-foreground space-y-2">
-    <div className="flex items-start gap-3"><div className="flex-1 min-w-0"><p className="font-medium truncate">{contact.name}</p><p className="text-sm text-muted-foreground truncate">{contact.email || contact.phone || 'No contact details'}</p></div><Button size="sm" variant="outline" onClick={() => onEdit(undefined, undefined, contact)} aria-label="Edit contact"><Pencil className="w-3 h-3" /></Button></div>
-    <p className="text-xs text-muted-foreground">Events: {contact.fete_names.join(', ')}</p>
-  </div>
 }

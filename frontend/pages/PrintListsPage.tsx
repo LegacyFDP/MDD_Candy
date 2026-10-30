@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../lib/shadcn/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
 import { Input } from '../lib/shadcn/input'
 import { Printer, Calendar, MapPin, Package, Download, Users, Table } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -571,13 +572,7 @@ export default function PrintListsPage({ currentUser }: Props) {
     printSection('print-event-volunteers')
   }
 
-  function downloadVolunteerMatrixCsv() {
-    if (!selectedMatrixFete || !matrixDate) return
-    const escapeCsv = (val: unknown) => {
-      const text = String(val ?? '')
-      return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
-    }
-
+  function getVolunteerMatrixRows(): (string | number)[][] {
     const headers = ['Hour', ...matrixTaskColumns, 'Total Volunteers']
     const rows = matrixHours.map(h => {
       const counts = matrixTaskColumns.map(t => {
@@ -600,7 +595,34 @@ export default function PrintListsPage({ currentUser }: Props) {
       new Set(shiftsForMatrix.map(s => s.volunteer_name)).size,
     ]
 
-    const csvContent = [headers, ...rows, summaryRow]
+    return [headers, ...rows, summaryRow]
+  }
+
+  function getVolunteerRosterRows(): (string | number)[][] {
+    return [
+      ['Volunteer', 'Contact', 'Allocated Roles / Tasks', 'Date', 'Start Time', 'End Time'],
+      ...shiftsForMatrix.map(shift => {
+        const volunteer = volunteers.find(item => item.id === shift.volunteer_id)
+        return [
+          shift.volunteer_name,
+          volunteer?.email || volunteer?.phone || '',
+          shift.roles?.join(', ') || 'Helper',
+          matrixDate,
+          shift.start_time,
+          shift.end_time,
+        ]
+      }),
+    ]
+  }
+
+  function downloadVolunteerMatrixCsv() {
+    if (!selectedMatrixFete || !matrixDate) return
+    const escapeCsv = (val: unknown) => {
+      const text = String(val ?? '')
+      return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+    }
+
+    const csvContent = getVolunteerMatrixRows()
       .map(row => row.map(escapeCsv).join(','))
       .join('\r\n')
 
@@ -611,6 +633,30 @@ export default function PrintListsPage({ currentUser }: Props) {
     anchor.download = `volunteer-rota-spreadsheet-${selectedMatrixFete.name.replace(/\s+/g, '-')}-${matrixDate}.csv`
     anchor.click()
     URL.revokeObjectURL(url)
+  }
+
+  async function downloadVolunteerMatrixSpreadsheet() {
+    if (!selectedMatrixFete || !matrixDate) return
+
+    const XLSX = await import('xlsx')
+    const workbook = XLSX.utils.book_new()
+    const rotaSheet = XLSX.utils.aoa_to_sheet(getVolunteerMatrixRows())
+    rotaSheet['!cols'] = [{ wch: 24 }, ...matrixTaskColumns.map(() => ({ wch: 22 })), { wch: 18 }]
+    XLSX.utils.book_append_sheet(workbook, rotaSheet, 'Rota')
+
+    const rosterSheet = XLSX.utils.aoa_to_sheet(getVolunteerRosterRows())
+    rosterSheet['!cols'] = [
+      { wch: 28 },
+      { wch: 32 },
+      { wch: 36 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 14 },
+    ]
+    XLSX.utils.book_append_sheet(workbook, rosterSheet, 'Volunteer Roster')
+
+    const safeEventName = selectedMatrixFete.name.replace(/[^a-z0-9-_]+/gi, '-').replace(/^-|-$/g, '')
+    XLSX.writeFile(workbook, `volunteer-rota-spreadsheet-${safeEventName}-${matrixDate}.xlsx`)
   }
 
   function downloadAssetCsv() {
@@ -967,6 +1013,15 @@ export default function PrintListsPage({ currentUser }: Props) {
                 disabled={!selectedMatrixFete || !matrixDate}
               >
                 <Download className="w-3.5 h-3.5 mr-1" /> Export CSV
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={downloadVolunteerMatrixSpreadsheet}
+                disabled={!selectedMatrixFete || !matrixDate}
+              >
+                <Download className="w-3.5 h-3.5 mr-1" /> Export Spreadsheet
               </Button>
               <Button
                 type="button"

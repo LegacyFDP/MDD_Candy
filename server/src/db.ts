@@ -569,6 +569,125 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
     )
   }
 
+  await ensurePeopleSchema(database)
+}
+
+const ACCOUNT_ROLE_LABELS: Record<string, string> = {
+  admin: 'Admin',
+  'store keeper': 'Store Keeper',
+  user: 'User',
+}
+
+/**
+ * One `people` row per human, with any number of `person_roles`. The legacy
+ * fete_users / fete_volunteers / fete_contacts tables stay as per-role detail
+ * records (other tables reference them) and now link back through person_id.
+ * Existing records are linked once; records that share a name and email are
+ * merged into the same person, everything else becomes its own person.
+ */
+export async function ensurePeopleSchema(database: sqlite3.Database = db): Promise<void> {
+  await run(
+    `
+      CREATE TABLE IF NOT EXISTS people (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT NOT NULL,
+        email      TEXT NOT NULL DEFAULT '',
+        phone      TEXT NOT NULL DEFAULT '',
+        notes      TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `,
+    [],
+    database,
+  )
+  await run(
+    `
+      CREATE TABLE IF NOT EXISTS person_roles (
+        person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+        role      TEXT NOT NULL,
+        PRIMARY KEY (person_id, role)
+      )
+    `,
+    [],
+    database,
+  )
+
+  for (const table of ['fete_users', 'fete_volunteers', 'fete_contacts']) {
+    const columns = await all<{ name: string }>(`PRAGMA table_info(${table});`, [], database)
+    if (!columns.some(column => column.name === 'person_id')) {
+      await run(`ALTER TABLE ${table} ADD COLUMN person_id INTEGER REFERENCES people(id) ON DELETE SET NULL;`, [], database)
+    }
+  }
+
+  async function createPerson(name: string, email: string, phone: string, notes: string, role: string) {
+    const created = await runWithMeta(
+      'INSERT INTO people (name, email, phone, notes) VALUES ($1, $2, $3, $4)',
+      [name, email, phone, notes],
+      database,
+    )
+    await run('INSERT OR IGNORE INTO person_roles (person_id, role) VALUES ($1, $2)', [created.lastID, role], database)
+    return created.lastID
+  }
+
+  async function linkOrCreate(
+    table: 'fete_volunteers' | 'fete_contacts',
+    row: { id: number; name: string; email: string | null; phone: string | null; notes: string | null },
+    role: string,
+  ) {
+    const email = (row.email ?? '').trim()
+    const phone = (row.phone ?? '').trim()
+    const notes = (row.notes ?? '').trim()
+    let personId: number | undefined
+    if (email) {
+      const match = await all<{ id: number }>(
+        `
+          SELECT p.id FROM people p
+          WHERE LOWER(TRIM(p.name)) = LOWER(TRIM($1)) AND LOWER(TRIM(p.email)) = LOWER($2)
+            AND NOT EXISTS (SELECT 1 FROM ${table} t WHERE t.person_id = p.id)
+          ORDER BY p.id LIMIT 1
+        `,
+        [row.name, email],
+        database,
+      )
+      personId = match[0]?.id
+    }
+    if (personId) {
+      await run('INSERT OR IGNORE INTO person_roles (person_id, role) VALUES ($1, $2)', [personId, role], database)
+      await run(
+        `UPDATE people SET phone = CASE WHEN phone = '' THEN $1 ELSE phone END,
+                           notes = CASE WHEN notes = '' THEN $2 ELSE notes END WHERE id = $3`,
+        [phone, notes, personId],
+        database,
+      )
+    } else {
+      personId = await createPerson(row.name.trim(), email, phone, notes, role)
+    }
+    await run(`UPDATE ${table} SET person_id = $1 WHERE id = $2`, [personId, row.id], database)
+  }
+
+  const users = await all<{ id: number; name: string; email: string; role: string }>(
+    'SELECT id, name, email, role FROM fete_users WHERE person_id IS NULL ORDER BY id',
+    [],
+    database,
+  )
+  for (const user of users) {
+    const personId = await createPerson(user.name.trim(), user.email.trim(), '', '', ACCOUNT_ROLE_LABELS[user.role] ?? 'User')
+    await run('UPDATE fete_users SET person_id = $1 WHERE id = $2', [personId, user.id], database)
+  }
+
+  const volunteers = await all<{ id: number; name: string; email: string | null; phone: string | null; notes: string | null }>(
+    'SELECT id, name, email, phone, notes FROM fete_volunteers WHERE person_id IS NULL ORDER BY id',
+    [],
+    database,
+  )
+  for (const volunteer of volunteers) await linkOrCreate('fete_volunteers', volunteer, 'Volunteer')
+
+  const contacts = await all<{ id: number; name: string; email: string | null; phone: string | null; notes: string | null }>(
+    'SELECT id, name, email, phone, notes FROM fete_contacts WHERE person_id IS NULL ORDER BY id',
+    [],
+    database,
+  )
+  for (const contact of contacts) await linkOrCreate('fete_contacts', contact, 'Contact')
 }
 
 /**

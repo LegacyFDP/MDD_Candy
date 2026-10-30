@@ -193,10 +193,6 @@ export default function UsersPage({ currentUser }: Props) {
     const query = searchTerm.trim().toLowerCase()
     return !query || [user.name, user.email].some(value => value.toLowerCase().includes(query))
   })
-  const volunteerForUser = (user: FeteUser) => volunteers.find(volunteer =>
-    Boolean(user.email) && user.email.trim().toLowerCase() === volunteer.email.trim().toLowerCase())
-  const volunteersWithoutUser = volunteers.filter(volunteer => !users.some(user =>
-    Boolean(volunteer.email) && user.email.trim().toLowerCase() === volunteer.email.trim().toLowerCase()))
   const admins = visibleUsers.filter(u => u.role === 'admin')
   const storeKeepers = visibleUsers.filter(u => u.role === 'store keeper')
   const regularUsers = visibleUsers.filter(u => u.role === 'user')
@@ -273,7 +269,7 @@ export default function UsersPage({ currentUser }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {admins.map(u => (
             <UserCard key={u.id} user={u} currentUser={currentUser}
-              volunteer={volunteerForUser(u)} onEdit={openEdit} onDelete={handleDelete} />
+              onEdit={openEdit} onDelete={handleDelete} />
           ))}
         </div>
       </section>
@@ -286,7 +282,7 @@ export default function UsersPage({ currentUser }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {storeKeepers.map(u => (
             <UserCard key={u.id} user={u} currentUser={currentUser}
-              volunteer={volunteerForUser(u)} onEdit={openEdit} onDelete={handleDelete} />
+              onEdit={openEdit} onDelete={handleDelete} />
           ))}
         </div>
       </section>
@@ -299,18 +295,18 @@ export default function UsersPage({ currentUser }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {regularUsers.map(u => (
             <UserCard key={u.id} user={u} currentUser={currentUser}
-              volunteer={volunteerForUser(u)} onEdit={openEdit} onDelete={handleDelete} />
+              onEdit={openEdit} onDelete={handleDelete} />
           ))}
         </div>
       </section>
 
-      {volunteersWithoutUser.length > 0 && (
+      {volunteers.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-            <User className="w-4 h-4" /> Volunteers ({volunteersWithoutUser.length})
+            <User className="w-4 h-4" /> Volunteers ({volunteers.length})
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {volunteersWithoutUser.map(volunteer => (
+            {volunteers.map(volunteer => (
               <VolunteerCard key={volunteer.id} volunteer={volunteer} onEdit={openEdit} />
             ))}
           </div>
@@ -409,10 +405,9 @@ export default function UsersPage({ currentUser }: Props) {
 }
 
 function UserCard({
-  user, volunteer, currentUser, onEdit, onDelete
+  user, currentUser, onEdit, onDelete
 }: {
   user: FeteUser
-  volunteer?: Volunteer
   currentUser: AppUser
   onEdit: (user?: FeteUser, volunteer?: Volunteer, contact?: Contact) => void
   onDelete: (id: number) => void
@@ -437,7 +432,7 @@ function UserCard({
           <p className="text-sm text-muted-foreground truncate">{user.email}</p>
         </div>
         <div className="flex gap-1 shrink-0">
-          <Button size="sm" variant="outline" onClick={() => onEdit(user, volunteer)} aria-label="Edit user">
+          <Button size="sm" variant="outline" onClick={() => onEdit(user)} aria-label="Edit user">
             <Pencil className="w-3 h-3" />
           </Button>
           <Button size="sm" variant="outline"
@@ -448,8 +443,6 @@ function UserCard({
           </Button>
         </div>
       </div>
-
-      {volunteer && <Badge variant="secondary">Volunteer</Badge>}
 
       {/* Fete allocations */}
       {user.fetes.length > 0 ? (

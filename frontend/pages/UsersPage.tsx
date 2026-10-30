@@ -18,7 +18,7 @@ interface Props { currentUser: AppUser }
 type FeteAllocation = {
   fete_id: number
   fete_name: string
-  event_date: string
+  event_date: string | null
   fete_status: string
   notes: string
 }
@@ -468,9 +468,11 @@ function UserCard({
                 <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium capitalize ${STATUS_COLORS[f.fete_status] ?? 'bg-muted text-muted-foreground'}`}>
                   {f.fete_status}
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  {new Date(f.event_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </span>
+                {f.event_date && (
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(f.event_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                )}
               </div>
             </div>
           ))}

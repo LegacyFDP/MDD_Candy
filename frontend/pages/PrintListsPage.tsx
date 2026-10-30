@@ -907,10 +907,10 @@ export default function PrintListsPage({ currentUser }: Props) {
             </div>
           </div>
         </CardHeader>
-        <CardContent id="print-event-volunteers" className="space-y-5 print-section">
+        <CardContent id="print-event-volunteers" className="space-y-3 print-section">
           {filteredVolunteersByFete.map(({ fete, volunteers: eventVolunteers }) => (
             <section key={fete.id} className="print-avoid-break">
-              <div className="mb-2 border-b border-border pb-1">
+              <div className="mb-1.5 border-b border-border pb-1">
                 <h3 className="font-semibold">{fete.name}</h3>
                 <p className="text-xs text-muted-foreground">
                   {fete.event_date ? new Date(fete.event_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No date'} · {fete.status}
@@ -919,26 +919,26 @@ export default function PrintListsPage({ currentUser }: Props) {
               {eventVolunteers.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-2 italic">No volunteers assigned to this event.</p>
               ) : (
-                <table className="w-full text-sm">
+                <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-border text-muted-foreground">
-                      <th className="text-left py-1 font-medium">Volunteer</th>
-                      <th className="text-left py-1 font-medium">Email</th>
-                      <th className="text-left py-1 font-medium">Phone</th>
-                      <th className="text-left py-1 font-medium">Roles for this event</th>
-                      <th className="text-left py-1 font-medium">Dates</th>
-                      <th className="text-left py-1 font-medium">Times</th>
+                      <th className="text-left px-2 py-1 font-medium">Volunteer</th>
+                      <th className="text-left px-2 py-1 font-medium">Email</th>
+                      <th className="text-left px-2 py-1 font-medium">Phone</th>
+                      <th className="text-left px-2 py-1 font-medium">Roles for this event</th>
+                      <th className="text-left px-2 py-1 font-medium">Dates</th>
+                      <th className="text-left px-2 py-1 font-medium">Times</th>
                     </tr>
                   </thead>
                   <tbody>
                     {eventVolunteers.map(({ id, volunteer_name, volunteer, roles, start_date, end_date, start_time, end_time }) => (
                       <tr key={id} className="border-b border-border last:border-0">
-                        <td className="py-1.5 font-medium">{volunteer_name}</td>
-                        <td className="py-1.5">{volunteer?.email || 'None'}</td>
-                        <td className="py-1.5">{volunteer?.phone || 'None'}</td>
-                        <td className="py-1.5">{Array.isArray(roles) && roles.length > 0 ? roles.join(', ') : 'None'}</td>
-                        <td className="py-1.5 whitespace-nowrap">{formatDayMonth(start_date)}{start_date !== end_date ? ` to ${formatDayMonth(end_date)}` : ''}</td>
-                        <td className="py-1.5 whitespace-nowrap">{start_time} - {end_time}</td>
+                        <td className="px-2 py-1 font-medium">{volunteer_name}</td>
+                        <td className="px-2 py-1">{volunteer?.email || 'None'}</td>
+                        <td className="px-2 py-1">{volunteer?.phone || 'None'}</td>
+                        <td className="px-2 py-1">{Array.isArray(roles) && roles.length > 0 ? roles.join(', ') : 'None'}</td>
+                        <td className="px-2 py-1 whitespace-nowrap">{formatDayMonth(start_date)}{start_date !== end_date ? ` to ${formatDayMonth(end_date)}` : ''}</td>
+                        <td className="px-2 py-1 whitespace-nowrap">{start_time} - {end_time}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -948,30 +948,30 @@ export default function PrintListsPage({ currentUser }: Props) {
           ))}
           {unassignedEventShifts.length > 0 && eventVolunteerFeteId === 'all' && (
             <section className="print-avoid-break">
-              <div className="mb-2 border-b border-border pb-1">
+              <div className="mb-1.5 border-b border-border pb-1">
                 <h3 className="font-semibold text-amber-700 dark:text-amber-400">General Volunteers (Unassigned Event)</h3>
                 <p className="text-xs text-muted-foreground">Volunteers with scheduled shifts not linked to a specific event</p>
               </div>
-              <table className="w-full text-sm">
+              <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
-                    <th className="text-left py-1 font-medium">Volunteer</th>
-                    <th className="text-left py-1 font-medium">Email</th>
-                    <th className="text-left py-1 font-medium">Phone</th>
-                    <th className="text-left py-1 font-medium">Roles</th>
-                    <th className="text-left py-1 font-medium">Dates</th>
-                    <th className="text-left py-1 font-medium">Times</th>
+                    <th className="text-left px-2 py-1 font-medium">Volunteer</th>
+                    <th className="text-left px-2 py-1 font-medium">Email</th>
+                    <th className="text-left px-2 py-1 font-medium">Phone</th>
+                    <th className="text-left px-2 py-1 font-medium">Roles</th>
+                    <th className="text-left px-2 py-1 font-medium">Dates</th>
+                    <th className="text-left px-2 py-1 font-medium">Times</th>
                   </tr>
                 </thead>
                 <tbody>
                   {unassignedEventShifts.map(({ id, volunteer_name, volunteer, roles, start_date, end_date, start_time, end_time }) => (
                     <tr key={id} className="border-b border-border last:border-0">
-                      <td className="py-1.5 font-medium">{volunteer_name}</td>
-                      <td className="py-1.5">{volunteer?.email || 'None'}</td>
-                      <td className="py-1.5">{volunteer?.phone || 'None'}</td>
-                      <td className="py-1.5">{Array.isArray(roles) && roles.length > 0 ? roles.join(', ') : 'None'}</td>
-                      <td className="py-1.5 whitespace-nowrap">{formatDayMonth(start_date)}{start_date !== end_date ? ` to ${formatDayMonth(end_date)}` : ''}</td>
-                      <td className="py-1.5 whitespace-nowrap">{start_time} - {end_time}</td>
+                      <td className="px-2 py-1 font-medium">{volunteer_name}</td>
+                      <td className="px-2 py-1">{volunteer?.email || 'None'}</td>
+                      <td className="px-2 py-1">{volunteer?.phone || 'None'}</td>
+                      <td className="px-2 py-1">{Array.isArray(roles) && roles.length > 0 ? roles.join(', ') : 'None'}</td>
+                      <td className="px-2 py-1 whitespace-nowrap">{formatDayMonth(start_date)}{start_date !== end_date ? ` to ${formatDayMonth(end_date)}` : ''}</td>
+                      <td className="px-2 py-1 whitespace-nowrap">{start_time} - {end_time}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1035,7 +1035,7 @@ export default function PrintListsPage({ currentUser }: Props) {
             </div>
           </div>
         </CardHeader>
-        <CardContent id="print-volunteer-matrix" className="space-y-6 print-section">
+        <CardContent id="print-volunteer-matrix" className="space-y-3 print-section">
           {!selectedMatrixFete ? (
             <p className="text-sm text-muted-foreground p-4">Please select an event above.</p>
           ) : !matrixDate ? (
@@ -1046,15 +1046,15 @@ export default function PrintListsPage({ currentUser }: Props) {
                 <table className="w-full text-xs border-collapse border border-border spreadsheet-table">
                   <thead>
                     <tr className="bg-muted/80 text-foreground border-b border-border">
-                      <th className="py-2.5 px-3 text-left font-semibold border-r border-border min-w-28">
+                      <th className="py-1.5 px-2 text-left font-semibold border-r border-border min-w-24">
                         Hour
                       </th>
                       {matrixTaskColumns.map(task => (
-                        <th key={task} className="py-2.5 px-2 text-center font-semibold border-r border-border min-w-24">
+                        <th key={task} className="py-1.5 px-1.5 text-center font-semibold border-r border-border min-w-20">
                           {task}
                         </th>
                       ))}
-                      <th className="py-2.5 px-2 text-center font-semibold bg-muted/60 min-w-20">
+                      <th className="py-1.5 px-1.5 text-center font-semibold bg-muted/60 min-w-16">
                         Total
                       </th>
                     </tr>
@@ -1070,7 +1070,7 @@ export default function PrintListsPage({ currentUser }: Props) {
                           key={hour.start}
                           className={`border-b border-border ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`}
                         >
-                          <td className="py-2 px-3 font-medium text-foreground border-r border-border whitespace-nowrap">
+                          <td className="py-1 px-2 font-medium text-foreground border-r border-border whitespace-nowrap">
                             {hour.label}
                           </td>
                           {matrixTaskColumns.map(task => {
@@ -1083,7 +1083,7 @@ export default function PrintListsPage({ currentUser }: Props) {
                             return (
                               <td
                                 key={task}
-                                className={`py-1.5 px-2 text-center border-r border-border align-middle ${
+                                className={`py-1 px-1.5 text-center border-r border-border align-middle ${
                                   cellCount > 0 ? 'bg-primary/5 dark:bg-primary/10 font-semibold' : ''
                                 }`}
                               >
@@ -1102,7 +1102,7 @@ export default function PrintListsPage({ currentUser }: Props) {
                               </td>
                             )
                           })}
-                          <td className="py-1.5 px-2 text-center font-bold bg-muted/30 align-middle">
+                          <td className="py-1 px-1.5 text-center font-bold bg-muted/30 align-middle">
                             {hourCount > 0 ? (
                               <span className="text-sm text-foreground">{hourCount}</span>
                             ) : (
@@ -1115,7 +1115,7 @@ export default function PrintListsPage({ currentUser }: Props) {
                   </tbody>
                   <tfoot>
                     <tr className="bg-muted font-bold border-t-2 border-border text-foreground">
-                      <td className="py-2.5 px-3 border-r border-border">
+                      <td className="py-1.5 px-2 border-r border-border">
                         Total / Peak
                       </td>
                       {matrixTaskColumns.map(task => {
@@ -1131,7 +1131,7 @@ export default function PrintListsPage({ currentUser }: Props) {
                         )
 
                         return (
-                          <td key={task} className="py-2 px-2 text-center border-r border-border">
+                          <td key={task} className="py-1 px-1.5 text-center border-r border-border">
                             <span className="text-xs">{dayTaskVols.length}</span>
                             {peak > 0 && (
                               <span className="block text-[10px] text-muted-foreground font-normal print:text-[9px]">
@@ -1141,7 +1141,7 @@ export default function PrintListsPage({ currentUser }: Props) {
                           </td>
                         )
                       })}
-                      <td className="py-2 px-2 text-center text-xs">
+                      <td className="py-1 px-1.5 text-center text-xs">
                         {new Set(shiftsForMatrix.map(s => s.volunteer_name)).size}
                         <span className="block text-[10px] text-muted-foreground font-normal print:text-[9px]">
                           distinct
@@ -1153,8 +1153,8 @@ export default function PrintListsPage({ currentUser }: Props) {
               </div>
 
               {/* Roster breakdown for that day */}
-              <div className="pt-2 print-avoid-break">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+              <div className="pt-1 print-avoid-break">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
                   Volunteer Roster for {matrixDate} ({shiftsForMatrix.length} shift allocations)
                 </h4>
                 {shiftsForMatrix.length === 0 ? (
@@ -1164,10 +1164,10 @@ export default function PrintListsPage({ currentUser }: Props) {
                     <table className="w-full text-xs">
                       <thead className="bg-muted text-muted-foreground">
                         <tr className="border-b border-border text-left">
-                          <th className="py-1.5 px-3 font-medium">Volunteer</th>
-                          <th className="py-1.5 px-3 font-medium">Contact</th>
-                          <th className="py-1.5 px-3 font-medium">Allocated Roles / Tasks</th>
-                          <th className="py-1.5 px-3 font-medium">Hours</th>
+                          <th className="py-1 px-2 font-medium">Volunteer</th>
+                          <th className="py-1 px-2 font-medium">Contact</th>
+                          <th className="py-1 px-2 font-medium">Allocated Roles / Tasks</th>
+                          <th className="py-1 px-2 font-medium">Hours</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
@@ -1175,10 +1175,10 @@ export default function PrintListsPage({ currentUser }: Props) {
                           const vol = volunteers.find(v => v.id === shift.volunteer_id)
                           return (
                             <tr key={shift.id}>
-                              <td className="py-1 px-3 font-medium">{shift.volunteer_name}</td>
-                              <td className="py-1 px-3 text-muted-foreground">{vol?.email || vol?.phone || '—'}</td>
-                              <td className="py-1 px-3">{shift.roles?.join(', ') || 'Helper'}</td>
-                              <td className="py-1 px-3 whitespace-nowrap">{shift.start_time} – {shift.end_time}</td>
+                              <td className="py-0.5 px-2 font-medium">{shift.volunteer_name}</td>
+                              <td className="py-0.5 px-2 text-muted-foreground">{vol?.email || vol?.phone || '—'}</td>
+                              <td className="py-0.5 px-2">{shift.roles?.join(', ') || 'Helper'}</td>
+                              <td className="py-0.5 px-2 whitespace-nowrap">{shift.start_time} – {shift.end_time}</td>
                             </tr>
                           )
                         })}

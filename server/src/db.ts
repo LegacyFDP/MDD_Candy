@@ -56,6 +56,41 @@ async function runWithMeta(
   })
 }
 
+function volunteerShiftsTableSql(name: string): string {
+  return `
+    CREATE TABLE IF NOT EXISTS ${name} (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      person_id   INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+      fete_id     INTEGER REFERENCES fetes(id) ON DELETE CASCADE,
+      start_date  TEXT NOT NULL,
+      end_date    TEXT NOT NULL,
+      start_time  TEXT NOT NULL,
+      end_time    TEXT NOT NULL,
+      created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `
+}
+
+function volunteerRolesTableSql(name: string): string {
+  return `
+    CREATE TABLE IF NOT EXISTS ${name} (
+      person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+      role      TEXT NOT NULL,
+      PRIMARY KEY (person_id, role)
+    )
+  `
+}
+
+function contactEventsTableSql(name: string): string {
+  return `
+    CREATE TABLE IF NOT EXISTS ${name} (
+      person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+      fete_id   INTEGER NOT NULL REFERENCES fetes(id) ON DELETE CASCADE,
+      PRIMARY KEY (person_id, fete_id)
+    )
+  `
+}
+
 export async function ensureRuntimeSchema(database: sqlite3.Database = db): Promise<void> {
   await run(
     `
@@ -333,46 +368,10 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
     }
   }
 
-  await run(
-    `
-      CREATE TABLE IF NOT EXISTS fete_volunteers (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        person_id  INTEGER REFERENCES people(id) ON DELETE SET NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `,
-    [],
-    database,
-  )
-
-  await run(
-    `
-      CREATE TABLE IF NOT EXISTS volunteer_shifts (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        volunteer_id INTEGER NOT NULL REFERENCES fete_volunteers(id) ON DELETE CASCADE,
-        fete_id     INTEGER REFERENCES fetes(id) ON DELETE CASCADE,
-        start_date  TEXT NOT NULL,
-        end_date    TEXT NOT NULL,
-        start_time  TEXT NOT NULL,
-        end_time    TEXT NOT NULL,
-        created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `,
-    [],
-    database,
-  )
-
-  await run(
-    `
-      CREATE TABLE IF NOT EXISTS volunteer_roles (
-        volunteer_id INTEGER NOT NULL REFERENCES fete_volunteers(id) ON DELETE CASCADE,
-        role         TEXT NOT NULL,
-        PRIMARY KEY (volunteer_id, role)
-      )
-    `,
-    [],
-    database,
-  )
+  // Volunteers and contacts are people with the Volunteer / Contact role; their
+  // shifts, task roles and events point straight at people.
+  await run(volunteerShiftsTableSql('volunteer_shifts'), [], database)
+  await run(volunteerRolesTableSql('volunteer_roles'), [], database)
 
   await run(
     `
@@ -386,29 +385,7 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
     database,
   )
 
-  await run(
-    `
-      CREATE TABLE IF NOT EXISTS fete_contacts (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        person_id  INTEGER REFERENCES people(id) ON DELETE SET NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `,
-    [],
-    database,
-  )
-
-  await run(
-    `
-      CREATE TABLE IF NOT EXISTS fete_contact_events (
-        contact_id INTEGER NOT NULL REFERENCES fete_contacts(id) ON DELETE CASCADE,
-        fete_id    INTEGER NOT NULL REFERENCES fetes(id) ON DELETE CASCADE,
-        PRIMARY KEY (contact_id, fete_id)
-      )
-    `,
-    [],
-    database,
-  )
+  await run(contactEventsTableSql('fete_contact_events'), [], database)
 
   await migrateSingleRoleColumn('fete_volunteers', 'volunteer_roles', 'volunteer_id', database)
   await migrateSingleRoleColumn('volunteer_shifts', 'volunteer_shift_roles', 'shift_id', database)
@@ -573,6 +550,7 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
   await ensurePeopleSchema(database)
   await dropCopiedPersonColumns(database)
   await dropStoredAccountRole(database)
+  await foldVolunteersAndContactsIntoPeople(database)
   await deleteOrphanedAssetRows(database)
 }
 
@@ -612,6 +590,91 @@ async function dropStoredAccountRole(database: sqlite3.Database): Promise<void> 
     await run('ALTER TABLE fete_users DROP COLUMN role;', [], database)
     await run('COMMIT', [], database)
     console.log('Dropped fete_users.role (now worked out from person_roles)')
+  } catch (error) {
+    await run('ROLLBACK', [], database)
+    throw error
+  }
+}
+
+/**
+ * fete_volunteers and fete_contacts ended up holding nothing but a person_id.
+ * Re-point volunteer_shifts, volunteer_roles and fete_contact_events at people
+ * (rebuilding each table, as SQLite cannot change a foreign key in place),
+ * make sure every volunteer / contact has the matching person role, then drop
+ * the two tables. Shift ids are kept so volunteer_shift_roles still matches.
+ */
+async function foldVolunteersAndContactsIntoPeople(database: sqlite3.Database): Promise<void> {
+  const columnsOf = async (table: string) =>
+    new Set((await all<{ name: string }>(`PRAGMA table_info(${table});`, [], database)).map(c => c.name))
+  const volunteerColumns = await columnsOf('fete_volunteers')
+  const contactColumns = await columnsOf('fete_contacts')
+  if (volunteerColumns.size === 0 && contactColumns.size === 0) return
+
+  async function rebuild(table: string, createSql: (name: string) => string, insertSql: string) {
+    await run(createSql(`${table}_new`), [], database)
+    const { changes } = await runWithMeta(insertSql.replace('{new}', `${table}_new`), [], database)
+    await run(`DROP TABLE ${table}`, [], database)
+    await run(`ALTER TABLE ${table}_new RENAME TO ${table}`, [], database)
+    return changes
+  }
+
+  await run('BEGIN', [], database)
+  try {
+    if (volunteerColumns.size > 0) {
+      if ((await columnsOf('volunteer_shifts')).has('volunteer_id')) {
+        const before = (await all<{ n: number }>('SELECT COUNT(*) AS n FROM volunteer_shifts', [], database))[0]!.n
+        const kept = await rebuild('volunteer_shifts', volunteerShiftsTableSql, `
+          INSERT INTO {new} (id, person_id, fete_id, start_date, end_date, start_time, end_time, created_at)
+          SELECT s.id, v.person_id, s.fete_id, s.start_date, s.end_date, s.start_time, s.end_time, s.created_at
+          FROM volunteer_shifts s JOIN fete_volunteers v ON v.id = s.volunteer_id
+          WHERE v.person_id IS NOT NULL
+        `)
+        await run('DELETE FROM volunteer_shift_roles WHERE shift_id NOT IN (SELECT id FROM volunteer_shifts)', [], database)
+        if (before > kept) console.log(`Removed ${before - kept} volunteer shifts with no linked person`)
+      }
+      if ((await columnsOf('volunteer_roles')).has('volunteer_id')) {
+        await rebuild('volunteer_roles', volunteerRolesTableSql, `
+          INSERT OR IGNORE INTO {new} (person_id, role)
+          SELECT v.person_id, r.role FROM volunteer_roles r JOIN fete_volunteers v ON v.id = r.volunteer_id
+          WHERE v.person_id IS NOT NULL
+        `)
+      }
+      if (volunteerColumns.has('role')) {
+        await run(
+          `INSERT OR IGNORE INTO volunteer_roles (person_id, role)
+           SELECT person_id, role FROM fete_volunteers WHERE person_id IS NOT NULL AND TRIM(role) <> ''`,
+          [],
+          database,
+        )
+      }
+      await run(
+        `INSERT OR IGNORE INTO person_roles (person_id, role)
+         SELECT person_id, 'Volunteer' FROM fete_volunteers WHERE person_id IS NOT NULL`,
+        [],
+        database,
+      )
+      await run('DROP TABLE fete_volunteers', [], database)
+    }
+
+    if (contactColumns.size > 0) {
+      if ((await columnsOf('fete_contact_events')).has('contact_id')) {
+        await rebuild('fete_contact_events', contactEventsTableSql, `
+          INSERT OR IGNORE INTO {new} (person_id, fete_id)
+          SELECT c.person_id, e.fete_id FROM fete_contact_events e JOIN fete_contacts c ON c.id = e.contact_id
+          WHERE c.person_id IS NOT NULL
+        `)
+      }
+      await run(
+        `INSERT OR IGNORE INTO person_roles (person_id, role)
+         SELECT person_id, 'Contact' FROM fete_contacts WHERE person_id IS NOT NULL`,
+        [],
+        database,
+      )
+      await run('DROP TABLE fete_contacts', [], database)
+    }
+
+    await run('COMMIT', [], database)
+    console.log('Folded fete_volunteers and fete_contacts into people')
   } catch (error) {
     await run('ROLLBACK', [], database)
     throw error
@@ -725,6 +788,9 @@ async function migrateSingleRoleColumn(
 ): Promise<void> {
   const columns = await all<{ name: string }>(`PRAGMA table_info(${table});`, [], database)
   if (!columns.some(column => column.name === 'role')) return
+  // A role table already keyed by person is handled by foldVolunteersAndContactsIntoPeople.
+  const roleColumns = await all<{ name: string }>(`PRAGMA table_info(${roleTable});`, [], database)
+  if (!roleColumns.some(column => column.name === keyColumn)) return
 
   await run('BEGIN', [], database)
   try {
@@ -749,18 +815,19 @@ const ACCOUNT_ROLE_LABELS: Record<string, string> = {
 }
 
 /**
- * One `people` row per human, with any number of `person_roles`. The
- * fete_users / fete_volunteers / fete_contacts tables stay as per-role detail
- * records (other tables reference them) and link back through person_id.
- * Databases from before people existed have their records linked once;
- * records that share a name and email are merged into the same person,
- * everything else becomes its own person. dropCopiedPersonColumns then
- * removes the old detail columns, after which there is nothing left to link.
+ * One `people` row per human, with any number of `person_roles`. Databases
+ * from before people existed have their fete_users / fete_volunteers /
+ * fete_contacts records linked once; records that share a name and email are
+ * merged into the same person, everything else becomes its own person.
+ * dropCopiedPersonColumns then removes the old detail columns and
+ * foldVolunteersAndContactsIntoPeople the volunteer and contact tables, after
+ * which there is nothing left to link. fete_users stays as the login record.
  */
 async function ensurePeopleSchema(database: sqlite3.Database): Promise<void> {
   const legacyTables = new Set<string>()
   for (const table of ['fete_users', 'fete_volunteers', 'fete_contacts']) {
     const columns = await all<{ name: string }>(`PRAGMA table_info(${table});`, [], database)
+    if (columns.length === 0) continue // folded into people already
     if (!columns.some(column => column.name === 'person_id')) {
       await run(`ALTER TABLE ${table} ADD COLUMN person_id INTEGER REFERENCES people(id) ON DELETE SET NULL;`, [], database)
     }

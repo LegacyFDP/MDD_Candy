@@ -26,7 +26,7 @@ export default async function (req: { params: Params; user: User }) {
   }>(`
     SELECT
       vs.id,
-      vs.volunteer_id,
+      vs.person_id AS volunteer_id,
       p.name AS volunteer_name,
       vs.fete_id,
       f.name AS fete_name,
@@ -37,11 +37,10 @@ export default async function (req: { params: Params; user: User }) {
       vs.end_time,
       vs.created_at
     FROM volunteer_shifts vs
-    LEFT JOIN fete_volunteers v ON v.id = vs.volunteer_id
-    LEFT JOIN people p ON p.id = v.person_id
+    LEFT JOIN people p ON p.id = vs.person_id
     LEFT JOIN fetes f ON f.id = vs.fete_id
     LEFT JOIN volunteer_shift_roles vsr ON vsr.shift_id = vs.id
-    WHERE ($1 IS NULL OR vs.volunteer_id = $1)
+    WHERE ($1 IS NULL OR vs.person_id = $1)
       AND ($2 IS NULL OR vs.fete_id = $2)
     GROUP BY vs.id
     ORDER BY vs.start_date ASC, vs.start_time ASC

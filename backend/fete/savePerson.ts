@@ -52,12 +52,6 @@ export default async function (req: { params: Params; user: User }) {
   const accountRow = existing
     ? (await retoolDb.query<{ id: number }>('SELECT id FROM fete_users WHERE person_id = $1', [existing.id])).data[0]
     : undefined
-  const volunteerRow = existing
-    ? (await retoolDb.query<{ id: number }>('SELECT id FROM fete_volunteers WHERE person_id = $1', [existing.id])).data[0]
-    : undefined
-  const contactRow = existing
-    ? (await retoolDb.query<{ id: number }>('SELECT id FROM fete_contacts WHERE person_id = $1', [existing.id])).data[0]
-    : undefined
 
   if (hasAccount) {
     const clash = await retoolDb.query<{ id: number }>(
@@ -105,38 +99,23 @@ export default async function (req: { params: Params; user: User }) {
     await removeAccount(accountRow.id)
   }
 
+  // Being a volunteer or contact is just the role; their details hang off the person.
   if (isVolunteer) {
-    let volunteerId = volunteerRow?.id
-    if (!volunteerId) {
-      const created = await retoolDb.query<{ id: number }>(
-        'INSERT INTO fete_volunteers (person_id) VALUES ($1) RETURNING id',
-        [personId],
-      )
-      volunteerId = created.data[0]?.id
-    }
-    await retoolDb.query('DELETE FROM volunteer_roles WHERE volunteer_id = $1', [volunteerId])
+    await retoolDb.query('DELETE FROM volunteer_roles WHERE person_id = $1', [personId])
     for (const role of volunteerRoles) {
-      await retoolDb.query('INSERT INTO volunteer_roles (volunteer_id, role) VALUES ($1, $2)', [volunteerId, role])
+      await retoolDb.query('INSERT INTO volunteer_roles (person_id, role) VALUES ($1, $2)', [personId, role])
     }
-  } else if (volunteerRow) {
-    await removeVolunteer(volunteerRow.id)
+  } else if (existing) {
+    await removeVolunteer(personId!)
   }
 
   if (isContact) {
-    let contactId = contactRow?.id
-    if (!contactId) {
-      const created = await retoolDb.query<{ id: number }>(
-        'INSERT INTO fete_contacts (person_id) VALUES ($1) RETURNING id',
-        [personId],
-      )
-      contactId = created.data[0]?.id
-    }
-    await retoolDb.query('DELETE FROM fete_contact_events WHERE contact_id = $1', [contactId])
+    await retoolDb.query('DELETE FROM fete_contact_events WHERE person_id = $1', [personId])
     for (const feteId of feteIds) {
-      await retoolDb.query('INSERT INTO fete_contact_events (contact_id, fete_id) VALUES ($1, $2)', [contactId, feteId])
+      await retoolDb.query('INSERT INTO fete_contact_events (person_id, fete_id) VALUES ($1, $2)', [personId, feteId])
     }
-  } else if (contactRow) {
-    await removeContact(contactRow.id)
+  } else if (existing) {
+    await removeContact(personId!)
   }
 
   return { success: true, id: personId }

@@ -26,13 +26,24 @@ await q(`INSERT INTO fete_volunteers (name, email, phone, role) VALUES ('tim ', 
 await q(`INSERT INTO fete_volunteers (name, email, phone, role, notes) VALUES ('Tim', 'other@example.com', '', 'Helper', 'Has a van')`)
 await q(`INSERT INTO fete_contacts (name, email) VALUES ('Pat', '')`)
 await q(`INSERT INTO fete_contacts (name, email) VALUES ('Pat', '')`)
+await q(`CREATE TABLE volunteer_roles (volunteer_id INTEGER NOT NULL, role TEXT NOT NULL, PRIMARY KEY (volunteer_id, role))`)
+await q(`CREATE TABLE volunteer_shifts (id INTEGER PRIMARY KEY AUTOINCREMENT, volunteer_id INTEGER NOT NULL, fete_id INTEGER,
+  role TEXT NOT NULL DEFAULT 'Helper', start_date TEXT NOT NULL, end_date TEXT NOT NULL, start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`)
+await q(`CREATE TABLE fete_contact_events (contact_id INTEGER NOT NULL, fete_id INTEGER NOT NULL, PRIMARY KEY (contact_id, fete_id))`)
+await q(`INSERT INTO volunteer_shifts (volunteer_id, fete_id, role, start_date, end_date, start_time, end_time)
+  VALUES (2, 1, 'Transport', '2026-06-01', '2026-06-01', '10:00', '11:00')`)
+await q(`INSERT INTO fete_contact_events (contact_id, fete_id) VALUES (1, 1)`)
 await ensureRuntimeSchema()
+await q(`INSERT INTO fetes (id, name, event_date, status) VALUES (1, 'Gala', '2026-06-01', 'planned')`)
 
 const { default: getPeople } = await import('../backend/fete/getPeople.ts')
 const { default: savePerson } = await import('../backend/fete/savePerson.ts')
 const { default: deletePerson } = await import('../backend/fete/deletePerson.ts')
 const { default: mergePeople } = await import('../backend/fete/mergePeople.ts')
 
+const { default: getVolunteers } = await import('../backend/fete/getVolunteers.ts')
+const { default: getVolunteerShifts } = await import('../backend/fete/getVolunteerShifts.ts')
 const { default: loginUser } = await import('../backend/fete/loginUser.ts')
 const login = (email, pin) => loginUser({ params: { email, pin }, user: null })
 const people = async () => (await getPeople({ params: {}, user: null }))
@@ -58,8 +69,20 @@ test('migration links legacy records, merges matching name + email, then drops t
 
   const columns = async table => (await q(`PRAGMA table_info(${table})`)).map(c => c.name).sort()
   assert.deepEqual(await columns('fete_users'), ['created_at', 'email', 'id', 'person_id', 'pin'])
-  assert.deepEqual(await columns('fete_volunteers'), ['created_at', 'id', 'person_id'])
-  assert.deepEqual(await columns('fete_contacts'), ['created_at', 'id', 'person_id'])
+  assert.deepEqual(await columns('fete_volunteers'), [])
+  assert.deepEqual(await columns('fete_contacts'), [])
+  assert.deepEqual(await columns('volunteer_roles'), ['person_id', 'role'])
+  assert.deepEqual(await columns('fete_contact_events'), ['fete_id', 'person_id'])
+
+  // Shifts and contact events now point at the person they belonged to.
+  const otherTim = tims.find(p => p.email === 'other@example.com')
+  assert.equal(otherTim.volunteer_id, otherTim.id)
+  const shifts = await getVolunteerShifts({ params: { volunteer_id: otherTim.id }, user: null })
+  assert.deepEqual(shifts.map(s => [s.volunteer_name, s.roles]), [['Tim', ['Transport']]])
+  const pats = all.filter(p => p.name === 'Pat')
+  assert.deepEqual(pats.map(p => p.contact_fete_ids.length).sort(), [0, 1])
+  assert.ok(pats.every(p => p.contact_id === p.id))
+  assert.deepEqual((await getVolunteers({ params: {}, user: null })).map(v => v.id).sort(), tims.map(t => t.id).sort())
 })
 
 test('login and user list take the name and permission level from people', async () => {
@@ -112,13 +135,14 @@ test('merge moves shifts and roles and deletePerson removes everything', async (
   assert.ok(otherTim)
   await q(`INSERT INTO fetes (name, event_date, status) VALUES ('Fair', '2026-07-01', 'planned')`)
   const [fete] = await q(`SELECT id FROM fetes WHERE name = 'Fair'`)
-  await q(`INSERT INTO volunteer_shifts (volunteer_id, fete_id, start_date, end_date, start_time, end_time) VALUES ($1, $2, '2026-07-01', '2026-07-01', '09:00', '12:00')`, [otherTim.volunteer_id, fete.id])
+  await q(`INSERT INTO volunteer_shifts (person_id, fete_id, start_date, end_date, start_time, end_time) VALUES ($1, $2, '2026-07-01', '2026-07-01', '09:00', '12:00')`, [otherTim.volunteer_id, fete.id])
 
   await mergePeople({ params: { keep_id: keepTim.id, merge_id: otherTim.id }, user: null })
   const tim = await byName('Tim')
   assert.equal((await people()).filter(p => p.name === 'Tim').length, 1)
   assert.equal(tim.id, keepTim.id)
-  assert.equal((await q('SELECT COUNT(*) AS n FROM volunteer_shifts WHERE volunteer_id = $1', [tim.volunteer_id]))[0].n, 1)
+  // The migrated legacy shift and the one added above both move to the kept person.
+  assert.equal((await q('SELECT COUNT(*) AS n FROM volunteer_shifts WHERE person_id = $1', [tim.volunteer_id]))[0].n, 2)
 
   await deletePerson({ params: { id: tim.id }, user: null })
   assert.equal((await q('SELECT COUNT(*) AS n FROM people WHERE id = $1', [tim.id]))[0].n, 0)

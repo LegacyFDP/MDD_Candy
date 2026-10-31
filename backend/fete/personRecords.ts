@@ -52,17 +52,17 @@ export async function removeAccount(userId: number) {
   await retoolDb.query('DELETE FROM fete_users WHERE id = $1', [userId])
 }
 
-export async function removeVolunteer(volunteerId: number) {
+/** Removes a person's volunteer shifts and task roles. */
+export async function removeVolunteer(personId: number) {
   await retoolDb.query(
-    'DELETE FROM volunteer_shift_roles WHERE shift_id IN (SELECT id FROM volunteer_shifts WHERE volunteer_id = $1)',
-    [volunteerId],
+    'DELETE FROM volunteer_shift_roles WHERE shift_id IN (SELECT id FROM volunteer_shifts WHERE person_id = $1)',
+    [personId],
   )
-  await retoolDb.query('DELETE FROM volunteer_shifts WHERE volunteer_id = $1', [volunteerId])
-  await retoolDb.query('DELETE FROM volunteer_roles WHERE volunteer_id = $1', [volunteerId])
-  await retoolDb.query('DELETE FROM fete_volunteers WHERE id = $1', [volunteerId])
+  await retoolDb.query('DELETE FROM volunteer_shifts WHERE person_id = $1', [personId])
+  await retoolDb.query('DELETE FROM volunteer_roles WHERE person_id = $1', [personId])
 }
 
-export async function removeContact(contactId: number) {
-  await retoolDb.query('DELETE FROM fete_contact_events WHERE contact_id = $1', [contactId])
-  await retoolDb.query('DELETE FROM fete_contacts WHERE id = $1', [contactId])
+/** Removes a person's links to the events they are a contact for. */
+export async function removeContact(personId: number) {
+  await retoolDb.query('DELETE FROM fete_contact_events WHERE person_id = $1', [personId])
 }

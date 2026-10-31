@@ -23,7 +23,7 @@ type DaySchedule = {
 
 type Params = {
   id?: number
-  volunteer_id: number
+  volunteer_id: number // the volunteer's person id
   fete_id?: number | null
   roles?: string[]
   start_date?: string
@@ -164,7 +164,7 @@ export default async function (req: { params: Params; user: User }) {
 
     await retoolDb.query(`
       UPDATE volunteer_shifts
-      SET volunteer_id=$1,
+      SET person_id=$1,
           fete_id=$2,
           start_date=$3,
           end_date=$4,
@@ -185,7 +185,7 @@ export default async function (req: { params: Params; user: User }) {
     const actualEndDate = item.end_date ?? item.shift_date ?? item.start_date!
 
     const created = await retoolDb.query<{ id: number }>(`
-      INSERT INTO volunteer_shifts (volunteer_id, fete_id, start_date, end_date, start_time, end_time)
+      INSERT INTO volunteer_shifts (person_id, fete_id, start_date, end_date, start_time, end_time)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id
     `, [volunteer_id, fete_id ?? null, actualStartDate, actualEndDate, item.start_time, item.end_time])

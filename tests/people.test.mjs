@@ -33,6 +33,8 @@ const { default: savePerson } = await import('../backend/fete/savePerson.ts')
 const { default: deletePerson } = await import('../backend/fete/deletePerson.ts')
 const { default: mergePeople } = await import('../backend/fete/mergePeople.ts')
 
+const { default: loginUser } = await import('../backend/fete/loginUser.ts')
+const login = (email, pin) => loginUser({ params: { email, pin }, user: null })
 const people = async () => (await getPeople({ params: {}, user: null }))
 const byName = async name => (await people()).find(p => p.name === name)
 
@@ -55,17 +57,17 @@ test('migration links legacy records, merges matching name + email, then drops t
   assert.equal(all.filter(p => p.name === 'Pat').length, 2)
 
   const columns = async table => (await q(`PRAGMA table_info(${table})`)).map(c => c.name).sort()
-  assert.deepEqual(await columns('fete_users'), ['created_at', 'email', 'id', 'person_id', 'pin', 'role'])
+  assert.deepEqual(await columns('fete_users'), ['created_at', 'email', 'id', 'person_id', 'pin'])
   assert.deepEqual(await columns('fete_volunteers'), ['created_at', 'id', 'person_id'])
   assert.deepEqual(await columns('fete_contacts'), ['created_at', 'id', 'person_id'])
 })
 
-test('login and user list take the name from people', async () => {
-  const { default: loginUser } = await import('../backend/fete/loginUser.ts')
+test('login and user list take the name and permission level from people', async () => {
   const { default: getUsers } = await import('../backend/fete/getUsers.ts')
   const tim = await byName('Tim')
+  assert.equal((await login('tim@example.com', '1111')).role, 'admin')
   await savePerson({ params: { id: tim.id, name: 'Timothy', email: 'tim@example.com', phone: tim.phone, roles: tim.roles, pin: '1111', volunteer_roles: tim.volunteer_roles }, user: null })
-  assert.equal((await loginUser({ params: { email: 'tim@example.com', pin: '1111' }, user: null })).name, 'Timothy')
+  assert.equal((await login('tim@example.com', '1111')).name, 'Timothy')
   assert.ok((await getUsers({ params: {}, user: null })).some(u => u.name === 'Timothy'))
   await savePerson({ params: { id: tim.id, name: 'Tim', email: 'tim@example.com', phone: tim.phone, roles: tim.roles, pin: '1111', volunteer_roles: tim.volunteer_roles }, user: null })
 })
@@ -75,8 +77,8 @@ test('a person can hold Admin and Store Keeper with one login at the highest lev
   const sue = await byName('Sue')
   assert.deepEqual([...sue.roles].sort(), ['Admin', 'Store Keeper', 'Volunteer'])
   assert.deepEqual(sue.volunteer_roles, ['Helper'])
-  const [account] = await q('SELECT role, person_id FROM fete_users WHERE email = $1', ['sue@example.com'])
-  assert.equal(account.role, 'admin')
+  assert.equal((await login('sue@example.com', '2222')).role, 'admin')
+  const [account] = await q('SELECT person_id FROM fete_users WHERE email = $1', ['sue@example.com'])
   assert.equal(account.person_id, sue.id)
 })
 
@@ -87,7 +89,7 @@ test('editing adds and removes roles on the same person', async () => {
   assert.equal((await people()).filter(p => p.name === 'Sue').length, 1)
   assert.deepEqual(updated.roles, ['Store Keeper'])
   assert.equal(updated.volunteer_id, null)
-  assert.equal((await q('SELECT role FROM fete_users WHERE person_id = $1', [sue.id]))[0].role, 'store keeper')
+  assert.equal((await login('sue@example.com', '2222')).role, 'store keeper')
 
   await savePerson({ params: { id: sue.id, name: 'Sue', email: 'sue@example.com', roles: ['Volunteer'], volunteer_roles: ['Helper'] }, user: null })
   assert.equal((await q('SELECT COUNT(*) AS n FROM fete_users WHERE person_id = $1', [sue.id]))[0].n, 0)

@@ -84,13 +84,13 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
   )
 
   // Name and contact details live on people; email stays here as the login name.
+  // The permission level is worked out from person_roles (see accountRoleSql).
   await run(
     `
       CREATE TABLE IF NOT EXISTS fete_users (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         person_id  INTEGER REFERENCES people(id) ON DELETE SET NULL,
         email      TEXT NOT NULL UNIQUE,
-        role       TEXT NOT NULL DEFAULT 'user',
         pin        TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
@@ -476,8 +476,8 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
       const person = await runWithMeta('INSERT INTO people (name, email) VALUES ($1, $2)', [name, email], database)
       await run('INSERT INTO person_roles (person_id, role) VALUES ($1, $2)', [person.lastID, ACCOUNT_ROLE_LABELS[role]], database)
       await run(
-        'INSERT INTO fete_users (person_id, email, role, pin) VALUES ($1, $2, $3, $4)',
-        [person.lastID, email, role, pin],
+        'INSERT INTO fete_users (person_id, email, pin) VALUES ($1, $2, $3)',
+        [person.lastID, email, pin],
         database,
       )
     }
@@ -572,7 +572,50 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
 
   await ensurePeopleSchema(database)
   await dropCopiedPersonColumns(database)
+  await dropStoredAccountRole(database)
   await deleteOrphanedAssetRows(database)
+}
+
+/**
+ * fete_users.role stored the permission level that savePerson worked out from
+ * person_roles. It is now calculated on read (accountRoleSql in
+ * backend/fete/personRecords.ts, which this CASE must match). Before dropping
+ * the column, give any person whose roles disagree with their stored level the
+ * matching role, so nobody loses access.
+ */
+async function dropStoredAccountRole(database: sqlite3.Database): Promise<void> {
+  const columns = await all<{ name: string }>('PRAGMA table_info(fete_users);', [], database)
+  if (!columns.some(column => column.name === 'role')) return
+
+  const mismatched = await all<{ id: number; person_id: number; role: string }>(
+    `
+      SELECT u.id, u.person_id, u.role FROM fete_users u
+      WHERE u.person_id IS NOT NULL AND u.role <> (
+        SELECT CASE
+          WHEN SUM(role = 'Admin') > 0 THEN 'admin'
+          WHEN SUM(role = 'Store Keeper') > 0 THEN 'store keeper'
+          ELSE 'user'
+        END FROM person_roles WHERE person_id = u.person_id
+      )
+    `,
+    [],
+    database,
+  )
+
+  await run('BEGIN', [], database)
+  try {
+    for (const user of mismatched) {
+      const label = ACCOUNT_ROLE_LABELS[user.role] ?? 'User'
+      await run('INSERT OR IGNORE INTO person_roles (person_id, role) VALUES ($1, $2)', [user.person_id, label], database)
+      console.log(`Login ${user.id} was stored as '${user.role}' but its person lacked that role; added '${label}'`)
+    }
+    await run('ALTER TABLE fete_users DROP COLUMN role;', [], database)
+    await run('COMMIT', [], database)
+    console.log('Dropped fete_users.role (now worked out from person_roles)')
+  } catch (error) {
+    await run('ROLLBACK', [], database)
+    throw error
+  }
 }
 
 /**

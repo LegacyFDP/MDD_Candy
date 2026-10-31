@@ -50,6 +50,21 @@ test('renaming a category is reflected on its assets', async () => {
   assert.equal((await byName('Bouncy Castle')).category, 'Bouncy Things')
 })
 
+test('changing asset status needs an Admin or Store Keeper role on the person', async () => {
+  const { default: withdrawAsset } = await import('../backend/fete/withdrawAsset.ts')
+  const userId = async email => (await q('SELECT id, person_id FROM fete_users WHERE email = $1', [email]))[0]
+  const alice = await userId('alice@charity.org')
+  const carol = await userId('carol@charity.org')
+  const [{ id: assetId }] = await q(`SELECT id FROM assets WHERE name = 'Folding Chair'`)
+  const withdraw = by => withdrawAsset({ params: { asset_id: assetId, fete_id: null, quantity: 1, withdrawn_by: by, notes: '' }, user: null })
+
+  await assert.rejects(withdraw(carol.id), /Only admin or store keeper/)
+  await withdraw(alice.id)
+  await q(`INSERT INTO person_roles (person_id, role) VALUES ($1, 'Store Keeper')`, [carol.person_id])
+  await withdraw(carol.id)
+  await assert.rejects(withdraw(9999), /user not found/)
+})
+
 test('startup removes rows pointing at deleted assets and fetes', async () => {
   const [{ id: assetId }] = await q(`SELECT id FROM assets ORDER BY id LIMIT 1`)
   const [{ id: feteId }] = await q(`SELECT id FROM fetes ORDER BY id LIMIT 1`)

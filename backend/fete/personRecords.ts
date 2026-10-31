@@ -12,11 +12,28 @@ export const VOLUNTEER_ROLES = [
   'Stall Holder',
 ] as const
 
-/** The single permission level stored on the login account: the most powerful of the person's account roles. */
-export function effectiveAccountRole(roles: string[]): 'admin' | 'store keeper' | 'user' {
-  if (roles.includes('Admin')) return 'admin'
-  if (roles.includes('Store Keeper')) return 'store keeper'
-  return 'user'
+export type AccountRole = 'admin' | 'store keeper' | 'user'
+
+/**
+ * SQL for a login's permission level: the most powerful account role held by
+ * the person whose id is `personIdSql`. Permission checks and the frontend use
+ * these lowercase values.
+ */
+export function accountRoleSql(personIdSql: string): string {
+  return `(SELECT CASE
+      WHEN SUM(role = 'Admin') > 0 THEN 'admin'
+      WHEN SUM(role = 'Store Keeper') > 0 THEN 'store keeper'
+      ELSE 'user'
+    END FROM person_roles WHERE person_id = ${personIdSql})`
+}
+
+/** The permission level of a login account, or null if there is no such account. */
+export async function getAccountRole(userId: number): Promise<AccountRole | null> {
+  const result = await retoolDb.query<{ role: AccountRole }>(
+    `SELECT ${accountRoleSql('u.person_id')} AS role FROM fete_users u WHERE u.id = $1`,
+    [userId],
+  )
+  return result.data[0]?.role ?? null
 }
 
 export async function assertAccountRemovable(userId: number) {

@@ -1,3 +1,5 @@
+import { accountRoleSql } from './personRecords.ts'
+
 type Params = { email: string; pin: string }
 
 export default async function (req: { params: Params; user: User }) {
@@ -5,7 +7,7 @@ export default async function (req: { params: Params; user: User }) {
   const result = await retoolDb.query<{
     id: number; name: string; email: string; role: string
   }>(`
-    SELECT u.id, COALESCE(p.name, u.email) AS name, u.email, u.role
+    SELECT u.id, COALESCE(p.name, u.email) AS name, u.email, ${accountRoleSql('u.person_id')} AS role
     FROM fete_users u
     LEFT JOIN people p ON p.id = u.person_id
     WHERE u.email = $1 AND u.pin = $2

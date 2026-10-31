@@ -1,3 +1,5 @@
+import { getAccountRole } from './personRecords.ts'
+
 type Params = {
   asset_id: number
   fete_id: number
@@ -17,15 +19,11 @@ export default async function (req: { params: Params; user: User }) {
     throw new Error('Booking quantity must be greater than 0')
   }
 
-  const userCheck = await retoolDb.query<{ id: number; role: string }>(
-    `SELECT id, role FROM fete_users WHERE id = $1`,
-    [booked_by],
-  )
-  const actingUser = userCheck.data[0]
-  if (!actingUser) {
+  const role = await getAccountRole(booked_by)
+  if (!role) {
     throw new Error('Booked by user not found')
   }
-  if (actingUser.role !== 'admin' && actingUser.role !== 'store keeper') {
+  if (role !== 'admin' && role !== 'store keeper') {
     throw new Error('Only admin or store keeper can change asset status')
   }
 

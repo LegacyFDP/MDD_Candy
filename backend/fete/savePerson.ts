@@ -1,6 +1,6 @@
 import {
   ACCOUNT_ROLES, PERSON_ROLES, VOLUNTEER_ROLES,
-  assertAccountRemovable, effectiveAccountRole, removeAccount, removeContact, removeVolunteer,
+  assertAccountRemovable, removeAccount, removeContact, removeVolunteer,
 } from './personRecords.ts'
 
 type Params = {
@@ -88,17 +88,17 @@ export default async function (req: { params: Params; user: User }) {
     await retoolDb.query('INSERT INTO person_roles (person_id, role) VALUES ($1, $2)', [personId, role])
   }
 
+  // The login's permission level comes from person_roles; see accountRoleSql.
   if (hasAccount) {
-    const accountRole = effectiveAccountRole(roles)
     if (accountRow) {
       await retoolDb.query(
-        'UPDATE fete_users SET email=$1, role=$2, pin=$3 WHERE id=$4',
-        [email, accountRole, pin, accountRow.id],
+        'UPDATE fete_users SET email=$1, pin=$2 WHERE id=$3',
+        [email, pin, accountRow.id],
       )
     } else {
       await retoolDb.query(
-        'INSERT INTO fete_users (email, role, pin, person_id) VALUES ($1, $2, $3, $4)',
-        [email, accountRole, pin, personId],
+        'INSERT INTO fete_users (email, pin, person_id) VALUES ($1, $2, $3)',
+        [email, pin, personId],
       )
     }
   } else if (accountRow) {

@@ -9,8 +9,23 @@ const dbFile = path.join(dir, 'test.db')
 fs.writeFileSync(dbFile, '')
 process.env.DB_PATH = dbFile
 
-const { db, ensureRuntimeSchema, ensurePeopleSchema, createRetoolDb } = await import('../server/src/db.ts')
+const { db, ensureRuntimeSchema, createRetoolDb } = await import('../server/src/db.ts')
 globalThis.retoolDb = createRetoolDb(db)
+
+// Start from the shape these tables had before people existed, so the first
+// test exercises the real linking and column-dropping migration.
+const q = (sql, params = []) => retoolDb.query(sql, params).then(r => r.data)
+await q(`CREATE TABLE fete_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE,
+  role TEXT NOT NULL DEFAULT 'user', pin TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`)
+await q(`CREATE TABLE fete_volunteers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT, phone TEXT,
+  role TEXT NOT NULL DEFAULT 'Helper', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`)
+await q(`CREATE TABLE fete_contacts (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`)
+await q(`INSERT INTO fete_users (name, email, role, pin) VALUES ('Tim', 'tim@example.com', 'admin', '1111')`)
+await q(`INSERT INTO fete_volunteers (name, email, phone, role) VALUES ('tim ', 'TIM@example.com', '0123', 'Helper')`)
+await q(`INSERT INTO fete_volunteers (name, email, phone, role, notes) VALUES ('Tim', 'other@example.com', '', 'Helper', 'Has a van')`)
+await q(`INSERT INTO fete_contacts (name, email) VALUES ('Pat', '')`)
+await q(`INSERT INTO fete_contacts (name, email) VALUES ('Pat', '')`)
 await ensureRuntimeSchema()
 
 const { default: getPeople } = await import('../backend/fete/getPeople.ts')
@@ -18,7 +33,6 @@ const { default: savePerson } = await import('../backend/fete/savePerson.ts')
 const { default: deletePerson } = await import('../backend/fete/deletePerson.ts')
 const { default: mergePeople } = await import('../backend/fete/mergePeople.ts')
 
-const q = (sql, params = []) => retoolDb.query(sql, params).then(r => r.data)
 const people = async () => (await getPeople({ params: {}, user: null }))
 const byName = async name => (await people()).find(p => p.name === name)
 
@@ -27,23 +41,33 @@ test.after(() => {
   fs.rmSync(dir, { recursive: true, force: true })
 })
 
-test('migration links legacy records and merges matching name + email', async () => {
-  await q(`INSERT INTO fete_users (name, email, role, pin) VALUES ('Tim', 'tim@example.com', 'admin', '1111')`)
-  await q(`INSERT INTO fete_volunteers (name, email, phone, role) VALUES ('tim ', 'TIM@example.com', '0123', 'Helper')`)
-  await q(`INSERT INTO volunteer_roles (volunteer_id, role) SELECT id, 'Helper' FROM fete_volunteers WHERE name = 'tim '`)
-  await q(`INSERT INTO fete_volunteers (name, email, phone, role) VALUES ('Tim', 'other@example.com', '', 'Helper')`)
-  await q(`INSERT INTO fete_contacts (name, email) VALUES ('Pat', '')`)
-  await q(`INSERT INTO fete_contacts (name, email) VALUES ('Pat', '')`)
-  await ensurePeopleSchema(db)
-  await ensurePeopleSchema(db)
+test('migration links legacy records, merges matching name + email, then drops the copied columns', async () => {
+  await ensureRuntimeSchema()
 
   const all = await people()
   const tims = all.filter(p => p.name.trim().toLowerCase() === 'tim')
   assert.equal(tims.length, 2)
   const merged = tims.find(p => p.email === 'tim@example.com')
   assert.deepEqual([...merged.roles].sort(), ['Admin', 'Volunteer'])
+  assert.deepEqual(merged.volunteer_roles, ['Helper'])
   assert.equal(merged.phone, '0123')
+  assert.equal(tims.find(p => p.email === 'other@example.com').notes, 'Has a van')
   assert.equal(all.filter(p => p.name === 'Pat').length, 2)
+
+  const columns = async table => (await q(`PRAGMA table_info(${table})`)).map(c => c.name).sort()
+  assert.deepEqual(await columns('fete_users'), ['created_at', 'email', 'id', 'person_id', 'pin', 'role'])
+  assert.deepEqual(await columns('fete_volunteers'), ['created_at', 'id', 'person_id'])
+  assert.deepEqual(await columns('fete_contacts'), ['created_at', 'id', 'person_id'])
+})
+
+test('login and user list take the name from people', async () => {
+  const { default: loginUser } = await import('../backend/fete/loginUser.ts')
+  const { default: getUsers } = await import('../backend/fete/getUsers.ts')
+  const tim = await byName('Tim')
+  await savePerson({ params: { id: tim.id, name: 'Timothy', email: 'tim@example.com', phone: tim.phone, roles: tim.roles, pin: '1111', volunteer_roles: tim.volunteer_roles }, user: null })
+  assert.equal((await loginUser({ params: { email: 'tim@example.com', pin: '1111' }, user: null })).name, 'Timothy')
+  assert.ok((await getUsers({ params: {}, user: null })).some(u => u.name === 'Timothy'))
+  await savePerson({ params: { id: tim.id, name: 'Tim', email: 'tim@example.com', phone: tim.phone, roles: tim.roles, pin: '1111', volunteer_roles: tim.volunteer_roles }, user: null })
 })
 
 test('a person can hold Admin and Store Keeper with one login at the highest level', async () => {
@@ -86,7 +110,7 @@ test('merge moves shifts and roles and deletePerson removes everything', async (
   assert.ok(otherTim)
   await q(`INSERT INTO fetes (name, event_date, status) VALUES ('Fair', '2026-07-01', 'planned')`)
   const [fete] = await q(`SELECT id FROM fetes WHERE name = 'Fair'`)
-  await q(`INSERT INTO volunteer_shifts (volunteer_id, fete_id, role, start_date, end_date, start_time, end_time) VALUES ($1, $2, 'Helper', '2026-07-01', '2026-07-01', '09:00', '12:00')`, [otherTim.volunteer_id, fete.id])
+  await q(`INSERT INTO volunteer_shifts (volunteer_id, fete_id, start_date, end_date, start_time, end_time) VALUES ($1, $2, '2026-07-01', '2026-07-01', '09:00', '12:00')`, [otherTim.volunteer_id, fete.id])
 
   await mergePeople({ params: { keep_id: keepTim.id, merge_id: otherTim.id }, user: null })
   const tim = await byName('Tim')
@@ -101,6 +125,8 @@ test('merge moves shifts and roles and deletePerson removes everything', async (
 })
 
 test('two people with login accounts cannot be merged', async () => {
+  await savePerson({ params: { name: 'Alice Adams', email: 'alice@example.com', roles: ['Admin'], pin: '4444' }, user: null })
+  await savePerson({ params: { name: 'Bob Brown', email: 'bob@example.com', roles: ['User'], pin: '5555' }, user: null })
   const alice = await byName('Alice Adams')
   const bob = await byName('Bob Brown')
   await assert.rejects(mergePeople({ params: { keep_id: alice.id, merge_id: bob.id }, user: null }), /login accounts/)

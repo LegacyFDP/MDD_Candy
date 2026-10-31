@@ -59,9 +59,36 @@ async function runWithMeta(
 export async function ensureRuntimeSchema(database: sqlite3.Database = db): Promise<void> {
   await run(
     `
-      CREATE TABLE IF NOT EXISTS fete_users (
+      CREATE TABLE IF NOT EXISTS people (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         name       TEXT NOT NULL,
+        email      TEXT NOT NULL DEFAULT '',
+        phone      TEXT NOT NULL DEFAULT '',
+        notes      TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `,
+    [],
+    database,
+  )
+  await run(
+    `
+      CREATE TABLE IF NOT EXISTS person_roles (
+        person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+        role      TEXT NOT NULL,
+        PRIMARY KEY (person_id, role)
+      )
+    `,
+    [],
+    database,
+  )
+
+  // Name and contact details live on people; email stays here as the login name.
+  await run(
+    `
+      CREATE TABLE IF NOT EXISTS fete_users (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        person_id  INTEGER REFERENCES people(id) ON DELETE SET NULL,
         email      TEXT NOT NULL UNIQUE,
         role       TEXT NOT NULL DEFAULT 'user',
         pin        TEXT NOT NULL,
@@ -98,7 +125,7 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
       CREATE TABLE IF NOT EXISTS assets (
         id                 INTEGER PRIMARY KEY AUTOINCREMENT,
         name               TEXT NOT NULL,
-        category           TEXT NOT NULL DEFAULT 'Other',
+        category_id        INTEGER REFERENCES asset_categories(id),
         quantity_total     INTEGER NOT NULL DEFAULT 0,
         quantity_available INTEGER NOT NULL DEFAULT 0,
         location_id        INTEGER REFERENCES store_locations(id) ON DELETE SET NULL,
@@ -259,16 +286,7 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
     [],
     database,
   )
-  await run(
-    `
-      INSERT OR IGNORE INTO asset_categories (name)
-      SELECT DISTINCT TRIM(category)
-      FROM assets
-      WHERE TRIM(category) <> ''
-    `,
-    [],
-    database,
-  )
+  await migrateAssetCategoryToId(database)
 
   const legacyFeteTable = await all<{ name: string }>(
     "SELECT name FROM sqlite_master WHERE type='table' AND name='fete_locations'",
@@ -319,11 +337,7 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
     `
       CREATE TABLE IF NOT EXISTS fete_volunteers (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        name       TEXT NOT NULL,
-        email      TEXT,
-        phone      TEXT,
-        role       TEXT NOT NULL DEFAULT 'Helper',
-        notes      TEXT NOT NULL DEFAULT '',
+        person_id  INTEGER REFERENCES people(id) ON DELETE SET NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `,
@@ -337,7 +351,6 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         volunteer_id INTEGER NOT NULL REFERENCES fete_volunteers(id) ON DELETE CASCADE,
         fete_id     INTEGER REFERENCES fetes(id) ON DELETE CASCADE,
-        role        TEXT NOT NULL DEFAULT 'Helper',
         start_date  TEXT NOT NULL,
         end_date    TEXT NOT NULL,
         start_time  TEXT NOT NULL,
@@ -377,10 +390,7 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
     `
       CREATE TABLE IF NOT EXISTS fete_contacts (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        name       TEXT NOT NULL,
-        email      TEXT NOT NULL DEFAULT '',
-        phone      TEXT NOT NULL DEFAULT '',
-        notes      TEXT NOT NULL DEFAULT '',
+        person_id  INTEGER REFERENCES people(id) ON DELETE SET NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `,
@@ -400,25 +410,8 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
     database,
   )
 
-  await run(
-    `
-      INSERT OR IGNORE INTO volunteer_roles (volunteer_id, role)
-      SELECT id, role FROM fete_volunteers
-      WHERE TRIM(role) <> ''
-    `,
-    [],
-    database,
-  )
-
-  await run(
-    `
-      INSERT OR IGNORE INTO volunteer_shift_roles (shift_id, role)
-      SELECT id, role FROM volunteer_shifts
-      WHERE TRIM(role) <> ''
-    `,
-    [],
-    database,
-  )
+  await migrateSingleRoleColumn('fete_volunteers', 'volunteer_roles', 'volunteer_id', database)
+  await migrateSingleRoleColumn('volunteer_shifts', 'volunteer_shift_roles', 'shift_id', database)
 
   const shiftColumns = await all<{ name: string }>('PRAGMA table_info(volunteer_shifts);', [], database)
   const shiftExisting = new Set(shiftColumns.map((column) => column.name))
@@ -473,17 +466,21 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
 
   const userCount = await all<{ count: number }>('SELECT COUNT(*) AS count FROM fete_users', [], database)
   if ((userCount[0]?.count ?? 0) === 0) {
-    await run(
-      `
-        INSERT INTO fete_users (name, email, role, pin) VALUES
-          ('Alice Adams', 'alice@charity.org', 'admin', '1234'),
-          ('Bob Brown', 'bob@charity.org', 'admin', '2345'),
-          ('Carol Clarke', 'carol@charity.org', 'user', '3456'),
-          ('Dan Davies', 'dan@charity.org', 'user', '4567')
-      `,
-      [],
-      database,
-    )
+    const seedUsers = [
+      ['Alice Adams', 'alice@charity.org', 'admin', '1234'],
+      ['Bob Brown', 'bob@charity.org', 'admin', '2345'],
+      ['Carol Clarke', 'carol@charity.org', 'user', '3456'],
+      ['Dan Davies', 'dan@charity.org', 'user', '4567'],
+    ] as const
+    for (const [name, email, role, pin] of seedUsers) {
+      const person = await runWithMeta('INSERT INTO people (name, email) VALUES ($1, $2)', [name, email], database)
+      await run('INSERT INTO person_roles (person_id, role) VALUES ($1, $2)', [person.lastID, ACCOUNT_ROLE_LABELS[role]], database)
+      await run(
+        'INSERT INTO fete_users (person_id, email, role, pin) VALUES ($1, $2, $3, $4)',
+        [person.lastID, email, role, pin],
+        database,
+      )
+    }
 
     await run(
       `
@@ -512,7 +509,9 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
 
     await run(
       `
-        INSERT INTO assets (name, category, quantity_total, quantity_available, location_id, notes) VALUES
+        INSERT INTO assets (name, category_id, quantity_total, quantity_available, location_id, notes)
+        SELECT seed.column1, c.id, seed.column3, seed.column4, seed.column5, seed.column6
+        FROM (VALUES
           ('Folding Table 6ft', 'Furniture', 12, 12, 2, 'Heavy - two people to carry'),
           ('Folding Chair', 'Furniture', 60, 60, 2, ''),
           ('Gazebo 3x3m', 'Shelter', 4, 4, 2, 'Check all poles before use'),
@@ -525,6 +524,8 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
           ('Tea Urn (20L)', 'Equipment', 3, 3, 4, 'Descale after each use'),
           ('Signage A-Board', 'Stationery', 5, 5, 1, ''),
           ('Tombola Tickets (roll)', 'Stationery', 15, 15, 1, '')
+        ) AS seed
+        JOIN asset_categories c ON c.name = seed.column2
       `,
       [],
       database,
@@ -570,6 +571,132 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
   }
 
   await ensurePeopleSchema(database)
+  await dropCopiedPersonColumns(database)
+  await deleteOrphanedAssetRows(database)
+}
+
+/**
+ * Foreign keys are not enforced on this connection, so deleting an asset or
+ * fete has left rows pointing at ids that no longer exist. Apply what the
+ * ON DELETE rules would have done.
+ */
+async function deleteOrphanedAssetRows(database: sqlite3.Database): Promise<void> {
+  const cleanups = [
+    ['withdrawals with a missing asset', 'DELETE FROM withdrawals WHERE asset_id NOT IN (SELECT id FROM assets)'],
+    ['withdrawals with a missing fete', 'UPDATE withdrawals SET fete_id = NULL WHERE fete_id IS NOT NULL AND fete_id NOT IN (SELECT id FROM fetes)'],
+    ['fete requirements with a missing asset', 'DELETE FROM fete_requirements WHERE asset_id NOT IN (SELECT id FROM assets)'],
+    ['fete requirements with a missing fete', 'DELETE FROM fete_requirements WHERE fete_id NOT IN (SELECT id FROM fetes)'],
+  ] as const
+  for (const [label, sql] of cleanups) {
+    const { changes } = await runWithMeta(sql, [], database)
+    if (changes > 0) console.log(`Cleaned up ${changes} ${label}`)
+  }
+}
+
+/**
+ * fete_users, fete_volunteers and fete_contacts kept their own copies of the
+ * person's details after people was introduced. Once every row is linked to a
+ * person, drop the copies. fete_users keeps email as the login name.
+ */
+async function dropCopiedPersonColumns(database: sqlite3.Database): Promise<void> {
+  const copied = {
+    fete_users: ['name'],
+    fete_volunteers: ['name', 'email', 'phone', 'notes'],
+    fete_contacts: ['name', 'email', 'phone', 'notes'],
+  } as const
+
+  for (const [table, dropColumns] of Object.entries(copied)) {
+    const existing = new Set((await all<{ name: string }>(`PRAGMA table_info(${table});`, [], database)).map(c => c.name))
+    const toDrop = dropColumns.filter(column => existing.has(column))
+    if (toDrop.length === 0) continue
+
+    const unlinked = await all<{ count: number }>(`SELECT COUNT(*) AS count FROM ${table} WHERE person_id IS NULL`, [], database)
+    if ((unlinked[0]?.count ?? 0) > 0) {
+      throw new Error(`Cannot drop ${table} person columns: ${unlinked[0]!.count} rows are not linked to a person`)
+    }
+
+    await run('BEGIN', [], database)
+    try {
+      for (const column of toDrop) await run(`ALTER TABLE ${table} DROP COLUMN ${column};`, [], database)
+      await run('COMMIT', [], database)
+      console.log(`Dropped ${table} columns now held on people: ${toDrop.join(', ')}`)
+    } catch (error) {
+      await run('ROLLBACK', [], database)
+      throw error
+    }
+  }
+}
+
+/**
+ * assets.category used to hold the category name as free text, duplicating
+ * asset_categories. Replace it with a category_id foreign key: register any
+ * names not yet in asset_categories, point each asset at its row, then drop
+ * the text column. Runs once; databases without the old column are skipped.
+ */
+async function migrateAssetCategoryToId(database: sqlite3.Database): Promise<void> {
+  const columns = await all<{ name: string }>('PRAGMA table_info(assets);', [], database)
+  if (!columns.some(column => column.name === 'category')) return
+
+  await run('BEGIN', [], database)
+  try {
+    await run(
+      `
+        INSERT OR IGNORE INTO asset_categories (name)
+        SELECT DISTINCT TRIM(category) FROM assets WHERE TRIM(category) <> ''
+      `,
+      [],
+      database,
+    )
+    if (!columns.some(column => column.name === 'category_id')) {
+      await run('ALTER TABLE assets ADD COLUMN category_id INTEGER REFERENCES asset_categories(id);', [], database)
+    }
+    await run(
+      `
+        UPDATE assets SET category_id = (
+          SELECT c.id FROM asset_categories c
+          WHERE c.name = COALESCE(NULLIF(TRIM(assets.category), ''), 'Other')
+        )
+      `,
+      [],
+      database,
+    )
+    await run('ALTER TABLE assets DROP COLUMN category;', [], database)
+    await run('COMMIT', [], database)
+    console.log('Migrated assets.category to assets.category_id')
+  } catch (error) {
+    await run('ROLLBACK', [], database)
+    throw error
+  }
+}
+
+/**
+ * fete_volunteers.role and volunteer_shifts.role held a single role that is
+ * also stored in the matching link table. Copy any value missing from the
+ * link table, then drop the column. Runs once per table.
+ */
+async function migrateSingleRoleColumn(
+  table: 'fete_volunteers' | 'volunteer_shifts',
+  roleTable: 'volunteer_roles' | 'volunteer_shift_roles',
+  keyColumn: 'volunteer_id' | 'shift_id',
+  database: sqlite3.Database,
+): Promise<void> {
+  const columns = await all<{ name: string }>(`PRAGMA table_info(${table});`, [], database)
+  if (!columns.some(column => column.name === 'role')) return
+
+  await run('BEGIN', [], database)
+  try {
+    await run(
+      `INSERT OR IGNORE INTO ${roleTable} (${keyColumn}, role) SELECT id, role FROM ${table} WHERE TRIM(role) <> ''`,
+      [],
+      database,
+    )
+    await run(`ALTER TABLE ${table} DROP COLUMN role;`, [], database)
+    await run('COMMIT', [], database)
+    console.log(`Dropped ${table}.role (now only in ${roleTable})`)
+  } catch (error) {
+    await run('ROLLBACK', [], database)
+    throw error
+  }
 }
 
 const ACCOUNT_ROLE_LABELS: Record<string, string> = {
@@ -579,45 +706,24 @@ const ACCOUNT_ROLE_LABELS: Record<string, string> = {
 }
 
 /**
- * One `people` row per human, with any number of `person_roles`. The legacy
+ * One `people` row per human, with any number of `person_roles`. The
  * fete_users / fete_volunteers / fete_contacts tables stay as per-role detail
- * records (other tables reference them) and now link back through person_id.
- * Existing records are linked once; records that share a name and email are
- * merged into the same person, everything else becomes its own person.
+ * records (other tables reference them) and link back through person_id.
+ * Databases from before people existed have their records linked once;
+ * records that share a name and email are merged into the same person,
+ * everything else becomes its own person. dropCopiedPersonColumns then
+ * removes the old detail columns, after which there is nothing left to link.
  */
-export async function ensurePeopleSchema(database: sqlite3.Database = db): Promise<void> {
-  await run(
-    `
-      CREATE TABLE IF NOT EXISTS people (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        name       TEXT NOT NULL,
-        email      TEXT NOT NULL DEFAULT '',
-        phone      TEXT NOT NULL DEFAULT '',
-        notes      TEXT NOT NULL DEFAULT '',
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `,
-    [],
-    database,
-  )
-  await run(
-    `
-      CREATE TABLE IF NOT EXISTS person_roles (
-        person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
-        role      TEXT NOT NULL,
-        PRIMARY KEY (person_id, role)
-      )
-    `,
-    [],
-    database,
-  )
-
+async function ensurePeopleSchema(database: sqlite3.Database): Promise<void> {
+  const legacyTables = new Set<string>()
   for (const table of ['fete_users', 'fete_volunteers', 'fete_contacts']) {
     const columns = await all<{ name: string }>(`PRAGMA table_info(${table});`, [], database)
     if (!columns.some(column => column.name === 'person_id')) {
       await run(`ALTER TABLE ${table} ADD COLUMN person_id INTEGER REFERENCES people(id) ON DELETE SET NULL;`, [], database)
     }
+    if (columns.some(column => column.name === 'name')) legacyTables.add(table)
   }
+  if (legacyTables.size === 0) return
 
   async function createPerson(name: string, email: string, phone: string, notes: string, role: string) {
     const created = await runWithMeta(
@@ -665,29 +771,35 @@ export async function ensurePeopleSchema(database: sqlite3.Database = db): Promi
     await run(`UPDATE ${table} SET person_id = $1 WHERE id = $2`, [personId, row.id], database)
   }
 
-  const users = await all<{ id: number; name: string; email: string; role: string }>(
-    'SELECT id, name, email, role FROM fete_users WHERE person_id IS NULL ORDER BY id',
-    [],
-    database,
-  )
-  for (const user of users) {
-    const personId = await createPerson(user.name.trim(), user.email.trim(), '', '', ACCOUNT_ROLE_LABELS[user.role] ?? 'User')
-    await run('UPDATE fete_users SET person_id = $1 WHERE id = $2', [personId, user.id], database)
+  if (legacyTables.has('fete_users')) {
+    const users = await all<{ id: number; name: string; email: string; role: string }>(
+      'SELECT id, name, email, role FROM fete_users WHERE person_id IS NULL ORDER BY id',
+      [],
+      database,
+    )
+    for (const user of users) {
+      const personId = await createPerson(user.name.trim(), user.email.trim(), '', '', ACCOUNT_ROLE_LABELS[user.role] ?? 'User')
+      await run('UPDATE fete_users SET person_id = $1 WHERE id = $2', [personId, user.id], database)
+    }
   }
 
-  const volunteers = await all<{ id: number; name: string; email: string | null; phone: string | null; notes: string | null }>(
-    'SELECT id, name, email, phone, notes FROM fete_volunteers WHERE person_id IS NULL ORDER BY id',
-    [],
-    database,
-  )
-  for (const volunteer of volunteers) await linkOrCreate('fete_volunteers', volunteer, 'Volunteer')
+  if (legacyTables.has('fete_volunteers')) {
+    const volunteers = await all<{ id: number; name: string; email: string | null; phone: string | null; notes: string | null }>(
+      'SELECT id, name, email, phone, notes FROM fete_volunteers WHERE person_id IS NULL ORDER BY id',
+      [],
+      database,
+    )
+    for (const volunteer of volunteers) await linkOrCreate('fete_volunteers', volunteer, 'Volunteer')
+  }
 
-  const contacts = await all<{ id: number; name: string; email: string | null; phone: string | null; notes: string | null }>(
-    'SELECT id, name, email, phone, notes FROM fete_contacts WHERE person_id IS NULL ORDER BY id',
-    [],
-    database,
-  )
-  for (const contact of contacts) await linkOrCreate('fete_contacts', contact, 'Contact')
+  if (legacyTables.has('fete_contacts')) {
+    const contacts = await all<{ id: number; name: string; email: string | null; phone: string | null; notes: string | null }>(
+      'SELECT id, name, email, phone, notes FROM fete_contacts WHERE person_id IS NULL ORDER BY id',
+      [],
+      database,
+    )
+    for (const contact of contacts) await linkOrCreate('fete_contacts', contact, 'Contact')
+  }
 }
 
 /**

@@ -67,7 +67,7 @@ export default async function (req: { params: Params; user: User }) {
       fl.name AS fete_location_name,
       a.id AS asset_id,
       a.name AS asset_name,
-      a.category,
+      COALESCE(c.name, 'Other') AS category,
       sl.name AS store_location_name,
       COALESCE(r.quantity_needed, 0) AS quantity_needed,
       COALESCE(bw.quantity_booked, 0) AS quantity_booked,
@@ -116,6 +116,7 @@ export default async function (req: { params: Params; user: User }) {
     FROM pick_keys pk
     JOIN fetes f ON pk.fete_id = f.id
     JOIN assets a ON pk.asset_id = a.id
+    LEFT JOIN asset_categories c ON a.category_id = c.id
     LEFT JOIN requirements r
       ON r.fete_id = pk.fete_id
      AND r.asset_id = pk.asset_id
@@ -128,7 +129,7 @@ export default async function (req: { params: Params; user: User }) {
       ON ow.fete_id = pk.fete_id
      AND ow.asset_id = pk.asset_id
     ${whereClause}
-    ORDER BY f.event_date ASC, f.name ASC, a.category ASC, a.name ASC
+    ORDER BY f.event_date ASC, f.name ASC, category ASC, a.name ASC
   `, values)
 
   return result.data

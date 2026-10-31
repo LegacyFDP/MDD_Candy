@@ -78,17 +78,6 @@ export default async function (req: { params: Params; user: User }) {
      WHERE id = $4`,
     [merge.email, merge.phone, merge.notes, keepId],
   )
-  for (const table of ['fete_volunteers', 'fete_contacts']) {
-    await retoolDb.query(
-      `UPDATE ${table}
-       SET name = (SELECT name FROM people WHERE id = $1),
-           email = (SELECT email FROM people WHERE id = $1),
-           phone = (SELECT phone FROM people WHERE id = $1),
-           notes = (SELECT notes FROM people WHERE id = $1)
-       WHERE person_id = $1`,
-      [keepId],
-    )
-  }
 
   return { success: true }
 }

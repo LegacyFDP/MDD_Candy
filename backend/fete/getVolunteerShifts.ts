@@ -17,7 +17,6 @@ export default async function (req: { params: Params; user: User }) {
     volunteer_name: string
     fete_id: number | null
     fete_name: string | null
-    role: string
     roles: string | null
     start_date: string
     end_date: string
@@ -28,11 +27,10 @@ export default async function (req: { params: Params; user: User }) {
     SELECT
       vs.id,
       vs.volunteer_id,
-      v.name AS volunteer_name,
+      p.name AS volunteer_name,
       vs.fete_id,
       f.name AS fete_name,
-      vs.role,
-      GROUP_CONCAT(vsr.role, '|') AS roles,
+      GROUP_CONCAT(vsr.role, '|' ORDER BY vsr.rowid) AS roles,
       vs.start_date,
       vs.end_date,
       vs.start_time,
@@ -40,6 +38,7 @@ export default async function (req: { params: Params; user: User }) {
       vs.created_at
     FROM volunteer_shifts vs
     LEFT JOIN fete_volunteers v ON v.id = vs.volunteer_id
+    LEFT JOIN people p ON p.id = v.person_id
     LEFT JOIN fetes f ON f.id = vs.fete_id
     LEFT JOIN volunteer_shift_roles vsr ON vsr.shift_id = vs.id
     WHERE ($1 IS NULL OR vs.volunteer_id = $1)
@@ -50,7 +49,7 @@ export default async function (req: { params: Params; user: User }) {
 
   return result.data.map(shift => ({
     ...shift,
-    role: shift.role || (shift.roles ? shift.roles.split('|')[0] : '') || 'Helper',
+    role: (shift.roles ? shift.roles.split('|')[0] : '') || 'Helper',
     roles: shift.roles ? shift.roles.split('|') : [],
   }))
 }

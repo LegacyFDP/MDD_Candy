@@ -92,13 +92,13 @@ export default async function (req: { params: Params; user: User }) {
     const accountRole = effectiveAccountRole(roles)
     if (accountRow) {
       await retoolDb.query(
-        'UPDATE fete_users SET name=$1, email=$2, role=$3, pin=$4 WHERE id=$5',
-        [name, email, accountRole, pin, accountRow.id],
+        'UPDATE fete_users SET email=$1, role=$2, pin=$3 WHERE id=$4',
+        [email, accountRole, pin, accountRow.id],
       )
     } else {
       await retoolDb.query(
-        'INSERT INTO fete_users (name, email, role, pin, person_id) VALUES ($1, $2, $3, $4, $5)',
-        [name, email, accountRole, pin, personId],
+        'INSERT INTO fete_users (email, role, pin, person_id) VALUES ($1, $2, $3, $4)',
+        [email, accountRole, pin, personId],
       )
     }
   } else if (accountRow) {
@@ -107,15 +107,10 @@ export default async function (req: { params: Params; user: User }) {
 
   if (isVolunteer) {
     let volunteerId = volunteerRow?.id
-    if (volunteerId) {
-      await retoolDb.query(
-        'UPDATE fete_volunteers SET name=$1, email=$2, phone=$3, role=$4, notes=$5 WHERE id=$6',
-        [name, email, phone, volunteerRoles[0] ?? '', notes, volunteerId],
-      )
-    } else {
+    if (!volunteerId) {
       const created = await retoolDb.query<{ id: number }>(
-        'INSERT INTO fete_volunteers (name, email, phone, role, notes, person_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-        [name, email, phone, volunteerRoles[0] ?? '', notes, personId],
+        'INSERT INTO fete_volunteers (person_id) VALUES ($1) RETURNING id',
+        [personId],
       )
       volunteerId = created.data[0]?.id
     }
@@ -129,15 +124,10 @@ export default async function (req: { params: Params; user: User }) {
 
   if (isContact) {
     let contactId = contactRow?.id
-    if (contactId) {
-      await retoolDb.query(
-        'UPDATE fete_contacts SET name=$1, email=$2, phone=$3, notes=$4 WHERE id=$5',
-        [name, email, phone, notes, contactId],
-      )
-    } else {
+    if (!contactId) {
       const created = await retoolDb.query<{ id: number }>(
-        'INSERT INTO fete_contacts (name, email, phone, notes, person_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-        [name, email, phone, notes, personId],
+        'INSERT INTO fete_contacts (person_id) VALUES ($1) RETURNING id',
+        [personId],
       )
       contactId = created.data[0]?.id
     }

@@ -80,12 +80,12 @@ test('saveVolunteerShift allocates volunteer to custom time slots on individual 
   assert.equal(res.count, 2)
   const insertQueries = queries.filter(q => q.sql.includes('INSERT INTO volunteer_shifts'))
   assert.equal(insertQueries.length, 2)
-  assert.equal(insertQueries[0].params[3], '2026-07-10')
-  assert.equal(insertQueries[0].params[5], '09:00')
-  assert.equal(insertQueries[0].params[6], '13:00')
-  assert.equal(insertQueries[1].params[3], '2026-07-12')
-  assert.equal(insertQueries[1].params[5], '14:00')
-  assert.equal(insertQueries[1].params[6], '18:00')
+  assert.equal(insertQueries[0].params[2], '2026-07-10')
+  assert.equal(insertQueries[0].params[4], '09:00')
+  assert.equal(insertQueries[0].params[5], '13:00')
+  assert.equal(insertQueries[1].params[2], '2026-07-12')
+  assert.equal(insertQueries[1].params[4], '14:00')
+  assert.equal(insertQueries[1].params[5], '18:00')
 })
 
 test('saveVolunteerShift requires at least one time slot', async () => {

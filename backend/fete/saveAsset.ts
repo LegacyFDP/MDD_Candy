@@ -23,12 +23,21 @@ export default async function (req: { params: Params; user: User }) {
     if (area.data.length === 0) throw new Error('Storage Area must belong to the selected active Store Location')
   }
 
+  // The form may submit a new category name; register it, then store its id.
+  const categoryName = category.trim() || 'Other'
+  await retoolDb.query(`INSERT OR IGNORE INTO asset_categories (name) VALUES ($1)`, [categoryName])
+  const categoryRow = await retoolDb.query<{ id: number }>(
+    `SELECT id FROM asset_categories WHERE name = $1 COLLATE NOCASE`,
+    [categoryName],
+  )
+  const categoryId = categoryRow.data[0]!.id
+
   if (id) {
     // Update: recalculate available = total - currently out
     await retoolDb.query(`
       UPDATE assets
       SET name = $1,
-          category = $2,
+          category_id = $2,
           quantity_total = $3,
           quantity_available = $3 - (
             SELECT COALESCE(SUM(quantity), 0)
@@ -39,7 +48,7 @@ export default async function (req: { params: Params; user: User }) {
               storage_area_id = $6,
               notes = $7
       WHERE id = $4
-            `, [name, category, quantity_total, id, location_id, storage_area_id ?? null, notes])
+            `, [name, categoryId, quantity_total, id, location_id, storage_area_id ?? null, notes])
     return { success: true }
   } else {
     const duplicate = await retoolDb.query<{ id: number }>(
@@ -51,9 +60,9 @@ export default async function (req: { params: Params; user: User }) {
     }
 
     await retoolDb.query(`
-      INSERT INTO assets (name, category, quantity_total, quantity_available, location_id, storage_area_id, notes)
+      INSERT INTO assets (name, category_id, quantity_total, quantity_available, location_id, storage_area_id, notes)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, [name, category, quantity_total, quantity_total, location_id, storage_area_id ?? null, notes])
+    `, [name, categoryId, quantity_total, quantity_total, location_id, storage_area_id ?? null, notes])
     return { success: true }
   }
 }

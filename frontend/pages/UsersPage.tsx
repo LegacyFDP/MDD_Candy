@@ -1,55 +1,91 @@
 import { useEffect, useState } from 'react'
-import { useGetUsersWithFetes, useSaveUser, useDeleteUser } from '../hooks/backend/fete'
+import {
+  useGetPeople, useSavePerson, useDeletePerson, useMergePeople, useGetFetes,
+} from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Input } from '../lib/shadcn/input'
 import { Label } from '../lib/shadcn/label'
 import { Badge } from '../lib/shadcn/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../lib/shadcn/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
-import { Plus, Pencil, Trash2, Shield, User, Calendar, Eye, EyeOff } from 'lucide-react'
+import { Plus, Pencil, Trash2, Eye, EyeOff, Search, GitMerge } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
 
-type FeteAllocation = {
-  fete_id: number
-  fete_name: string
-  event_date: string
-  fete_status: string
-  notes: string
-}
+type PersonRole = 'Admin' | 'Store Keeper' | 'User' | 'Volunteer' | 'Contact'
 
-type FeteUser = {
+const PERSON_ROLES: PersonRole[] = ['Admin', 'Store Keeper', 'User', 'Volunteer', 'Contact']
+const ACCOUNT_ROLES: PersonRole[] = ['User', 'Admin', 'Store Keeper']
+const VOLUNTEER_ROLES = ['Lead Volunteer', 'Helper', 'Putting Up', 'Taking Down', 'Transport', 'Stall Holder']
+
+type Person = {
   id: number
   name: string
   email: string
-  role: 'admin' | 'store keeper' | 'user'
+  phone: string
+  notes: string
+  roles: PersonRole[]
+  user_id: number | null
   pin: string
-  fetes: FeteAllocation[]
+  volunteer_id: number | null
+  volunteer_roles: string[]
+  contact_id: number | null
+  contact_fete_ids: number[]
+  contact_fete_names: string[]
+  created_fetes: { fete_id: number; fete_name: string }[]
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  planned:   'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-  active:    'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-  completed: 'bg-muted text-muted-foreground',
-  cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+type Fete = { id: number; name: string }
+
+type PersonForm = {
+  id: number | null
+  name: string
+  email: string
+  phone: string
+  notes: string
+  roles: PersonRole[]
+  pin: string
+  volunteerRoles: string[]
+  contactEventIds: number[]
+}
+
+const emptyPersonForm = (): PersonForm => ({
+  id: null, name: '', email: '', phone: '', notes: '', roles: ['User'], pin: '', volunteerRoles: [], contactEventIds: [],
+})
+
+function personDetails(person: Person): string {
+  return [
+    person.roles.includes('Volunteer') ? person.volunteer_roles.join(', ') : '',
+    person.roles.includes('Contact') ? person.contact_fete_names.join(', ') : '',
+    person.created_fetes.map(f => f.fete_name).join(', '),
+  ].filter(Boolean).join(' · ')
 }
 
 export default function UsersPage({ currentUser }: Props) {
-  const { data: usersRaw, trigger: loadUsers } = useGetUsersWithFetes()
-  const { trigger: saveUser, loading: saving } = useSaveUser()
-  const { trigger: deleteUser } = useDeleteUser()
+  const { data: peopleRaw, trigger: loadPeople } = useGetPeople()
+  const { trigger: savePerson, loading: saving } = useSavePerson()
+  const { trigger: deletePerson } = useDeletePerson()
+  const { trigger: mergePeople, loading: merging } = useMergePeople()
+  const { data: fetesRaw, trigger: loadFetes } = useGetFetes()
 
-  const users = (usersRaw ?? []) as FeteUser[]
+  const people = (peopleRaw ?? []) as Person[]
+  const fetes = (fetesRaw ?? []) as Fete[]
 
   const [open, setOpen] = useState(false)
-  const [editId, setEditId] = useState<number | null>(null)
   const [showPin, setShowPin] = useState(false)
-  const [form, setForm] = useState<Partial<FeteUser>>({
-    name: '', email: '', role: 'user', pin: ''
-  })
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [roleFilter, setRoleFilter] = useState<'all' | PersonRole>('all')
+  const [form, setForm] = useState<PersonForm>(emptyPersonForm())
+  const [mergeTarget, setMergeTarget] = useState<Person | null>(null)
+  const [mergeSourceId, setMergeSourceId] = useState('')
+  const [mergeError, setMergeError] = useState<string | null>(null)
 
-  useEffect(() => { void loadUsers({}) }, [])
+  useEffect(() => {
+    void loadPeople({})
+    void loadFetes({})
+  }, [])
 
   if (currentUser.role !== 'admin') {
     return (
@@ -59,223 +95,295 @@ export default function UsersPage({ currentUser }: Props) {
     )
   }
 
+  const isSelf = (person: Person) => person.user_id === currentUser.id
+
   function openNew() {
-    setForm({ name: '', email: '', role: 'user', pin: '' })
-    setEditId(null)
+    setForm(emptyPersonForm())
+    setSaveError(null)
     setShowPin(false)
     setOpen(true)
   }
 
-  function openEdit(u: FeteUser) {
-    setForm({ id: u.id, name: u.name, email: u.email, role: u.role, pin: u.pin })
-    setEditId(u.id)
+  function openEdit(person: Person) {
+    setForm({
+      id: person.id,
+      name: person.name,
+      email: person.email,
+      phone: person.phone,
+      notes: person.notes,
+      roles: person.roles,
+      pin: person.pin,
+      volunteerRoles: person.volunteer_roles,
+      contactEventIds: person.contact_fete_ids,
+    })
+    setSaveError(null)
     setShowPin(false)
     setOpen(true)
   }
+
+  function toggleRole(role: PersonRole, checked: boolean) {
+    setForm(f => ({ ...f, roles: checked ? [...f.roles, role] : f.roles.filter(item => item !== role) }))
+  }
+
+  const hasAccount = form.roles.some(role => ACCOUNT_ROLES.includes(role))
+  const isVolunteer = form.roles.includes('Volunteer')
+  const isContact = form.roles.includes('Contact')
+  const editing = people.find(person => person.id === form.id)
+  const removingOwnAccess = Boolean(editing && isSelf(editing) && !form.roles.includes('Admin'))
 
   async function handleSave() {
-    await saveUser({
-      ...(editId ? { id: editId } : {}),
-      name: form.name ?? '',
-      email: form.email ?? '',
-      role: form.role ?? 'user',
-      pin: form.pin ?? ''
-    })
-    setOpen(false)
-    void loadUsers({})
+    setSaveError(null)
+    try {
+      await savePerson({
+        id: form.id ?? undefined,
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        notes: form.notes,
+        roles: form.roles,
+        pin: hasAccount ? form.pin : '',
+        volunteer_roles: isVolunteer ? form.volunteerRoles : [],
+        contact_fete_ids: isContact ? form.contactEventIds : [],
+      })
+      setOpen(false)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : String(err))
+    }
+    void loadPeople({})
   }
 
-  async function handleDelete(id: number) {
-    if (id === currentUser.id) return alert('Cannot delete yourself.')
-    if (!confirm('Delete this user?')) return
-    await deleteUser({ id })
-    void loadUsers({})
+  async function handleDelete(person: Person) {
+    if (isSelf(person)) return alert('Cannot delete yourself.')
+    if (!confirm(`Delete ${person.name} (${person.roles.join(', ')})?`)) return
+    try {
+      await deletePerson({ id: person.id })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err))
+    }
+    void loadPeople({})
   }
 
-  const admins = users.filter(u => u.role === 'admin')
-  const storeKeepers = users.filter(u => u.role === 'store keeper')
-  const regularUsers = users.filter(u => u.role === 'user')
+  async function handleMerge() {
+    if (!mergeTarget || !mergeSourceId) return
+    setMergeError(null)
+    try {
+      await mergePeople({ keep_id: mergeTarget.id, merge_id: Number(mergeSourceId) })
+      setMergeTarget(null)
+      setMergeSourceId('')
+    } catch (err) {
+      setMergeError(err instanceof Error ? err.message : String(err))
+    }
+    void loadPeople({})
+  }
+
+  const query = searchTerm.trim().toLowerCase()
+  const visiblePeople = people
+    .filter(person => roleFilter === 'all' || person.roles.includes(roleFilter))
+    .filter(person => !query || [person.name, person.email, person.phone].some(value => (value ?? '').toLowerCase().includes(query)))
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">User Management</h1>
-          <p className="text-muted-foreground text-sm">Manage admins, store keepers, and users · {users.length} total</p>
+          <h1 className="text-2xl font-bold">People Management</h1>
+          <p className="text-muted-foreground text-sm">One record per person, with any combination of roles</p>
         </div>
         <Button onClick={openNew} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Add User
+          <Plus className="w-4 h-4" /> Add Person
         </Button>
       </div>
 
-      {/* Admins */}
-      <section>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-          <Shield className="w-4 h-4" /> Admins ({admins.length})
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {admins.map(u => (
-            <UserCard key={u.id} user={u} currentUser={currentUser}
-              onEdit={openEdit} onDelete={handleDelete} />
-          ))}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="relative w-full max-w-md">
+          <Label htmlFor="user-search">Search people</Label>
+          <Search className="absolute left-3 top-9 w-4 h-4 text-muted-foreground" />
+          <Input
+            id="user-search"
+            value={searchTerm}
+            onChange={event => setSearchTerm(event.target.value)}
+            placeholder="Search by name, email or phone"
+            className="mt-1 pl-9"
+          />
         </div>
-      </section>
-
-      {/* Store keepers */}
-      <section>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-          <Shield className="w-4 h-4" /> Store keepers ({storeKeepers.length})
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {storeKeepers.map(u => (
-            <UserCard key={u.id} user={u} currentUser={currentUser}
-              onEdit={openEdit} onDelete={handleDelete} />
-          ))}
+        <div className="w-48">
+          <Label>Role</Label>
+          <Select value={roleFilter} onValueChange={value => setRoleFilter(value as 'all' | PersonRole)}>
+            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All roles</SelectItem>
+              {PERSON_ROLES.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
-      </section>
+      </div>
 
-      {/* Regular users */}
-      <section>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-          <User className="w-4 h-4" /> Users ({regularUsers.length})
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {regularUsers.map(u => (
-            <UserCard key={u.id} user={u} currentUser={currentUser}
-              onEdit={openEdit} onDelete={handleDelete} />
-          ))}
-        </div>
-      </section>
+      <div className="border rounded-lg bg-card overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-muted text-left text-xs text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 font-medium">Name</th>
+              <th className="px-3 py-2 font-medium">Roles</th>
+              <th className="px-3 py-2 font-medium">Email</th>
+              <th className="px-3 py-2 font-medium">Phone</th>
+              <th className="hidden lg:table-cell px-3 py-2 font-medium">Details</th>
+              <th className="px-3 py-2 font-medium text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {visiblePeople.map(person => (
+              <tr key={person.id}>
+                <td className="px-3 py-2 font-medium">
+                  {person.name}
+                  {isSelf(person) && <Badge variant="outline" className="ml-2 text-xs">You</Badge>}
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex flex-wrap gap-1">
+                    {PERSON_ROLES.filter(role => person.roles.includes(role)).map(role => <Badge key={role} variant="secondary">{role}</Badge>)}
+                  </div>
+                </td>
+                <td className="px-3 py-2">{person.email || '—'}</td>
+                <td className="px-3 py-2">{person.phone || '—'}</td>
+                <td className="hidden lg:table-cell px-3 py-2 text-muted-foreground max-w-xs truncate">{personDetails(person) || '—'}</td>
+                <td className="px-3 py-2">
+                  <div className="flex justify-end gap-1">
+                    <Button size="sm" variant="outline" onClick={() => openEdit(person)} aria-label={`Edit ${person.name}`}>
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => { setMergeTarget(person); setMergeSourceId(''); setMergeError(null) }}
+                      aria-label={`Merge another person into ${person.name}`} title="Merge a duplicate into this person">
+                      <GitMerge className="w-3 h-3" />
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-destructive hover:text-destructive"
+                      onClick={() => void handleDelete(person)} aria-label={`Delete ${person.name}`}>
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {visiblePeople.length === 0 && (
+              <tr><td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">No people found.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-      {/* Edit / Add dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editId ? 'Edit User' : 'Add New User'}</DialogTitle>
+            <DialogTitle>{form.id ? 'Edit Person' : 'Add Person'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
               <Label>Full Name</Label>
-              <Input value={form.name ?? ''}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+              <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label>Roles (select all that apply)</Label>
+              <div className="flex flex-wrap gap-x-6 gap-y-2">
+                {PERSON_ROLES.map(role => (
+                  <Label key={role} className="flex items-center gap-2 font-normal">
+                    <input type="checkbox" checked={form.roles.includes(role)} onChange={e => toggleRole(role, e.target.checked)} />
+                    {role}
+                  </Label>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">User, Admin and Store Keeper give the person a login. Admin can do everything a Store Keeper can.</p>
             </div>
             <div className="space-y-1">
               <Label>Email</Label>
-              <Input type="email" value={form.email ?? ''}
-                onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+              <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
             </div>
-            <div className="space-y-1">
-              <Label>Role</Label>
-              <Select
-                {...(form.role ? { value: form.role } : {})}
-                onValueChange={v => setForm(f => ({ ...f, role: v as 'admin' | 'store keeper' | 'user' }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="store keeper">Store keeper</SelectItem>
-                  <SelectItem value="user">User</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>PIN (up to 6 digits)</Label>
-              <div className="relative">
-                <Input
-                  type={showPin ? 'text' : 'password'}
-                  maxLength={6}
-                  className="pr-10"
-                  value={form.pin ?? ''}
-                  onChange={e => setForm(f => ({ ...f, pin: e.target.value }))}
-                  placeholder="••••" />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 px-3 text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowPin((v) => !v)}
-                  aria-label={showPin ? 'Hide PIN' : 'Show PIN'}>
-                  {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+            <div className="space-y-1"><Label>Phone</Label><Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} /></div>
+            {hasAccount && (
+              <div className="space-y-1">
+                <Label>PIN (up to 6 digits)</Label>
+                <div className="relative">
+                  <Input
+                    type={showPin ? 'text' : 'password'}
+                    maxLength={6}
+                    className="pr-10"
+                    value={form.pin}
+                    onChange={e => setForm(f => ({ ...f, pin: e.target.value }))}
+                    placeholder="••••" />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 px-3 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowPin(v => !v)}
+                    aria-label={showPin ? 'Hide PIN' : 'Show PIN'}>
+                    {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
+            {isVolunteer && (
+              <div className="space-y-2">
+                <Label>Willing volunteer roles</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {VOLUNTEER_ROLES.map(role => (
+                    <Label key={role} className="flex items-center gap-2 text-sm font-normal">
+                      <input type="checkbox" checked={form.volunteerRoles.includes(role)}
+                        onChange={event => setForm(f => ({ ...f, volunteerRoles: event.target.checked ? [...f.volunteerRoles, role] : f.volunteerRoles.filter(item => item !== role) }))} />
+                      {role}
+                    </Label>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="space-y-1"><Label>Notes</Label><Input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
+            {isContact && (
+              <div className="space-y-2">
+                <Label>Related events</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {fetes.map(fete => (
+                    <Label key={fete.id} className="flex items-center gap-2 text-sm font-normal">
+                      <input type="checkbox" checked={form.contactEventIds.includes(fete.id)}
+                        onChange={event => setForm(f => ({ ...f, contactEventIds: event.target.checked ? [...f.contactEventIds, fete.id] : f.contactEventIds.filter(id => id !== fete.id) }))} />
+                      {fete.name}
+                    </Label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+          {removingOwnAccess && <p className="text-sm text-destructive" role="alert">You cannot remove your own Admin role.</p>}
+          {saveError && <p className="text-sm text-destructive" role="alert">{saveError}</p>}
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || !form.name || !form.email || !form.pin}>
+            <Button onClick={() => void handleSave()} disabled={saving || removingOwnAccess || !form.name.trim() || form.roles.length === 0 || (hasAccount && (!form.email.trim() || !form.pin)) || (isContact && form.contactEventIds.length === 0)}>
               {saving ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  )
-}
 
-function UserCard({
-  user, currentUser, onEdit, onDelete
-}: {
-  user: FeteUser
-  currentUser: AppUser
-  onEdit: (u: FeteUser) => void
-  onDelete: (id: number) => void
-}) {
-  return (
-    <div className="border rounded-lg p-4 bg-card text-card-foreground space-y-3">
-      {/* User identity row */}
-      <div className="flex items-center gap-3">
-        <div className={`p-2 rounded-full shrink-0 ${user.role === 'admin' || user.role === 'store keeper' ? 'bg-primary/10' : 'bg-muted'}`}>
-          {user.role === 'admin' || user.role === 'store keeper'
-            ? <Shield className="w-5 h-5 text-primary" />
-            : <User className="w-5 h-5 text-muted-foreground" />
-          }
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium truncate">{user.name}</span>
-            {user.id === currentUser.id && (
-              <Badge variant="outline" className="text-xs shrink-0">You</Badge>
-            )}
+      <Dialog open={Boolean(mergeTarget)} onOpenChange={value => { if (!value) setMergeTarget(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Merge duplicate into {mergeTarget?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              The person you pick is removed. Their roles, rota shifts and events move to {mergeTarget?.name}.
+            </p>
+            <Select value={mergeSourceId} onValueChange={setMergeSourceId}>
+              <SelectTrigger><SelectValue placeholder="Choose the duplicate" /></SelectTrigger>
+              <SelectContent>
+                {people.filter(person => person.id !== mergeTarget?.id).map(person => (
+                  <SelectItem key={person.id} value={String(person.id)}>
+                    {person.name}{person.email ? ` (${person.email})` : ''} — {person.roles.join(', ')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {mergeError && <p className="text-sm text-destructive" role="alert">{mergeError}</p>}
           </div>
-          <p className="text-sm text-muted-foreground truncate">{user.email}</p>
-        </div>
-        <div className="flex gap-1 shrink-0">
-          <Button size="sm" variant="outline" onClick={() => onEdit(user)} aria-label="Edit user">
-            <Pencil className="w-3 h-3" />
-          </Button>
-          <Button size="sm" variant="outline"
-            className="text-destructive hover:text-destructive"
-            onClick={() => onDelete(user.id)}
-            aria-label="Delete user">
-            <Trash2 className="w-3 h-3" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Fete allocations */}
-      {user.fetes.length > 0 ? (
-        <div className="space-y-1.5 pl-1">
-          {user.fetes.map(f => (
-            <div key={f.fete_id}
-              className="flex items-start gap-2 text-sm rounded-md border bg-muted/40 px-3 py-2">
-              <Calendar className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0" />
-              <div className="flex-1 min-w-0">
-                <span className="font-medium">{f.fete_name}</span>
-                {f.notes && (
-                  <p className="text-xs text-muted-foreground truncate">{f.notes}</p>
-                )}
-              </div>
-              <div className="flex flex-col items-end gap-1 shrink-0">
-                <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium capitalize ${STATUS_COLORS[f.fete_status] ?? 'bg-muted text-muted-foreground'}`}>
-                  {f.fete_status}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {new Date(f.event_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-muted-foreground pl-1 italic">No event history</p>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMergeTarget(null)}>Cancel</Button>
+            <Button onClick={() => void handleMerge()} disabled={!mergeSourceId || merging}>{merging ? 'Merging…' : 'Merge'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

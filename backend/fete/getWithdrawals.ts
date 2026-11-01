@@ -6,16 +6,19 @@ export default async function (req: { params: Params; user: User }) {
   if (status === 'out' || status === 'returned' || status === 'booked') {
     const result = await retoolDb.query(`
       SELECT w.id, w.fete_id, w.quantity, w.withdrawn_at, w.returned_at, w.status, w.notes,
-             a.id AS asset_id, a.name AS asset_name, a.category,
+             a.id AS asset_id, a.name AS asset_name, COALESCE(c.name, 'Other') AS category, a.quantity_total,
              sl.name AS store_name,
-             u1.name AS withdrawn_by_name,
-             u2.name AS returned_by_name,
+             p1.name AS withdrawn_by_name,
+             p2.name AS returned_by_name,
              f.name AS fete_name
       FROM withdrawals w
       JOIN assets a ON w.asset_id = a.id
+      LEFT JOIN asset_categories c ON a.category_id = c.id
       LEFT JOIN store_locations sl ON a.location_id = sl.id
       JOIN fete_users u1 ON w.withdrawn_by = u1.id
+      LEFT JOIN people p1 ON u1.person_id = p1.id
       LEFT JOIN fete_users u2 ON w.returned_by = u2.id
+      LEFT JOIN people p2 ON u2.person_id = p2.id
       LEFT JOIN fetes f ON w.fete_id = f.id
       WHERE w.status = $1
       ORDER BY w.withdrawn_at DESC
@@ -25,16 +28,19 @@ export default async function (req: { params: Params; user: User }) {
 
   const result = await retoolDb.query(`
     SELECT w.id, w.fete_id, w.quantity, w.withdrawn_at, w.returned_at, w.status, w.notes,
-           a.id AS asset_id, a.name AS asset_name, a.category,
+           a.id AS asset_id, a.name AS asset_name, COALESCE(c.name, 'Other') AS category, a.quantity_total,
            sl.name AS store_name,
-           u1.name AS withdrawn_by_name,
-           u2.name AS returned_by_name,
+           p1.name AS withdrawn_by_name,
+           p2.name AS returned_by_name,
            f.name AS fete_name
     FROM withdrawals w
     JOIN assets a ON w.asset_id = a.id
+    LEFT JOIN asset_categories c ON a.category_id = c.id
     LEFT JOIN store_locations sl ON a.location_id = sl.id
     JOIN fete_users u1 ON w.withdrawn_by = u1.id
+    LEFT JOIN people p1 ON u1.person_id = p1.id
     LEFT JOIN fete_users u2 ON w.returned_by = u2.id
+    LEFT JOIN people p2 ON u2.person_id = p2.id
     LEFT JOIN fetes f ON w.fete_id = f.id
     ORDER BY w.withdrawn_at DESC
   `)

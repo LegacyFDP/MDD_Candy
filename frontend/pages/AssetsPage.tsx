@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   useGetAssets, useGetLocations, useSaveAsset, useDeleteAsset,
-  useGetAssetCategories, useSaveAssetCategory, useDeleteAssetCategory,
-  useGetStorageAreas
+  useGetAssetCategories, useGetStorageAreas
 } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Input } from '../lib/shadcn/input'
@@ -178,8 +178,6 @@ export default function AssetsPage({ currentUser }: Props) {
   const { data: categoriesRaw, trigger: loadCategories } = useGetAssetCategories()
   const { trigger: saveAsset, loading: saving } = useSaveAsset()
   const { trigger: deleteAsset } = useDeleteAsset()
-  const { trigger: saveCategory, loading: savingCategory } = useSaveAssetCategory()
-  const { trigger: deleteCategory } = useDeleteAssetCategory()
 
   const assets = (assetsRaw ?? []) as Asset[]
   const locations = (locationsRaw ?? []) as Location[]
@@ -194,10 +192,6 @@ export default function AssetsPage({ currentUser }: Props) {
   const [form, setForm] = useState<Partial<Omit<Asset, 'quantity_available' | 'location_name'>>>(emptyForm())
   const [editId, setEditId] = useState<number | null>(null)
   const [saveError, setSaveError] = useState('')
-  const [categoriesOpen, setCategoriesOpen] = useState(false)
-  const [categoryName, setCategoryName] = useState('')
-  const [categoryEditId, setCategoryEditId] = useState<number | null>(null)
-  const [categoryError, setCategoryError] = useState('')
 
   useEffect(() => {
     void loadAssets({})
@@ -243,6 +237,7 @@ export default function AssetsPage({ currentUser }: Props) {
       })
       setOpen(false)
       void loadAssets({})
+      void loadCategories({})
     } catch (error) {
       setSaveError((error as Error).message)
     }
@@ -252,42 +247,6 @@ export default function AssetsPage({ currentUser }: Props) {
     if (!confirm('Delete this asset?')) return
     await deleteAsset({ id })
     void loadAssets({})
-  }
-
-  function openNewCategory() {
-    setCategoryEditId(null)
-    setCategoryName('')
-    setCategoryError('')
-  }
-
-  function openEditCategory(category: AssetCategory) {
-    setCategoryEditId(category.id)
-    setCategoryName(category.name)
-    setCategoryError('')
-  }
-
-  async function handleSaveCategory() {
-    setCategoryError('')
-    try {
-      await saveCategory({ ...(categoryEditId ? { id: categoryEditId } : {}), name: categoryName })
-      openNewCategory()
-      void loadCategories({})
-      void loadAssets({})
-    } catch (error) {
-      setCategoryError((error as Error).message)
-    }
-  }
-
-  async function handleDeleteCategory(category: AssetCategory) {
-    if (!confirm(`Delete the ${category.name} category?`)) return
-    setCategoryError('')
-    try {
-      await deleteCategory({ id: category.id })
-      if (categoryEditId === category.id) openNewCategory()
-      void loadCategories({})
-    } catch (error) {
-      setCategoryError((error as Error).message)
-    }
   }
 
   // Build filter pill options
@@ -320,6 +279,7 @@ export default function AssetsPage({ currentUser }: Props) {
       return filterValue === 'All' || a.location_name === filterValue
     })
     .filter(a => a.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }))
 
   // Group filtered assets
   type Group = { key: string; title: string; subtitle?: string | undefined; assets: Asset[] }
@@ -379,8 +339,10 @@ export default function AssetsPage({ currentUser }: Props) {
         </div>
         {isAdmin && (
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => setCategoriesOpen(true)} aria-label="Manage categories">
-              <Settings2 className="w-4 h-4" />
+            <Button variant="outline" asChild>
+              <Link to="/asset-categories" className="flex items-center gap-2">
+                <Settings2 className="w-4 h-4" /> Manage Categories
+              </Link>
             </Button>
             <Button onClick={openNew} className="flex items-center gap-2">
               <Plus className="w-4 h-4" /> Add Asset
@@ -472,7 +434,7 @@ export default function AssetsPage({ currentUser }: Props) {
             <div className="space-y-1">
               <Label>Category</Label>
               <Select
-                value={isCustomCategory ? CUSTOM_CATEGORY : (currentCategory || 'Equipment')}
+                value={isCustomCategory || !currentCategory ? CUSTOM_CATEGORY : currentCategory}
                 onValueChange={v => setForm(f => ({
                   ...f,
                   category: v === CUSTOM_CATEGORY ? '' : v,
@@ -480,7 +442,8 @@ export default function AssetsPage({ currentUser }: Props) {
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {categories.map(category => <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>)}
+                  {categoryOptions.map(category => <SelectItem key={category} value={category}>{category}</SelectItem>)}
+                  <SelectItem value={CUSTOM_CATEGORY}>+ New category…</SelectItem>
                 </SelectContent>
               </Select>
               {(isCustomCategory || form.category === '') && (
@@ -556,34 +519,6 @@ export default function AssetsPage({ currentUser }: Props) {
             </Button>
           </DialogFooter>
           {saveError && <p className="text-sm text-destructive">{saveError}</p>}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={categoriesOpen} onOpenChange={setCategoriesOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Manage Categories</DialogTitle>
-          </DialogHeader>
-          <div className="flex gap-2">
-            <Input value={categoryName} onChange={event => setCategoryName(event.target.value)} placeholder="Category name" />
-            <Button onClick={handleSaveCategory} disabled={savingCategory || !categoryName.trim()}>
-              {categoryEditId ? 'Save' : 'Add'}
-            </Button>
-          </div>
-          {categoryError && <p className="text-sm text-destructive">{categoryError}</p>}
-          <div className="space-y-1">
-            {categories.map(category => (
-              <div key={category.id} className="flex items-center gap-2 border-b py-2 last:border-0">
-                <span className="flex-1 text-sm">{category.name}</span>
-                <Button size="icon" variant="ghost" onClick={() => openEditCategory(category)} aria-label={`Edit ${category.name}`}>
-                  <Pencil className="w-4 h-4" />
-                </Button>
-                <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => void handleDeleteCategory(category)} aria-label={`Delete ${category.name}`}>
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
         </DialogContent>
       </Dialog>
     </div>

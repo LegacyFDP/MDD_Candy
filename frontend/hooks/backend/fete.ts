@@ -95,6 +95,7 @@ export const useDeleteFeteLocation = makeBackendHook('deleteFeteLocation')
 export const useGetFetes = makeBackendHook('getFetes')
 export const useSaveFete = makeBackendHook('saveFete')
 export const useArchiveFete = makeBackendHook('archiveFete')
+export const useDeleteFete = makeBackendHook('deleteFete')
 
 // Withdrawals
 export const useGetWithdrawals = makeBackendHook('getWithdrawals')
@@ -104,16 +105,16 @@ export const useConvertBookingToOut = makeBackendHook('convertBookingToOut')
 export const useWithdrawAsset = makeBackendHook('withdrawAsset')
 export const useReturnAsset = makeBackendHook('returnAsset')
 
+// People (one record per person, with roles)
+export const useGetPeople = makeBackendHook('getPeople')
+export const useSavePerson = makeBackendHook('savePerson')
+export const useDeletePerson = makeBackendHook('deletePerson')
+export const useMergePeople = makeBackendHook('mergePeople')
+
 // Users
 export const useGetUsers = makeBackendHook('getUsers')
-export const useGetUsersWithFetes = makeBackendHook('getUsersWithFetes')
-export const useSaveUser = makeBackendHook('saveUser')
-export const useDeleteUser = makeBackendHook('deleteUser')
-
 // Volunteers
 export const useGetVolunteers = makeBackendHook('getVolunteers')
-export const useSaveVolunteer = makeBackendHook('saveVolunteer')
-export const useDeleteVolunteer = makeBackendHook('deleteVolunteer')
 export const useGetVolunteerShifts = makeBackendHook('getVolunteerShifts')
 export const useSaveVolunteerShift = makeBackendHook('saveVolunteerShift')
 export const useDeleteVolunteerShift = makeBackendHook('deleteVolunteerShift')

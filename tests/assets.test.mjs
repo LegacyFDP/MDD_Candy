@@ -91,3 +91,21 @@ test('a category in use cannot be deleted; an unused one can', async () => {
   await deleteAssetCategory({ params: { id: await categoryId('Unused') }, user: null })
   assert.equal(await categoryId('Unused'), undefined)
 })
+
+test('deleting a category in use can move its assets into another category first', async () => {
+  const { default: getAssetCategories } = await import('../backend/fete/getAssetCategories.ts')
+  const count = async name => (await getAssetCategories({ params: {}, user: null })).find(c => c.name === name)?.asset_count
+  const shelterBefore = await count('Shelter')
+  assert.equal(await count('Bouncy Things'), 1)
+
+  const fromId = await categoryId('Bouncy Things')
+  await assert.rejects(
+    deleteAssetCategory({ params: { id: fromId, move_to_id: fromId }, user: null }),
+    /different category/,
+  )
+  await deleteAssetCategory({ params: { id: fromId, move_to_id: await categoryId('Shelter') }, user: null })
+
+  assert.equal(await categoryId('Bouncy Things'), undefined)
+  assert.equal(await count('Shelter'), shelterBefore + 1)
+  assert.equal((await byName('Bouncy Castle')).category, 'Shelter')
+})

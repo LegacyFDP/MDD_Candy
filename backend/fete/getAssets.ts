@@ -15,7 +15,7 @@ export default async function (_req: { params: Record<string, never>; user: User
     LEFT JOIN store_locations sl ON a.location_id = sl.id
     LEFT JOIN storage_areas sa ON a.storage_area_id = sa.id
     LEFT JOIN asset_categories c ON a.category_id = c.id
-    ORDER BY category ASC, a.name ASC
+    ORDER BY category COLLATE NOCASE ASC, a.name COLLATE NOCASE ASC
   `)
   return result.data
 }

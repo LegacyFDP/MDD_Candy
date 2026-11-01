@@ -3,6 +3,7 @@ import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
 import Login, { type AppUser } from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import AssetsPage from './pages/AssetsPage'
+import AssetCategoriesPage from './pages/AssetCategoriesPage'
 import FetesPage from './pages/FetesPage'
 import WithdrawalsPage from './pages/WithdrawalsPage'
 import UsersPage from './pages/UsersPage'
@@ -14,12 +15,13 @@ import { Button } from './lib/shadcn/button'
 import { TooltipProvider } from './lib/shadcn/tooltip'
 import {
   LayoutDashboard, Package, Tent, ArrowUpFromLine,
-  Users, Printer, MapPin, LogOut, Menu, X, Shield, HelpCircle
+  Users, Printer, MapPin, LogOut, Menu, X, Shield, HelpCircle, Tag
 } from 'lucide-react'
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
   { path: '/assets', label: 'Store Assets', icon: Package, adminOnly: false },
+  { path: '/asset-categories', label: 'Asset Categories', icon: Tag, adminOnly: true },
   { path: '/fetes', label: 'Fete Events', icon: Tent, adminOnly: false },
   { path: '/volunteers', label: 'Volunteer Rota', icon: Users, adminOnly: true },
   { path: '/withdrawals', label: 'Withdrawals', icon: ArrowUpFromLine, adminOnly: false },
@@ -115,6 +117,11 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard currentUser={currentUser} />} />
             <Route path="/assets" element={<AssetsPage currentUser={currentUser} />} />
+            <Route path="/asset-categories" element={
+              currentUser.role === 'admin'
+                ? <AssetCategoriesPage currentUser={currentUser} />
+                : <Navigate to="/" replace />
+            } />
             <Route path="/fetes" element={<FetesPage currentUser={currentUser} />} />
             <Route path="/volunteers" element={
               currentUser.role === 'admin'

@@ -552,7 +552,7 @@ export default function VolunteersPage({ currentUser }: Props) {
                 <Printer className="w-4 h-4" /> Print Rota Spreadsheet
               </Link>
             </Button>
-            <Button onClick={openNewShift} className="flex items-center gap-2">
+            <Button onClick={() => openNewShift()} className="flex items-center gap-2">
               <Plus className="w-4 h-4" /> Add Shift
             </Button>
           </div>

@@ -423,9 +423,10 @@ export default function WithdrawalsPage({ currentUser }: Props) {
             </div>
             <div className="space-y-1">
               <Label>Fete (optional)</Label>
-              <Select {...(wFeteId ? { value: wFeteId } : {})} onValueChange={setWFeteId}>
-                <SelectTrigger><SelectValue placeholder="No fete (general use)" /></SelectTrigger>
+              <Select value={wFeteId || '__none__'} onValueChange={v => setWFeteId(v === '__none__' ? '' : v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">— No fete (general use) —</SelectItem>
                   {fetes.map(f => (
                     <SelectItem key={f.id} value={String(f.id)}>{f.name}</SelectItem>
                   ))}

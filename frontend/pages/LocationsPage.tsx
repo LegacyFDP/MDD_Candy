@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  useGetLocations, useSaveLocation, useArchiveLocation,
+  useGetLocations, useSaveLocation, useArchiveLocation, useDeleteLocation,
   useGetStorageAreas, useSaveStorageArea, useDeleteStorageArea,
 } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
@@ -8,7 +8,7 @@ import { Input } from '../lib/shadcn/input'
 import { Label } from '../lib/shadcn/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../lib/shadcn/dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../lib/shadcn/tooltip'
-import { Plus, Pencil, MapPin, Trash2, RotateCcw, Search, Layers } from 'lucide-react'
+import { Plus, Pencil, MapPin, Trash2, Archive, RotateCcw, Search, Layers } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -41,6 +41,7 @@ export default function LocationsPage({ currentUser }: Props) {
   const { data: locationsRaw, trigger: loadLocations, loading: loadingLocations, error: locationsError } = useGetLocations()
   const { trigger: saveLocation, loading: saving } = useSaveLocation()
   const { trigger: archiveLocation, loading: archiving } = useArchiveLocation()
+  const { trigger: deleteLocation, loading: deleting } = useDeleteLocation()
   const { data: areasRaw, trigger: loadAreas } = useGetStorageAreas()
   const { trigger: saveArea, loading: savingArea } = useSaveStorageArea()
   const { trigger: deleteArea, loading: deletingArea } = useDeleteStorageArea()
@@ -150,6 +151,17 @@ export default function LocationsPage({ currentUser }: Props) {
       ...(restoring ? { restore: true } : {}),
     })
     void loadLocations({})
+  }
+
+  async function handleDelete(location: Location) {
+    if (!confirm(`Permanently delete “${location.name}” and its Storage Areas? This cannot be undone.`)) return
+    try {
+      await deleteLocation({ id: location.id })
+      void loadLocations({})
+      void loadAreas({})
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to delete location')
+    }
   }
 
   function openAreas(location: Location) {
@@ -307,12 +319,26 @@ export default function LocationsPage({ currentUser }: Props) {
                       disabled={archiving}
                       aria-label={`${loc.archived_at ? 'Restore' : 'Archive'} ${loc.name}`}
                     >
-                      {loc.archived_at ? <RotateCcw className="w-3 h-3" /> : <Trash2 className="w-3 h-3" />}
+                      {loc.archived_at ? <RotateCcw className="w-3 h-3" /> : <Archive className="w-3 h-3" />}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
                     {loc.archived_at ? `Restore ${loc.name}` : `Archive ${loc.name}; preserve linked history`}
                   </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => void handleDelete(loc)}
+                      disabled={deleting}
+                      aria-label={`Delete ${loc.name}`}
+                    >
+                      <Trash2 className="w-3 h-3 text-destructive" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Delete {loc.name} permanently (only if no assets or fetes use it)</TooltipContent>
                 </Tooltip>
                 {!loc.archived_at && (
                   <Tooltip>

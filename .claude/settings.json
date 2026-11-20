@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -noE \">[A-Z][A-Za-z &/-]{3,40}<\" frontend/pages/PrintListsPage.tsx frontend/pages/VolunteersPage.tsx frontend/pages/Dashboard.tsx frontend/pages/LocationsPage.tsx)",
+      "Bash(awk -F: '{print $1\": \"$3}')",
+      "PowerShell(\\(Get-Command pandoc -ErrorAction SilentlyContinue\\).Source; \\(Get-Command python -ErrorAction SilentlyContinue\\).Source; python -c \"import docx; print\\('python-docx ok'\\)\" 2>&1)",
+      "PowerShell(python -m pip install --user --quiet python-docx 2>&1)",
+      "PowerShell(python -c \"import docx; print\\('ok'\\)\")",
+      "PowerShell(python -I \"C:\\\\Users\\\\timmi\\\\AppData\\\\Local\\\\Temp\\\\md2docx\\\\md2docx.py\" \"d:\\\\Code\\\\MDD_Candy_staging\\\\Board_Report_Fete_Store_Manager.md\" \"d:\\\\Code\\\\MDD_Candy_staging\\\\Board_Report_Fete_Store_Manager.docx\")",
+      "PowerShell(python -c \"import docx; d=docx.Document\\(r'd:\\\\Code\\\\MDD_Candy_staging\\\\Board_Report_Fete_Store_Manager.docx'\\); print\\(len\\(d.paragraphs\\),'paras',len\\(d.tables\\),'tables'\\); print\\([p.text for p in d.paragraphs if p.style.name.startswith\\('Heading'\\)]\\)\")",
+      "PowerShell(python -P -E \"C:\\\\Users\\\\timmi\\\\AppData\\\\Local\\\\Temp\\\\md2docx\\\\md2docx.py\" \"d:\\\\Code\\\\MDD_Candy_staging\\\\Board_Report_Fete_Store_Manager.md\" \"d:\\\\Code\\\\MDD_Candy_staging\\\\Board_Report_Fete_Store_Manager.docx\")",
+      "PowerShell($w = New-Object -ComObject Word.Application; $w.Visible=$false; $d=$w.Documents.Open\\('d:\\\\Code\\\\MDD_Candy_staging\\\\Board_Report_Fete_Store_Manager.docx'\\); $d.SaveAs2\\('C:\\\\Users\\\\timmi\\\\AppData\\\\Local\\\\Temp\\\\board_check.pdf',17\\); \"pages: \" + $d.ComputeStatistics\\(2\\); $d.Close\\(0\\); $w.Quit\\(\\))",
+      "Read(//c/Users/timmi/AppData/Local/Temp/**)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\timmi\\AppData\\Local\\Temp\\md2docx"
+    ]
+  }
+}

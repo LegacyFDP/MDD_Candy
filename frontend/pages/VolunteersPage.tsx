@@ -14,7 +14,7 @@ import { Input } from '../lib/shadcn/input'
 import { Label } from '../lib/shadcn/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../lib/shadcn/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
-import { Plus, Trash2, Pencil, Users, CalendarRange, Printer } from 'lucide-react'
+import { Plus, Trash2, Pencil, CalendarRange, Printer } from 'lucide-react'
 import type { AppUser } from './Login'
 
 interface Props { currentUser: AppUser }
@@ -769,14 +769,14 @@ export default function VolunteersPage({ currentUser }: Props) {
                 onValueChange={value => {
                   const feteId = value === 'none' ? null : Number(value)
                   const fete = fetes.find(item => item.id === feteId)
-                  const minimumDate = fete ? addDays(fete.event_date, -1) : undefined
-                  const maximumDate = fete ? addDays(fete.event_date, 1) : undefined
-                  const newStart = minimumDate && (shiftForm.start_date < minimumDate || shiftForm.start_date > maximumDate)
-                    ? minimumDate
-                    : shiftForm.start_date
-                  const newEnd = maximumDate && (shiftForm.end_date < minimumDate || shiftForm.end_date > maximumDate)
-                    ? maximumDate
-                    : shiftForm.end_date
+                  let newStart = shiftForm.start_date
+                  let newEnd = shiftForm.end_date
+                  if (fete) {
+                    const minimumDate = addDays(fete.event_date, -1)
+                    const maximumDate = addDays(fete.event_date, 1)
+                    if (newStart < minimumDate || newStart > maximumDate) newStart = minimumDate
+                    if (newEnd < minimumDate || newEnd > maximumDate) newEnd = maximumDate
+                  }
                   setShiftForm(form => ({
                     ...form,
                     fete_id: feteId,

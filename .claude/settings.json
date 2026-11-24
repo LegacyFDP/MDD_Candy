@@ -11,7 +11,8 @@
       "PowerShell(python -P -E \"C:\\\\Users\\\\timmi\\\\AppData\\\\Local\\\\Temp\\\\md2docx\\\\md2docx.py\" \"d:\\\\Code\\\\MDD_Candy_staging\\\\Board_Report_Fete_Store_Manager.md\" \"d:\\\\Code\\\\MDD_Candy_staging\\\\Board_Report_Fete_Store_Manager.docx\")",
       "PowerShell($w = New-Object -ComObject Word.Application; $w.Visible=$false; $d=$w.Documents.Open\\('d:\\\\Code\\\\MDD_Candy_staging\\\\Board_Report_Fete_Store_Manager.docx'\\); $d.SaveAs2\\('C:\\\\Users\\\\timmi\\\\AppData\\\\Local\\\\Temp\\\\board_check.pdf',17\\); \"pages: \" + $d.ComputeStatistics\\(2\\); $d.Close\\(0\\); $w.Quit\\(\\))",
       "Read(//c/Users/timmi/AppData/Local/Temp/**)",
-      "PowerShell(node --test --experimental-strip-types tests/volunteer.test.mjs 2>&1)"
+      "PowerShell(node --test --experimental-strip-types tests/volunteer.test.mjs 2>&1)",
+      "PowerShell(npx tsc --noEmit -p . 2>&1)"
     ],
     "additionalDirectories": [
       "C:\\Users\\timmi\\AppData\\Local\\Temp\\md2docx"

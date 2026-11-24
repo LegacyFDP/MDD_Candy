@@ -53,9 +53,11 @@ type Fete = {
 
 const VOLUNTEER_ROLES = ['Lead Volunteer', 'Helper', 'Putting Up', 'Taking Down', 'Transport', 'Stall Holder']
 
-const TIME_OPTIONS = [
-  '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00',
-]
+// 30-minute slots from 09:00 to 18:00
+const TIME_OPTIONS = Array.from({ length: 19 }, (_, i) => {
+  const mins = 9 * 60 + i * 30
+  return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`
+})
 
 type TimeSlot = {
   id: string
@@ -913,7 +915,7 @@ export default function VolunteersPage({ currentUser }: Props) {
                       ? `Time Slots (Applied across all ${shiftDates.length} days)`
                       : `Time Slots (${formatFriendlyDate(shiftForm.start_date)})`}
                   </Label>
-                  <span className="text-xs text-muted-foreground">09:00 to 18:00 (1hr blocks)</span>
+                  <span className="text-xs text-muted-foreground">09:00 to 18:00 (30 min blocks)</span>
                 </div>
 
                 <div className="space-y-2">

@@ -117,8 +117,8 @@ export default async function (req: { params: Params; user: User }) {
       throw new Error('Shift times must stay between 09:00 and 18:00')
     }
 
-    if (endMinutes <= startMinutes || (endMinutes - startMinutes) % 60 !== 0) {
-      throw new Error('Shift blocks must be 1-hour increments between 09:00 and 18:00')
+    if (endMinutes <= startMinutes || startMinutes % 30 !== 0 || endMinutes % 30 !== 0) {
+      throw new Error('Shift blocks must be 30-minute increments between 09:00 and 18:00')
     }
 
     const startMs = new Date(`${actualStartDate}T00:00:00`).getTime()

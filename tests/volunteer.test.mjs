@@ -103,7 +103,7 @@ test('saveVolunteerShift requires at least one time slot', async () => {
   )
 })
 
-test('saveVolunteerShift validates 1-hour increments within 09:00-18:00', async () => {
+test('saveVolunteerShift validates 30-minute increments within 09:00-18:00', async () => {
   const { default: saveVolunteerShift } = await import('../backend/fete/saveVolunteerShift.ts')
 
   // Outside 09:00-18:00
@@ -120,18 +120,18 @@ test('saveVolunteerShift validates 1-hour increments within 09:00-18:00', async 
     /Shift times must stay between 09:00 and 18:00/
   )
 
-  // Not 1-hour increment
+  // Not a 30-minute increment
   await assert.rejects(
     saveVolunteerShift({
       params: {
         volunteer_id: 1,
         shifts: [
-          { start_date: '2026-07-10', end_date: '2026-07-10', start_time: '09:00', end_time: '09:30' },
+          { start_date: '2026-07-10', end_date: '2026-07-10', start_time: '09:00', end_time: '09:45' },
         ],
       },
       user: null,
     }),
-    /Shift blocks must be 1-hour increments/
+    /Shift blocks must be 30-minute increments/
   )
 })
 

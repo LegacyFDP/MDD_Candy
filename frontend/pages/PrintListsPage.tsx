@@ -311,10 +311,12 @@ export default function PrintListsPage({ currentUser }: Props) {
         if (!isNaN(totalH) && totalH > maxH) maxH = totalH
       }
     }
+    const fmt = (mins: number) =>
+      `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`
     const result: Array<{ start: string; end: string; label: string }> = []
-    for (let h = minH; h < maxH; h++) {
-      const sStr = String(h).padStart(2, '0') + ':00'
-      const eStr = String(h + 1).padStart(2, '0') + ':00'
+    for (let m = minH * 60; m < maxH * 60; m += 30) {
+      const sStr = fmt(m)
+      const eStr = fmt(m + 30)
       result.push({ start: sStr, end: eStr, label: `${sStr} – ${eStr}` })
     }
     return result

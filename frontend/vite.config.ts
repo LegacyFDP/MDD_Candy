@@ -1,28 +1,35 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'node:path'
 
 // During `vite dev`, API calls to /api are proxied to the Node server so the
 // frontend and backend share an origin (no CORS). In production the Node
 // server serves the built files and the API itself, so no proxy is needed.
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: 5556,
-    proxy: {
-      '/api': {
-        target: process.env.VITE_API_PROXY ?? 'http://localhost:8080',
-        changeOrigin: true,
+// The proxy follows PORT from server/.env so the two always agree.
+export default defineConfig(({ mode }) => {
+  const serverEnv = loadEnv(mode, path.resolve(__dirname, '../server'), '')
+  const apiPort = serverEnv.PORT || '8080'
+
+  return {
+    plugins: [react()],
+    server: {
+      port: 5556,
+      proxy: {
+        '/api': {
+          target: process.env.VITE_API_PROXY ?? `http://localhost:${apiPort}`,
+          changeOrigin: true,
+        },
       },
     },
-  },
-  build: {
-    outDir: 'dist',
-    rollupOptions: {
-      output: {
-        entryFileNames: 'assets/[name]-[hash].js',
-        chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]'
-      },
-    }
-  },
+    build: {
+      outDir: 'dist',
+      rollupOptions: {
+        output: {
+          entryFileNames: 'assets/[name]-[hash].js',
+          chunkFileNames: 'assets/[name]-[hash].js',
+          assetFileNames: 'assets/[name]-[hash].[ext]'
+        },
+      }
+    },
+  }
 })

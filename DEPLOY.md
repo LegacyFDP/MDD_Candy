@@ -8,7 +8,24 @@ Browser ──▶ Caddy (:80/:443) ──▶ frontend/dist (static React app)
                      └─▶ Node server (:8080) ──▶ server/fete_store.db (SQLite file)
 ```
 
-> Security note: the original auth model is kept as-is. PINs are stored in plaintext and the session lives only in the browser. That is fine for a trusted internal deployment, but it is not hardened for the public internet.
+> Security note: signing in creates a server-side session, and the server checks each request's role. PINs are still stored in plaintext and there is no limit on PIN attempts, so this is fine for a trusted internal deployment but not hardened for the public internet.
+
+## Updating production (keeps the live data)
+
+The repo tracks a development copy of `server/fete_store.db`, so never `git pull` on the server by hand while the live data lives there. Use:
+
+```bash
+cd ~/projects/MDD_Candy
+sudo bash deploy/update-production.sh                 # code from main
+```
+
+It stops the app, backs up the live database to `~/fete-data/backups/`, pulls and builds the code, upgrades the database layout (`npm run db:migrate`, which keeps existing records) and restarts. The first time, it also moves the live database to `~/fete-data/fete_store.db` and sets `DB_PATH` in `server/.env`, so git can never overwrite it again.
+
+After the first update, make yourself the Superuser (sees and restores archived records):
+
+```bash
+cd ~/projects/MDD_Candy/server && sudo -u timmi npm run superuser:grant -- you@example.com
+```
 
 ## Recommended deployment
 

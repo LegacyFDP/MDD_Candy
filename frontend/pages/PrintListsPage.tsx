@@ -16,6 +16,7 @@ import { Input } from '../lib/shadcn/input'
 import { Printer, Calendar, MapPin, Package, Download, Users, Table } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import type { AppUser } from './Login'
+import { isAdmin as canAdminister } from '../lib/roles'
 
 interface Props { currentUser: AppUser }
 
@@ -492,7 +493,7 @@ export default function PrintListsPage({ currentUser }: Props) {
     minute: '2-digit',
   })
 
-  if (currentUser.role !== 'admin') {
+  if (!canAdminister(currentUser)) {
     return (
       <div className="p-6">
         <p className="text-muted-foreground">Admin access required.</p>

@@ -12,7 +12,42 @@ export const VOLUNTEER_ROLES = [
   'Stall Holder',
 ] as const
 
-export type AccountRole = 'admin' | 'store keeper' | 'user'
+/**
+ * The Superuser role sits above Admin. It is not in PERSON_ROLES, so nobody can
+ * grant it from the People page; it is granted from the command line
+ * (`npm run superuser:grant --prefix server -- <email>`) and kept when the
+ * person is edited.
+ */
+export const SUPERUSER_ROLE = 'Superuser'
+
+export type AccountRole = 'superuser' | 'admin' | 'store keeper' | 'user'
+
+const ROLE_RANK: Record<AccountRole, number> = {
+  'user': 0,
+  'store keeper': 1,
+  'admin': 2,
+  'superuser': 3,
+}
+
+/** True when `role` is at least as powerful as `minimum`. */
+export function meetsRole(role: string | null | undefined, minimum: AccountRole): boolean {
+  if (!role || !(role in ROLE_RANK)) return false
+  return ROLE_RANK[role as AccountRole] >= ROLE_RANK[minimum]
+}
+
+/** True for the signed-in Superuser. */
+export function isSuperuser(user: User): boolean {
+  return meetsRole(user?.role, 'superuser')
+}
+
+/** Whether a person holds the Superuser role. */
+export async function personIsSuperuser(personId: number): Promise<boolean> {
+  const result = await retoolDb.query<{ cnt: number }>(
+    'SELECT COUNT(*) AS cnt FROM person_roles WHERE person_id = $1 AND role = $2',
+    [personId, SUPERUSER_ROLE],
+  )
+  return (result.data[0]?.cnt ?? 0) > 0
+}
 
 /**
  * SQL for a login's permission level: the most powerful account role held by
@@ -21,6 +56,7 @@ export type AccountRole = 'admin' | 'store keeper' | 'user'
  */
 export function accountRoleSql(personIdSql: string): string {
   return `(SELECT CASE
+      WHEN SUM(role = '${SUPERUSER_ROLE}') > 0 THEN 'superuser'
       WHEN SUM(role = 'Admin') > 0 THEN 'admin'
       WHEN SUM(role = 'Store Keeper') > 0 THEN 'store keeper'
       ELSE 'user'

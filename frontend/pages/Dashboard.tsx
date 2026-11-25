@@ -5,6 +5,7 @@ import { Button } from '../lib/shadcn/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../lib/shadcn/card'
 import { Package, ArrowUpFromLine, Tent, AlertTriangle, Printer, Database, Users } from 'lucide-react'
 import type { AppUser } from './Login'
+import { isAdmin as canAdminister } from '../lib/roles'
 
 interface Props { currentUser: AppUser }
 
@@ -178,7 +179,7 @@ export default function Dashboard({ currentUser }: Props) {
         </Card>
       </div>
 
-      {currentUser.role === 'admin' && (
+      {canAdminister(currentUser) && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -208,7 +209,7 @@ export default function Dashboard({ currentUser }: Props) {
         </Card>
       )}
 
-      {currentUser.role === 'admin' && (
+      {canAdminister(currentUser) && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">

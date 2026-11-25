@@ -4,16 +4,51 @@ import { useCallback, useState } from 'react'
 // production the same Node server serves both the API and these static files.
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/api'
 
+// --- Sign-in session --------------------------------------------------------
+// loginUser returns a token; every later call sends it so the server knows who
+// is asking. It is kept in memory only, so reloading the page signs you out
+// (as before).
+let authToken: string | null = null
+let onSessionExpired: (() => void) | null = null
+
+export function setAuthToken(token: string | null) {
+  authToken = token
+}
+
+/** Called when the server says the sign-in has expired, to show the login page. */
+export function setSessionExpiredHandler(handler: (() => void) | null) {
+  onSessionExpired = handler
+}
+
+/** Ends the session on the server and forgets the token. */
+export async function signOut() {
+  const token = authToken
+  authToken = null
+  if (!token) return
+  try {
+    await fetch(`${API_BASE}/logout`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+  } catch {
+    // Signing out locally is enough; the server session expires on its own.
+  }
+}
+
 /** POST <params> to /api/<fn> and return the parsed JSON result. */
 async function callApi<T>(fn: string, params: unknown): Promise<T> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (authToken) headers.Authorization = `Bearer ${authToken}`
   const res = await fetch(`${API_BASE}/${fn}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(params ?? {}),
   })
 
   const text = await res.text()
   const body = text ? JSON.parse(text) : null
+
+  if (res.status === 401 && fn !== 'loginUser') {
+    authToken = null
+    onSessionExpired?.()
+  }
 
   if (!res.ok) {
     const message =

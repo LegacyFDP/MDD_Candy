@@ -1,9 +1,17 @@
+import { isSuperuser, personIsSuperuser } from './personRecords.ts'
+
 type Params = { keep_id: number; merge_id: number }
 
 /** Folds the `merge_id` person into `keep_id`, keeping shifts, events and roles. */
 export default async function (req: { params: Params; user: User }) {
   const { keep_id: keepId, merge_id: mergeId } = req.params
   if (!keepId || !mergeId || keepId === mergeId) throw new Error('Choose two different people to merge')
+
+  // Merging copies roles, so it could hand the Superuser role to someone else.
+  if (req.user && !isSuperuser(req.user)
+    && (await personIsSuperuser(keepId) || await personIsSuperuser(mergeId))) {
+    throw new Error('Only the Superuser can merge the Superuser’s record')
+  }
 
   const people = (await retoolDb.query<{ id: number; email: string; phone: string; notes: string }>(
     'SELECT id, email, phone, notes FROM people WHERE id IN ($1, $2)',

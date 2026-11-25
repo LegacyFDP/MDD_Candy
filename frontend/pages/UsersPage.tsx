@@ -10,13 +10,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
 import { Plus, Pencil, Trash2, Eye, EyeOff, Search, GitMerge } from 'lucide-react'
 import type { AppUser } from './Login'
+import { isAdmin as canAdminister, isSuperuser } from '../lib/roles'
 
 interface Props { currentUser: AppUser }
 
-type PersonRole = 'Admin' | 'Store Keeper' | 'User' | 'Volunteer' | 'Contact'
+// 'Superuser' is granted from the command line only, so it is not in
+// PERSON_ROLES (no checkbox); the server keeps it when the person is saved.
+type PersonRole = 'Superuser' | 'Admin' | 'Store Keeper' | 'User' | 'Volunteer' | 'Contact'
 
 const PERSON_ROLES: PersonRole[] = ['Admin', 'Store Keeper', 'User', 'Volunteer', 'Contact']
-const ACCOUNT_ROLES: PersonRole[] = ['User', 'Admin', 'Store Keeper']
+const ACCOUNT_ROLES: PersonRole[] = ['User', 'Admin', 'Store Keeper', 'Superuser']
 const VOLUNTEER_ROLES = ['Lead Volunteer', 'Helper', 'Putting Up', 'Taking Down', 'Transport', 'Stall Holder']
 
 type Person = {
@@ -87,7 +90,7 @@ export default function UsersPage({ currentUser }: Props) {
     void loadFetes({})
   }, [])
 
-  if (currentUser.role !== 'admin') {
+  if (!canAdminister(currentUser)) {
     return (
       <div className="p-6">
         <p className="text-muted-foreground">Admin access required.</p>
@@ -96,6 +99,8 @@ export default function UsersPage({ currentUser }: Props) {
   }
 
   const isSelf = (person: Person) => person.user_id === currentUser.id
+  // Only the Superuser may change, merge or remove the Superuser's record.
+  const canChange = (person: Person) => isSuperuser(currentUser) || !person.roles.includes('Superuser')
 
   function openNew() {
     setForm(emptyPersonForm())
@@ -129,7 +134,7 @@ export default function UsersPage({ currentUser }: Props) {
   const isVolunteer = form.roles.includes('Volunteer')
   const isContact = form.roles.includes('Contact')
   const editing = people.find(person => person.id === form.id)
-  const removingOwnAccess = Boolean(editing && isSelf(editing) && !form.roles.includes('Admin'))
+  const removingOwnAccess = Boolean(editing && isSelf(editing) && !form.roles.includes('Admin') && !form.roles.includes('Superuser'))
 
   async function handleSave() {
     setSaveError(null)
@@ -238,14 +243,14 @@ export default function UsersPage({ currentUser }: Props) {
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex flex-wrap gap-1">
-                    {PERSON_ROLES.filter(role => person.roles.includes(role)).map(role => <Badge key={role} variant="secondary">{role}</Badge>)}
+                    {(['Superuser', ...PERSON_ROLES] as PersonRole[]).filter(role => person.roles.includes(role)).map(role => <Badge key={role} variant={role === 'Superuser' ? 'default' : 'secondary'}>{role}</Badge>)}
                   </div>
                 </td>
                 <td className="px-3 py-2">{person.email || '—'}</td>
                 <td className="px-3 py-2">{person.phone || '—'}</td>
                 <td className="hidden lg:table-cell px-3 py-2 text-muted-foreground max-w-xs truncate">{personDetails(person) || '—'}</td>
                 <td className="px-3 py-2">
-                  <div className="flex justify-end gap-1">
+                  {canChange(person) && <div className="flex justify-end gap-1">
                     <Button size="sm" variant="outline" onClick={() => openEdit(person)} aria-label={`Edit ${person.name}`}>
                       <Pencil className="w-3 h-3" />
                     </Button>
@@ -257,7 +262,7 @@ export default function UsersPage({ currentUser }: Props) {
                       onClick={() => void handleDelete(person)} aria-label={`Delete ${person.name}`}>
                       <Trash2 className="w-3 h-3" />
                     </Button>
-                  </div>
+                  </div>}
                 </td>
               </tr>
             ))}
@@ -369,7 +374,7 @@ export default function UsersPage({ currentUser }: Props) {
             <Select value={mergeSourceId} onValueChange={setMergeSourceId}>
               <SelectTrigger><SelectValue placeholder="Choose the duplicate" /></SelectTrigger>
               <SelectContent>
-                {people.filter(person => person.id !== mergeTarget?.id).map(person => (
+                {people.filter(person => person.id !== mergeTarget?.id && canChange(person)).map(person => (
                   <SelectItem key={person.id} value={String(person.id)}>
                     {person.name}{person.email ? ` (${person.email})` : ''} — {person.roles.join(', ')}
                   </SelectItem>

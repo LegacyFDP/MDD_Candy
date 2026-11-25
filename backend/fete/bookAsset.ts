@@ -1,4 +1,4 @@
-import { getAccountRole } from './personRecords.ts'
+import { getAccountRole, meetsRole } from './personRecords.ts'
 
 type Params = {
   asset_id: number
@@ -23,7 +23,7 @@ export default async function (req: { params: Params; user: User }) {
   if (!role) {
     throw new Error('Booked by user not found')
   }
-  if (role !== 'admin' && role !== 'store keeper') {
+  if (!meetsRole(role, 'store keeper')) {
     throw new Error('Only admin or store keeper can change asset status')
   }
 

@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
 import { Plus, Trash2, Pencil, CalendarRange, Printer } from 'lucide-react'
 import type { AppUser } from './Login'
+import { isAdmin as canAdminister } from '../lib/roles'
 
 interface Props { currentUser: AppUser }
 
@@ -168,7 +169,7 @@ export default function VolunteersPage({ currentUser }: Props) {
     void loadFetes({})
   }, [])
 
-  if (currentUser.role !== 'admin') {
+  if (!canAdminister(currentUser)) {
     return (
       <div className="p-6">
         <p className="text-muted-foreground">Admin access required.</p>

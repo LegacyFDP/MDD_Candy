@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../lib/shadcn/select'
 import { ArrowUpFromLine, ArrowDownToLine, History } from 'lucide-react'
 import type { AppUser } from './Login'
+import { canManageStock } from '../lib/roles'
 
 interface Props { currentUser: AppUser }
 
@@ -51,7 +52,7 @@ export default function WithdrawalsPage({ currentUser }: Props) {
   const history = (historyRaw ?? []) as Withdrawal[]
   const users = (usersRaw ?? []) as FeteUser[]
   const schedulableFetes = fetes.filter(f => f.status === 'planned' || f.status === 'active')
-  const canChangeAssetStatus = currentUser.role === 'admin' || currentUser.role === 'store keeper'
+  const canChangeAssetStatus = canManageStock(currentUser)
 
   // Booking form
   const [bOpen, setBOpen] = useState(false)

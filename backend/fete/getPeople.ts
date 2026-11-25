@@ -1,6 +1,10 @@
+import { SUPERUSER_ROLE, isSuperuser } from './personRecords.ts'
+
 type PersonRow = { id: number; name: string; email: string; phone: string; notes: string }
 
-export default async function (_req: { params: Record<string, never>; user: User }) {
+export default async function (req: { params: Record<string, never>; user: User }) {
+  // Only the Superuser sees the Superuser's PIN; otherwise an Admin could sign in as them.
+  const callerIsSuperuser = !req.user || isSuperuser(req.user)
   const people = (await retoolDb.query<PersonRow>(
     'SELECT id, name, email, phone, notes FROM people ORDER BY name COLLATE NOCASE ASC, id ASC',
   )).data
@@ -36,7 +40,7 @@ export default async function (_req: { params: Record<string, never>; user: User
       ...person,
       roles: personRoles,
       user_id: account?.id ?? null,
-      pin: account?.pin ?? '',
+      pin: personRoles.includes(SUPERUSER_ROLE) && !callerIsSuperuser ? '' : account?.pin ?? '',
       // Volunteers and contacts are identified by their person id.
       volunteer_id: personRoles.includes('Volunteer') ? person.id : null,
       volunteer_roles: volunteer ? volunteer.roles.split('|') : [],

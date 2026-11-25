@@ -17,6 +17,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '../lib/shadcn/tabs'
 import { Plus, Pencil, Trash2, MapPin, Package, LayoutGrid, Tag, Settings2 } from 'lucide-react'
 import type { AppUser } from './Login'
+import { isAdmin as canAdminister } from '../lib/roles'
 
 interface Props { currentUser: AppUser }
 
@@ -251,9 +252,18 @@ export default function AssetsPage({ currentUser }: Props) {
 
   // Build filter pill options
   const categoryPills = ['All', ...Array.from(new Set(assets.map(a => a.category))).sort()]
+  // Archived stores are not in `locations` (except for the Superuser), but
+  // assets kept there still show under their store's name.
+  const listedLocationIds = new Set(locations.map(l => l.id))
+  const unlistedLocationNames = Array.from(new Set(
+    assets
+      .filter(a => a.location_id && !listedLocationIds.has(a.location_id) && a.location_name)
+      .map(a => a.location_name!)
+  )).sort((a, b) => a.localeCompare(b))
   const locationPills = [
     'All',
     ...locations.map(l => l.name),
+    ...unlistedLocationNames,
     ...(assets.some(a => !a.location_id) ? ['Unassigned'] : [])
   ]
   const pills = groupBy === 'category' ? categoryPills : locationPills
@@ -305,10 +315,15 @@ export default function AssetsPage({ currentUser }: Props) {
       byLoc[key]!.push(a)
     }
 
-    // Ordered: known locations first (sorted by name), then unassigned
+    // Ordered: known locations first (sorted by name), then any not in the
+    // list (archived stores), then unassigned
     const sortedLocIds = locations.map(l => String(l.id))
+    const nameOf = (key: string) => byLoc[key]?.[0]?.location_name ?? ''
     const orderedKeys = [
       ...sortedLocIds.filter(k => byLoc[k]),
+      ...Object.keys(byLoc)
+        .filter(k => k !== '__unassigned__' && !locMap.has(k))
+        .sort((a, b) => nameOf(a).localeCompare(nameOf(b))),
       ...Object.keys(byLoc).filter(k => k === '__unassigned__')
     ]
 
@@ -320,14 +335,14 @@ export default function AssetsPage({ currentUser }: Props) {
       const sub: string | undefined = loc?.description || undefined
       return {
         key,
-        title: loc?.name ?? 'Unknown',
+        title: loc?.name ?? (nameOf(key) || 'Unknown'),
         ...(sub !== undefined ? { subtitle: sub } : {}),
         assets: byLoc[key]!
       }
     })
   }
 
-  const isAdmin = currentUser.role === 'admin'
+  const isAdmin = canAdminister(currentUser)
 
   return (
     <div className="p-6 space-y-5">

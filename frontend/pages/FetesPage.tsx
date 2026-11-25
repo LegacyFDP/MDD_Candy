@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tooltip, TooltipContent, TooltipTrigger } from '../lib/shadcn/tooltip'
 import { Plus, ChevronDown, ChevronUp, ArrowUpFromLine, MapPin, Settings, Trash2, Pencil, Archive, RotateCcw, Search } from 'lucide-react'
 import type { AppUser } from './Login'
+import { isAdmin as canAdminister, isSuperuser } from '../lib/roles'
 
 interface Props { currentUser: AppUser }
 
@@ -88,7 +89,9 @@ export default function FetesPage({ currentUser }: Props) {
   const [locationForm, setLocationForm] = useState<Partial<FeteLocation>>(emptyFeteLocation())
   const [locationError, setLocationError] = useState('')
 
-  const isAdmin = currentUser.role === 'admin'
+  const isAdmin = canAdminister(currentUser)
+  // Only the Superuser is sent archived events, so only they get the views.
+  const superuser = isSuperuser(currentUser)
 
   const visibleFetes = fetes.filter(fete => {
     const archived = Boolean(fete.archived_at)
@@ -193,7 +196,7 @@ export default function FetesPage({ currentUser }: Props) {
   async function handleArchiveFete(fete: Fete) {
     const restoring = Boolean(fete.archived_at)
     const action = restoring ? 'restore' : 'archive'
-    if (!confirm(`${restoring ? 'Restore' : 'Archive'} “${fete.name}”?`)) return
+    if (!confirm(`${restoring ? 'Restore' : 'Archive'} “${fete.name}”?${restoring || superuser ? '' : ' Only the Superuser can see or restore it afterwards.'}`)) return
 
     await archiveFete({ id: fete.id, archived_by: currentUser.id, ...(restoring ? { restore: true } : {}) })
     setExpandedFeteId(null)
@@ -222,23 +225,25 @@ export default function FetesPage({ currentUser }: Props) {
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search all events, including archived"
+            placeholder={superuser ? 'Search all events, including archived' : 'Search events'}
             className="pl-9"
             aria-label="Search all fete events"
           />
         </div>
-        <div className="flex gap-2" role="group" aria-label="Event view">
-          {(['active', 'archived', 'all'] as const).map(view => (
-            <Button
-              key={view}
-              size="sm"
-              variant={eventView === view ? 'default' : 'outline'}
-              onClick={() => setEventView(view)}
-            >
-              {view[0].toUpperCase() + view.slice(1)}
-            </Button>
-          ))}
-        </div>
+        {superuser && (
+          <div className="flex gap-2" role="group" aria-label="Event view">
+            {(['active', 'archived', 'all'] as const).map(view => (
+              <Button
+                key={view}
+                size="sm"
+                variant={eventView === view ? 'default' : 'outline'}
+                onClick={() => setEventView(view)}
+              >
+                {view[0].toUpperCase() + view.slice(1)}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
 
       {fetes.length === 0 && (

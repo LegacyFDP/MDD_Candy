@@ -15,8 +15,10 @@ declare global {
     ): Promise<RetoolQueryResult<T>>
   }
 
-  // Retool passed the authenticated user on each request. Auth is handled
-  // client-side in this deployment, so the value is not used by any handler.
+  // The signed-in user, looked up by the server from the request's session
+  // token (see backend/fete/sessions.ts). Null only for loginUser and when a
+  // handler is called directly, e.g. from tests. `role` is one of
+  // 'superuser' | 'admin' | 'store keeper' | 'user'.
   type User = {
     id: number
     name: string

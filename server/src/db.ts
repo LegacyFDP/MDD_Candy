@@ -552,6 +552,22 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
   await dropStoredAccountRole(database)
   await foldVolunteersAndContactsIntoPeople(database)
   await deleteOrphanedAssetRows(database)
+
+  // Login sessions (see backend/fete/sessions.ts). Only a hash of each token is
+  // stored. No foreign key: a session whose account is removed simply stops
+  // matching, because lookups join fete_users.
+  await run(
+    `
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        token_hash TEXT PRIMARY KEY,
+        user_id    INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        expires_at TEXT NOT NULL
+      )
+    `,
+    [],
+    database,
+  )
 }
 
 /**

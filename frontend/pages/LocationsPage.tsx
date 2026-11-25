@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Tooltip, TooltipContent, TooltipTrigger } from '../lib/shadcn/tooltip'
 import { Plus, Pencil, MapPin, Trash2, Archive, RotateCcw, Search, Layers } from 'lucide-react'
 import type { AppUser } from './Login'
+import { isAdmin as canAdminister, isSuperuser } from '../lib/roles'
 
 interface Props { currentUser: AppUser }
 
@@ -75,7 +76,10 @@ export default function LocationsPage({ currentUser }: Props) {
     void loadAreas({})
   }, [])
 
-  const isAdmin = currentUser.role === 'admin'
+  const isAdmin = canAdminister(currentUser)
+  // Only the Superuser is sent archived stores, so only they get the
+  // Active / Archived / All views and the permanent delete.
+  const superuser = isSuperuser(currentUser)
 
   const visibleLocations = locations.filter(location => {
     const archived = Boolean(location.archived_at)
@@ -143,7 +147,7 @@ export default function LocationsPage({ currentUser }: Props) {
 
   async function handleArchive(location: Location) {
     const restoring = Boolean(location.archived_at)
-    if (!confirm(`${restoring ? 'Restore' : 'Archive'} “${location.name}”?${restoring ? '' : ' Linked assets and event history will be preserved.'}`)) return
+    if (!confirm(`${restoring ? 'Restore' : 'Archive'} “${location.name}”?${restoring ? '' : ' Linked assets and event history will be preserved.'}${restoring || superuser ? '' : ' Only the Superuser can see or restore it afterwards.'}`)) return
 
     await archiveLocation({
       id: location.id,
@@ -238,18 +242,20 @@ export default function LocationsPage({ currentUser }: Props) {
             aria-label="Search store locations"
           />
         </div>
-        <div className="flex gap-2" role="group" aria-label="Location view">
-          {(['active', 'archived', 'all'] as const).map(view => (
-            <Button
-              key={view}
-              size="sm"
-              variant={locationView === view ? 'default' : 'outline'}
-              onClick={() => setLocationView(view)}
-            >
-              {view[0].toUpperCase() + view.slice(1)}
-            </Button>
-          ))}
-        </div>
+        {superuser && (
+          <div className="flex gap-2" role="group" aria-label="Location view">
+            {(['active', 'archived', 'all'] as const).map(view => (
+              <Button
+                key={view}
+                size="sm"
+                variant={locationView === view ? 'default' : 'outline'}
+                onClick={() => setLocationView(view)}
+              >
+                {view[0].toUpperCase() + view.slice(1)}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
 
       {locationsError && (
@@ -326,20 +332,22 @@ export default function LocationsPage({ currentUser }: Props) {
                     {loc.archived_at ? `Restore ${loc.name}` : `Archive ${loc.name}; preserve linked history`}
                   </TooltipContent>
                 </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={() => void handleDelete(loc)}
-                      disabled={deleting}
-                      aria-label={`Delete ${loc.name}`}
-                    >
-                      <Trash2 className="w-3 h-3 text-destructive" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Delete {loc.name} permanently (only if no assets or fetes use it)</TooltipContent>
-                </Tooltip>
+                {superuser && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => void handleDelete(loc)}
+                        disabled={deleting}
+                        aria-label={`Delete ${loc.name}`}
+                      >
+                        <Trash2 className="w-3 h-3 text-destructive" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete {loc.name} permanently (only if no assets or fetes use it)</TooltipContent>
+                  </Tooltip>
+                )}
                 {!loc.archived_at && (
                   <Tooltip>
                     <TooltipTrigger asChild>

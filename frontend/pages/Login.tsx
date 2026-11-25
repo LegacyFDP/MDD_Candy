@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useLoginUser } from '../hooks/backend/fete'
+import { setAuthToken, useLoginUser } from '../hooks/backend/fete'
 import { Button } from '../lib/shadcn/button'
 import { Input } from '../lib/shadcn/input'
 import { Label } from '../lib/shadcn/label'
@@ -25,7 +25,9 @@ export default function Login({ onLogin }: LoginProps) {
     try {
       const result = await trigger({ email: email.trim(), pin: pin.trim() })
       if (result) {
-        onLogin(result as AppUser)
+        const { token, ...user } = result as AppUser & { token: string }
+        setAuthToken(token)
+        onLogin(user)
       }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Sign in failed. Please try again.')

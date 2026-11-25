@@ -1,6 +1,6 @@
 import {
-  ACCOUNT_ROLES, PERSON_ROLES, VOLUNTEER_ROLES,
-  assertAccountRemovable, removeAccount, removeContact, removeVolunteer,
+  ACCOUNT_ROLES, PERSON_ROLES, SUPERUSER_ROLE, VOLUNTEER_ROLES,
+  assertAccountRemovable, isSuperuser, personIsSuperuser, removeAccount, removeContact, removeVolunteer,
 } from './personRecords.ts'
 
 type Params = {
@@ -25,12 +25,12 @@ export default async function (req: { params: Params; user: User }) {
   const phone = clean(req.params.phone)
   const notes = clean(req.params.notes)
   const pin = clean(req.params.pin)
-  const roles = [...new Set(req.params.roles ?? [])]
+  // Superuser cannot be granted or removed here; it is kept as it was (below).
+  const roles = [...new Set(req.params.roles ?? [])].filter(role => role !== SUPERUSER_ROLE)
   const volunteerRoles = [...new Set((req.params.volunteer_roles ?? []).map(clean).filter(Boolean))]
   const feteIds = [...new Set(req.params.contact_fete_ids ?? [])]
 
   if (!name) throw new Error('Name is required')
-  if (roles.length === 0) throw new Error('Select at least one role')
   if (!roles.every(role => (PERSON_ROLES as readonly string[]).includes(role))) {
     throw new Error(`Roles must be from: ${PERSON_ROLES.join(', ')}`)
   }
@@ -38,16 +38,22 @@ export default async function (req: { params: Params; user: User }) {
     throw new Error(`Volunteer roles must be one of: ${VOLUNTEER_ROLES.join(', ')}`)
   }
 
-  const hasAccount = roles.some(role => (ACCOUNT_ROLES as readonly string[]).includes(role))
-  const isVolunteer = roles.includes('Volunteer')
-  const isContact = roles.includes('Contact')
-  if (hasAccount && (!email || !pin)) throw new Error('Email and PIN are required for User, Admin and Store Keeper roles')
-  if (isContact && feteIds.length === 0) throw new Error('A contact must be linked to at least one event')
-
   const existing = req.params.id
     ? (await retoolDb.query<{ id: number }>('SELECT id FROM people WHERE id = $1', [req.params.id])).data[0]
     : undefined
   if (req.params.id && !existing) throw new Error('Person not found')
+
+  const keepSuperuser = existing ? await personIsSuperuser(existing.id) : false
+  if (keepSuperuser && req.user && !isSuperuser(req.user)) {
+    throw new Error('Only the Superuser can change the Superuser’s details')
+  }
+  if (roles.length === 0 && !keepSuperuser) throw new Error('Select at least one role')
+
+  const hasAccount = keepSuperuser || roles.some(role => (ACCOUNT_ROLES as readonly string[]).includes(role))
+  const isVolunteer = roles.includes('Volunteer')
+  const isContact = roles.includes('Contact')
+  if (hasAccount && (!email || !pin)) throw new Error('Email and PIN are required for User, Admin and Store Keeper roles')
+  if (isContact && feteIds.length === 0) throw new Error('A contact must be linked to at least one event')
 
   const accountRow = existing
     ? (await retoolDb.query<{ id: number }>('SELECT id FROM fete_users WHERE person_id = $1', [existing.id])).data[0]
@@ -78,7 +84,7 @@ export default async function (req: { params: Params; user: User }) {
   }
 
   await retoolDb.query('DELETE FROM person_roles WHERE person_id = $1', [personId])
-  for (const role of roles) {
+  for (const role of keepSuperuser ? [...roles, SUPERUSER_ROLE] : roles) {
     await retoolDb.query('INSERT INTO person_roles (person_id, role) VALUES ($1, $2)', [personId, role])
   }
 

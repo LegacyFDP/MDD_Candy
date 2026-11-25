@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
 import Login, { type AppUser } from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -13,6 +13,8 @@ import VolunteersPage from './pages/VolunteersPage'
 import HelpPage from './pages/HelpPage'
 import { Button } from './lib/shadcn/button'
 import { TooltipProvider } from './lib/shadcn/tooltip'
+import { setSessionExpiredHandler, signOut } from './hooks/backend/fete'
+import { isAdmin, roleLabel } from './lib/roles'
 import {
   LayoutDashboard, Package, Tent, ArrowUpFromLine,
   Users, Printer, MapPin, LogOut, Menu, X, Shield, HelpCircle, Tag
@@ -34,6 +36,17 @@ const NAV_ITEMS = [
 export default function App() {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // When the server reports the sign-in has expired, go back to the login page.
+  useEffect(() => {
+    setSessionExpiredHandler(() => setCurrentUser(null))
+    return () => setSessionExpiredHandler(null)
+  }, [])
+
+  function handleSignOut() {
+    void signOut()
+    setCurrentUser(null)
+  }
 
   if (!currentUser) {
     return <Login onLogin={setCurrentUser} />
@@ -72,7 +85,7 @@ export default function App() {
 
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.filter(item => !item.adminOnly || currentUser.role === 'admin').map(item => (
+          {NAV_ITEMS.filter(item => !item.adminOnly || isAdmin(currentUser)).map(item => (
             <NavItem key={item.path} {...item} onNavigate={() => setSidebarOpen(false)} />
           ))}
         </nav>
@@ -80,22 +93,22 @@ export default function App() {
         {/* User */}
         <div className="p-3 border-t border-border">
           <div className="flex items-center gap-2 px-2 py-1.5 mb-2">
-            <div className={`p-1.5 rounded-full ${currentUser.role === 'admin' ? 'bg-primary/10' : 'bg-muted'}`}>
-              {currentUser.role === 'admin'
+            <div className={`p-1.5 rounded-full ${isAdmin(currentUser) ? 'bg-primary/10' : 'bg-muted'}`}>
+              {isAdmin(currentUser)
                 ? <Shield className="w-4 h-4 text-primary" />
                 : <Users className="w-4 h-4 text-muted-foreground" />
               }
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{currentUser.name}</p>
-              <p className="text-xs text-muted-foreground capitalize">{currentUser.role}</p>
+              <p className="text-xs text-muted-foreground capitalize">{roleLabel(currentUser.role)}</p>
             </div>
           </div>
           <Button
             variant="outline"
             size="sm"
             className="w-full flex items-center gap-2"
-            onClick={() => setCurrentUser(null)}
+            onClick={handleSignOut}
           >
             <LogOut className="w-3 h-3" /> Sign Out
           </Button>
@@ -118,25 +131,25 @@ export default function App() {
             <Route path="/" element={<Dashboard currentUser={currentUser} />} />
             <Route path="/assets" element={<AssetsPage currentUser={currentUser} />} />
             <Route path="/asset-categories" element={
-              currentUser.role === 'admin'
+              isAdmin(currentUser)
                 ? <AssetCategoriesPage currentUser={currentUser} />
                 : <Navigate to="/" replace />
             } />
             <Route path="/fetes" element={<FetesPage currentUser={currentUser} />} />
             <Route path="/volunteers" element={
-              currentUser.role === 'admin'
+              isAdmin(currentUser)
                 ? <VolunteersPage currentUser={currentUser} />
                 : <Navigate to="/" replace />
             } />
             <Route path="/withdrawals" element={<WithdrawalsPage currentUser={currentUser} />} />
             <Route path="/locations" element={<LocationsPage currentUser={currentUser} />} />
             <Route path="/users" element={
-              currentUser.role === 'admin'
+              isAdmin(currentUser)
                 ? <UsersPage currentUser={currentUser} />
                 : <Navigate to="/" replace />
             } />
             <Route path="/print-lists" element={
-              currentUser.role === 'admin'
+              isAdmin(currentUser)
                 ? <PrintListsPage currentUser={currentUser} />
                 : <Navigate to="/" replace />
             } />

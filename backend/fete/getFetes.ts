@@ -1,4 +1,9 @@
-export default async function (_req: { params: Record<string, never>; user: User }) {
+import { isSuperuser } from './personRecords.ts'
+
+export default async function (req: { params: Record<string, never>; user: User }) {
+  // Archived events are only shown to the Superuser. Withdrawal history and
+  // rota records still show an archived event's name via their own joins.
+  const showArchived = !req.user || isSuperuser(req.user)
   const result = await retoolDb.query(`
         SELECT f.id, f.name, f.event_date, f.description, f.notes, f.status, f.created_at,
           f.archived_at, f.archived_by,
@@ -14,6 +19,7 @@ export default async function (_req: { params: Record<string, never>; user: User
     LEFT JOIN store_locations sl
       ON f.location_id = sl.id
      AND sl.location_type = 'Fetes'
+    ${showArchived ? '' : 'WHERE f.archived_at IS NULL'}
     ORDER BY CASE f.status
       WHEN 'active' THEN 1
       WHEN 'planned' THEN 2

@@ -1,4 +1,5 @@
 import { accountRoleSql } from './personRecords.ts'
+import { createSession } from './sessions.ts'
 
 type Params = { email: string; pin: string }
 
@@ -13,8 +14,11 @@ export default async function (req: { params: Params; user: User }) {
     WHERE u.email = $1 AND u.pin = $2
   `, [email, pin])
 
-  if (result.data.length === 0) {
+  const user = result.data[0]
+  if (!user) {
     throw new Error('Invalid email or PIN')
   }
-  return result.data[0]
+  // The browser sends this token with every later request; see sessions.ts.
+  const token = await createSession(user.id)
+  return { ...user, token }
 }

@@ -13,6 +13,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '../lib/shadcn/tooltip'
 import { Plus, Pencil, Trash2, Tag, Search, Package } from 'lucide-react'
 import type { AppUser } from './Login'
+import { isAdmin as canAdminister } from '../lib/roles'
 
 interface Props { currentUser: AppUser }
 
@@ -40,7 +41,7 @@ export default function AssetCategoriesPage({ currentUser }: Props) {
     void loadCategories({})
   }, [])
 
-  const isAdmin = currentUser.role === 'admin'
+  const isAdmin = canAdminister(currentUser)
 
   const query = search.trim().toLowerCase()
   const visibleCategories = categories.filter(category => category.name.toLowerCase().includes(query))

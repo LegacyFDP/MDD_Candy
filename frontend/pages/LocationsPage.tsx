@@ -266,21 +266,81 @@ export default function LocationsPage({ currentUser }: Props) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {visibleLocations.map(loc => (
-          <div key={loc.id} className="border rounded-lg p-4 bg-card text-card-foreground flex items-start gap-3">
-            <div className="bg-primary/10 p-2 rounded-full flex-shrink-0">
-              <MapPin className="w-5 h-5 text-primary" />
+          <div key={loc.id} className="border rounded-lg p-4 bg-card text-card-foreground flex flex-col gap-3">
+            {/* Name on its own line, the actions in a row just below it, then the details. */}
+            <div className="flex items-center gap-2.5">
+              <div className="bg-primary/10 p-1.5 rounded-full flex-shrink-0">
+                <MapPin className="w-4 h-4 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold leading-tight break-words">{loc.name}</p>
+                {loc.archived_at && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Archived {new Date(loc.archived_at).toLocaleDateString('en-GB', {
+                      day: 'numeric', month: 'short', year: 'numeric',
+                    })}
+                    {loc.archived_by_name && ` by ${loc.archived_by_name}`}
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium">{loc.name}</p>
-              {loc.archived_at && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Archived {new Date(loc.archived_at).toLocaleDateString('en-GB', {
-                    day: 'numeric', month: 'short', year: 'numeric',
-                  })}
-                  {loc.archived_by_name && ` by ${loc.archived_by_name}`}
-                </p>
-              )}
-              <div className="mt-2 flex items-center gap-2">
+            {isAdmin && (
+              <div className="flex items-center gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="icon" className="h-8 w-8" variant="outline" onClick={() => openEdit(loc)}
+                      aria-label={`Edit ${loc.name}`}>
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Edit {loc.name}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon" className="h-8 w-8"
+                      variant="outline"
+                      onClick={() => void handleArchive(loc)}
+                      disabled={archiving}
+                      aria-label={`${loc.archived_at ? 'Restore' : 'Archive'} ${loc.name}`}
+                    >
+                      {loc.archived_at ? <RotateCcw className="w-3 h-3" /> : <Archive className="w-3 h-3" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {loc.archived_at ? `Restore ${loc.name}` : `Archive ${loc.name}; preserve linked history`}
+                  </TooltipContent>
+                </Tooltip>
+                {!loc.archived_at && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button size="icon" className="h-8 w-8" variant="outline" onClick={() => openAreas(loc)} aria-label={`Manage Storage Areas for ${loc.name}`}>
+                        <Layers className="w-3 h-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Manage Storage Areas</TooltipContent>
+                  </Tooltip>
+                )}
+                {superuser && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon" className="h-8 w-8"
+                        variant="outline"
+                        onClick={() => void handleDelete(loc)}
+                        disabled={deleting}
+                        aria-label={`Delete ${loc.name}`}
+                      >
+                        <Trash2 className="w-3 h-3 text-destructive" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete {loc.name} permanently (only if no assets or fetes use it)</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            )}
+            <div className="min-w-0 break-words">
+              <div className="flex items-center gap-2">
                 <Layers className="w-3.5 h-3.5 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
                   {areas.filter(area => area.location_id === loc.id).length} Storage Area{areas.filter(area => area.location_id === loc.id).length !== 1 ? 's' : ''}
@@ -305,61 +365,6 @@ export default function LocationsPage({ currentUser }: Props) {
                 </div>
               )}
             </div>
-            {isAdmin && (
-              <div className="flex items-center gap-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button size="icon" variant="outline" onClick={() => openEdit(loc)}
-                      aria-label={`Edit ${loc.name}`}>
-                      <Pencil className="w-3 h-3" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Edit {loc.name}</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={() => void handleArchive(loc)}
-                      disabled={archiving}
-                      aria-label={`${loc.archived_at ? 'Restore' : 'Archive'} ${loc.name}`}
-                    >
-                      {loc.archived_at ? <RotateCcw className="w-3 h-3" /> : <Archive className="w-3 h-3" />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {loc.archived_at ? `Restore ${loc.name}` : `Archive ${loc.name}; preserve linked history`}
-                  </TooltipContent>
-                </Tooltip>
-                {superuser && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => void handleDelete(loc)}
-                        disabled={deleting}
-                        aria-label={`Delete ${loc.name}`}
-                      >
-                        <Trash2 className="w-3 h-3 text-destructive" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Delete {loc.name} permanently (only if no assets or fetes use it)</TooltipContent>
-                  </Tooltip>
-                )}
-                {!loc.archived_at && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button size="icon" variant="outline" onClick={() => openAreas(loc)} aria-label={`Manage Storage Areas for ${loc.name}`}>
-                        <Layers className="w-3 h-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Manage Storage Areas</TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-            )}
           </div>
         ))}
         {locations.length > 0 && visibleLocations.length === 0 && (

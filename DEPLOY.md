@@ -12,6 +12,8 @@ Browser ──▶ Caddy (:80/:443) ──▶ frontend/dist (static React app)
 
 ## Updating production (keeps the live data)
 
+Step-by-step, including rehearsing on a copy of the live data first: [deploy/RUNBOOK-production-update.md](deploy/RUNBOOK-production-update.md).
+
 The repo tracks a development copy of `server/fete_store.db`, so never `git pull` on the server by hand while the live data lives there. Use:
 
 ```bash

@@ -7,7 +7,7 @@
 #   sudo bash deploy/update-production.sh --branch feature/deletes
 #
 # What it does:
-#   1. Stops the app.
+#   1. Shows the maintenance page (503.html) to everyone, then stops the app.
 #   2. First run only: moves the live database out of the git checkout to
 #      /home/timmi/fete-data/fete_store.db and points server/.env at it, so a
 #      git pull can never overwrite or delete the live data again (the repo
@@ -16,10 +16,14 @@
 #   4. Pulls the new code, installs, builds the frontend.
 #   5. Upgrades the database layout (npm run db:migrate). Existing records are
 #      kept; the people/roles changes and new tables are added.
-#   6. Starts the app and checks it answers.
+#   6. Starts the app, checks it answers, and takes the maintenance page down.
 #
-# If anything fails it stops; the app is left stopped and the backup path is
-# printed so you can restore it.
+# If anything fails it stops; the app is left stopped, the maintenance page
+# stays up, and the backup path is printed so you can restore it.
+#
+# The maintenance page needs a one-time Caddy setting; see the comment at the
+# top of 503.html. Without it the update still works, visitors just see the
+# app fail to load while it runs.
 
 set -euo pipefail
 
@@ -30,10 +34,20 @@ DATA_DIR="/home/timmi/fete-data"
 LIVE_DB="${DATA_DIR}/fete_store.db"
 BACKUP_DIR="${DATA_DIR}/backups"
 ENV_FILE="${APP_ROOT}/server/.env"
+MAINTENANCE_FLAG="${DATA_DIR}/maintenance.on"
+CADDYFILE="/etc/caddy/Caddyfile"
 BRANCH="main"
 
 log()  { printf '\n==> %s\n' "$*"; }
-fail() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
+fail() {
+  printf '\nERROR: %s\n' "$*" >&2
+  if [[ -f "${MAINTENANCE_FLAG}" ]]; then
+    printf 'The maintenance page is still showing. When the app is working again:\n  sudo rm %s\n' "${MAINTENANCE_FLAG}" >&2
+  fi
+  exit 1
+}
+# Any failing command (not just explicit checks) ends the same way.
+trap 'fail "The step above failed (line ${LINENO}).${BACKUP:+ Backup: ${BACKUP}}"' ERR
 as_app() { runuser -u "${APP_USER}" -- "$@"; }
 
 while [[ $# -gt 0 ]]; do
@@ -64,10 +78,16 @@ copy_db() { # copy a stopped SQLite database including any journal files
 
 STAMP="$(date +%Y-%m-%d-%H%M%S)"
 
+install -d -o "${APP_USER}" -g "${APP_USER}" "${DATA_DIR}" "${BACKUP_DIR}"
+
+log "Showing the maintenance page"
+touch "${MAINTENANCE_FLAG}"
+if ! grep -qs "maintenance.on" "${CADDYFILE}"; then
+  echo "Note: ${CADDYFILE} is not set up for the maintenance page yet (see 503.html), so visitors will not see it."
+fi
+
 log "Stopping ${SERVICE_NAME}"
 systemctl stop "${SERVICE_NAME}"
-
-install -d -o "${APP_USER}" -g "${APP_USER}" "${DATA_DIR}" "${BACKUP_DIR}"
 
 CURRENT_DB="$(current_db_path)"
 if [[ "${CURRENT_DB}" != "${LIVE_DB}" ]]; then
@@ -125,6 +145,8 @@ PORT="$(grep -E '^PORT=' "${ENV_FILE}" | tail -n1 | cut -d= -f2 | tr -d ' \r' ||
 for _ in $(seq 1 20); do
   if curl -fsS "http://127.0.0.1:${PORT:-8080}/api/health" >/dev/null 2>&1; then
     echo "App is up: $(curl -fsS "http://127.0.0.1:${PORT:-8080}/api/health")"
+    rm -f "${MAINTENANCE_FLAG}"
+    echo "Maintenance page taken down."
     echo
     echo "Done. If you have not yet made yourself the Superuser, run:"
     echo "  cd ${APP_ROOT}/server && sudo -u ${APP_USER} npm run superuser:grant -- <your login email>"

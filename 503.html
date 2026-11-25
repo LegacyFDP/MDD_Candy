@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<!--
+  Maintenance page for Fete Store Manager, served with HTTP status 503.
+  Self-contained (no app files needed) so it works while the app is stopped.
+
+  To show it to everyone, add this at the top of the site block in
+  /etc/caddy/Caddyfile (before `handle /api*`), then
+  `sudo systemctl reload caddy`:
+
+      @maintenance file {
+          root /home/timmi/fete-data
+          try_files maintenance.on
+      }
+      handle @maintenance {
+          root * /home/timmi/projects/MDD_Candy
+          rewrite * /503.html
+          file_server {
+              status 503
+          }
+      }
+
+  Turn it on:   touch /home/timmi/fete-data/maintenance.on
+  Turn it off:  rm /home/timmi/fete-data/maintenance.on
+  (No Caddy reload needed to switch it on or off.)
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <!-- Check again every minute; the app reappears by itself when it is back. -->
+  <meta http-equiv="refresh" content="60">
+  <title>Maintenance underway – Fete Store Manager</title>
+  <style>
+    :root {
+      --mdd-red: #c8102e;
+      --mdd-deep-red: #971a2b;
+      --mdd-yellow: #f9c800;
+      --mdd-ink: #3b1b22;
+      --mdd-mist: #fff5d6;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--mdd-ink);
+      background-color: var(--mdd-mist);
+      background-image: linear-gradient(135deg, rgba(200, 16, 46, 0.12), transparent 55%);
+    }
+    .card {
+      width: 100%;
+      max-width: 28rem;
+      background: #fff;
+      border-radius: 0.75rem;
+      box-shadow: 0 10px 30px rgba(59, 27, 34, 0.12);
+      overflow: hidden;
+      text-align: center;
+    }
+    .stripe { height: 0.4rem; background: linear-gradient(90deg, var(--mdd-red), var(--mdd-yellow)); }
+    .body { padding: 2rem 1.75rem 1.5rem; }
+    .icon {
+      width: 4rem;
+      height: 4rem;
+      margin: 0 auto 1rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--mdd-mist);
+      color: var(--mdd-red);
+    }
+    .icon svg { width: 2rem; height: 2rem; animation: turn 6s linear infinite; }
+    @keyframes turn { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .icon svg { animation: none; } }
+    h1 { margin: 0 0 0.5rem; font-size: 1.5rem; }
+    p { margin: 0.5rem 0; line-height: 1.5; color: #5b4a4e; }
+    .hint { font-size: 0.875rem; }
+    button {
+      margin-top: 1.25rem;
+      padding: 0.6rem 1.4rem;
+      border: 0;
+      border-radius: 0.4rem;
+      background: var(--mdd-red);
+      color: #fff;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover, button:focus-visible { background: var(--mdd-deep-red); }
+    button:focus-visible { outline: 3px solid var(--mdd-yellow); outline-offset: 2px; }
+    .footer {
+      padding: 1rem 1.75rem;
+      border-top: 1px solid #eee;
+      background: #fffdf7;
+    }
+    .footer-title { margin: 0; font-family: Georgia, "Times New Roman", serif; font-weight: 700; }
+    .footer-copy { margin: 0.2rem 0 0; font-size: 0.8125rem; color: #7a6a6e; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="stripe"></div>
+    <div class="body">
+      <div class="icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </div>
+      <h1>Maintenance underway</h1>
+      <p>Fete Store Manager is being updated and will be back shortly.</p>
+      <p class="hint">Your stock, events and rota are safe. This page checks again every minute, so you can leave it open.</p>
+      <button type="button" onclick="location.reload()">Try again now</button>
+    </div>
+    <div class="footer">
+      <p class="footer-title">Medical Detection Dogs</p>
+      <p class="footer-copy">Saving lives through the power of dogs.</p>
+    </div>
+  </main>
+</body>
+</html>

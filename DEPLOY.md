@@ -19,7 +19,7 @@ cd ~/projects/MDD_Candy
 sudo bash deploy/update-production.sh                 # code from main
 ```
 
-It stops the app, backs up the live database to `~/fete-data/backups/`, pulls and builds the code, upgrades the database layout (`npm run db:migrate`, which keeps existing records) and restarts. The first time, it also moves the live database to `~/fete-data/fete_store.db` and sets `DB_PATH` in `server/.env`, so git can never overwrite it again.
+It shows the maintenance page (`503.html`; needs the one-time Caddy block described at the top of that file), stops the app, backs up the live database to `~/fete-data/backups/`, pulls and builds the code, upgrades the database layout (`npm run db:migrate`, which keeps existing records) and restarts. The first time, it also moves the live database to `~/fete-data/fete_store.db` and sets `DB_PATH` in `server/.env`, so git can never overwrite it again.
 
 After the first update, make yourself the Superuser (sees and restores archived records):
 

@@ -553,6 +553,14 @@ export async function ensureRuntimeSchema(database: sqlite3.Database = db): Prom
   await foldVolunteersAndContactsIntoPeople(database)
   await deleteOrphanedAssetRows(database)
 
+  // Shift roles left behind by shifts deleted before deleteVolunteerShift
+  // removed them too.
+  await run(
+    'DELETE FROM volunteer_shift_roles WHERE shift_id NOT IN (SELECT id FROM volunteer_shifts)',
+    [],
+    database,
+  )
+
   // Login sessions (see backend/fete/sessions.ts). Only a hash of each token is
   // stored. No foreign key: a session whose account is removed simply stops
   // matching, because lookups join fete_users.

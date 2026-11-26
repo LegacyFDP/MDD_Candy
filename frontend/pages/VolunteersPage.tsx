@@ -127,7 +127,8 @@ export default function VolunteersPage({ currentUser }: Props) {
   const [shiftSaveError, setShiftSaveError] = useState('')
   const [selectedVolunteerId, setSelectedVolunteerId] = useState<number | null>(null)
   const [selectedFeteId, setSelectedFeteId] = useState<number | null>(null)
-  const [volunteersForEventId, setVolunteersForEventId] = useState<number | null>(null)
+  // Which event's shift list is open: an event id, 'none' for shifts with no event, or null (closed).
+  const [volunteersForEventId, setVolunteersForEventId] = useState<number | 'none' | null>(null)
   const [eventsForVolunteerId, setEventsForVolunteerId] = useState<number | null>(null)
   const [feteOpen, setFeteOpen] = useState(false)
   const [feteForm, setFeteForm] = useState<Partial<Fete>>({})
@@ -159,9 +160,13 @@ export default function VolunteersPage({ currentUser }: Props) {
   const shiftDateMax = selectedFete ? addDays(selectedFete.event_date, 1) : undefined
   const shiftDates = getDatesInRange(shiftForm.start_date, shiftForm.end_date || shiftForm.start_date)
   const volunteersForEvent = fetes.find(fete => fete.id === volunteersForEventId)
-  const eventVolunteerShifts = shifts.filter(shift => shift.fete_id === volunteersForEventId)
+  const eventVolunteerShifts = volunteersForEventId === 'none'
+    ? shifts.filter(shift => shift.fete_id == null)
+    : shifts.filter(shift => shift.fete_id === volunteersForEventId)
+  const unassignedShiftCount = shifts.filter(shift => shift.fete_id == null).length
   const eventsForVolunteer = volunteers.find(volunteer => volunteer.id === eventsForVolunteerId)
-  const volunteerEventShifts = shifts.filter(shift => shift.volunteer_id === eventsForVolunteerId && shift.fete_id != null)
+  // All of the volunteer's shifts, including any not tied to an event.
+  const volunteerEventShifts = shifts.filter(shift => shift.volunteer_id === eventsForVolunteerId)
 
   useEffect(() => {
     void loadVolunteers({})
@@ -601,6 +606,22 @@ export default function VolunteersPage({ currentUser }: Props) {
                 </div>
               )
             })}
+            {unassignedShiftCount > 0 && (
+              <div className="flex items-center gap-1 px-1 hover:bg-muted">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedVolunteerId(null)
+                    setSelectedFeteId(null)
+                    setVolunteersForEventId('none')
+                  }}
+                  className="flex-1 min-w-0 flex items-center justify-between gap-3 px-2 py-2 text-left text-sm"
+                >
+                  <span className="min-w-0"><span className="block font-medium italic truncate">No event</span><span className="block text-xs opacity-75">Shifts not linked to an event</span></span>
+                  <span className="text-xs whitespace-nowrap">{unassignedShiftCount} shift{unassignedShiftCount === 1 ? '' : 's'}</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -624,11 +645,11 @@ export default function VolunteersPage({ currentUser }: Props) {
       }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{volunteersForEvent?.name ?? 'Event'} volunteers</DialogTitle>
+            <DialogTitle>{volunteersForEventId === 'none' ? 'Shifts with no event' : `${volunteersForEvent?.name ?? 'Event'} volunteers`}</DialogTitle>
           </DialogHeader>
           <div className="max-h-[60vh] overflow-auto border rounded-md">
             {eventVolunteerShifts.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground">No volunteers are assigned to this event.</p>
+              <p className="p-4 text-sm text-muted-foreground">{volunteersForEventId === 'none' ? 'There are no shifts without an event.' : 'No volunteers are assigned to this event.'}</p>
             ) : (
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
@@ -681,11 +702,11 @@ export default function VolunteersPage({ currentUser }: Props) {
       }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{eventsForVolunteer?.name ?? 'Volunteer'} events</DialogTitle>
+            <DialogTitle>{eventsForVolunteer?.name ?? 'Volunteer'} shifts</DialogTitle>
           </DialogHeader>
           <div className="max-h-[60vh] overflow-auto border rounded-md">
             {volunteerEventShifts.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground">This volunteer is not assigned to any events.</p>
+              <p className="p-4 text-sm text-muted-foreground">This volunteer has no shifts.</p>
             ) : (
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
@@ -694,6 +715,7 @@ export default function VolunteersPage({ currentUser }: Props) {
                     <th className="px-3 py-2 font-medium">Role</th>
                     <th className="px-3 py-2 font-medium">Dates</th>
                     <th className="px-3 py-2 font-medium">Hours</th>
+                    <th className="w-12 px-3 py-2"><span className="sr-only">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -703,25 +725,26 @@ export default function VolunteersPage({ currentUser }: Props) {
                       tabIndex={0}
                       role="button"
                       onClick={() => {
-                        setSelectedVolunteerId(shift.volunteer_id)
-                        setSelectedFeteId(shift.fete_id)
                         setEventsForVolunteerId(null)
-                        openNewShift(shift.volunteer_id, shift.fete_id)
+                        openEditShift(shift)
                       }}
                       onKeyDown={event => {
                         if (event.key !== 'Enter' && event.key !== ' ') return
                         event.preventDefault()
-                        setSelectedVolunteerId(shift.volunteer_id)
-                        setSelectedFeteId(shift.fete_id)
                         setEventsForVolunteerId(null)
-                        openNewShift(shift.volunteer_id, shift.fete_id)
+                        openEditShift(shift)
                       }}
                       className="cursor-pointer hover:bg-muted focus:bg-muted focus:outline-none"
                     >
-                      <td className="px-3 py-2 font-medium">{shift.fete_name ?? 'Unassigned event'}</td>
+                      <td className="px-3 py-2 font-medium">{shift.fete_name ?? <span className="italic text-muted-foreground">No event</span>}</td>
                       <td className="px-3 py-2">{shift.roles.join(', ') || 'None'}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{shift.start_date}{shift.start_date !== shift.end_date ? ` to ${shift.end_date}` : ''}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{shift.start_time}-{shift.end_time}</td>
+                      <td className="px-3 py-1.5">
+                        <Button size="sm" variant="outline" onClick={event => { event.stopPropagation(); void handleDeleteShift(shift.id) }} aria-label="Delete volunteer shift">
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

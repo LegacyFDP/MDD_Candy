@@ -115,6 +115,18 @@ echo "To restore:  sudo systemctl stop ${SERVICE_NAME} && cp ${BACKUP} ${LIVE_DB
 
 log "Fetching code (branch ${BRANCH})"
 cd "${APP_ROOT}"
+# Running `npm install` on the server rewrites package.json / package-lock.json,
+# which would block the pull. Those changes are only npm housekeeping (the pull
+# brings the right versions), so save them to a patch file and put them back.
+NPM_FILES="$(as_app git ls-files -m -- 'package.json' 'package-lock.json' 'frontend/package.json' 'frontend/package-lock.json' 'server/package.json' 'server/package-lock.json')"
+if [[ -n "${NPM_FILES}" ]]; then
+  NPM_PATCH="${BACKUP_DIR}/npm-file-changes-${STAMP}.patch"
+  # shellcheck disable=SC2086 # NPM_FILES is a list of plain repo paths
+  as_app git diff -- ${NPM_FILES} > "${NPM_PATCH}"
+  # shellcheck disable=SC2086
+  as_app git checkout -- ${NPM_FILES}
+  echo "Put back npm's changes to: $(echo ${NPM_FILES} | tr '\n' ' ')(saved in ${NPM_PATCH})"
+fi
 # The checkout's own database files are no longer used by the app, so local
 # changes to them can be discarded. Anything else changed on the server stops
 # the update, so nothing is lost.

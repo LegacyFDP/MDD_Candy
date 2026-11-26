@@ -112,7 +112,10 @@ The script:
 2. First run only: moves the live database to `~/fete-data/fete_store.db` and
    points `server/.env` at it, so git can never overwrite it.
 3. Backs up the live database to `~/fete-data/backups/`.
-4. Pulls the code from `main`, installs and builds.
+4. Puts back any changes `npm install` made to `package.json` /
+   `package-lock.json` on the server (saved as a `.patch` in the backups
+   folder), then pulls the code from `main`, installs and builds. Any *other*
+   file edited on the server stops the update so nothing is lost.
 5. Upgrades the database layout (`npm run db:migrate`), keeping existing records.
 6. Starts the app, checks it answers, and takes the maintenance page down.
 

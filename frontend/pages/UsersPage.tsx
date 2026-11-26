@@ -163,7 +163,26 @@ export default function UsersPage({ currentUser }: Props) {
     try {
       await deletePerson({ id: person.id })
     } catch (err) {
-      alert(err instanceof Error ? err.message : String(err))
+      const message = err instanceof Error ? err.message : String(err)
+      // Withdrawal history blocks removing a login. The Superuser may delete it
+      // too (meant for demo/test accounts); everyone else just sees why.
+      if (isSuperuser(currentUser) && message.includes('withdrawal record')) {
+        const confirmed = confirm(
+          `${message}\n\nDelete ${person.name} AND all their withdrawal history permanently?\n\n`
+          + '• Items they still have out go back into stock.\n'
+          + '• Returns they recorded on other people\'s withdrawals stay, without their name.\n\n'
+          + 'This cannot be undone.',
+        )
+        if (confirmed) {
+          try {
+            await deletePerson({ id: person.id, delete_withdrawals: true })
+          } catch (retryErr) {
+            alert(retryErr instanceof Error ? retryErr.message : String(retryErr))
+          }
+        }
+      } else {
+        alert(message)
+      }
     }
     void loadPeople({})
   }

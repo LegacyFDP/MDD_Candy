@@ -72,14 +72,44 @@ export async function getAccountRole(userId: number): Promise<AccountRole | null
   return result.data[0]?.role ?? null
 }
 
+/**
+ * Marker the People page looks for to offer the Superuser "delete with
+ * withdrawal history". Keep it in the error message below.
+ */
+export const HAS_WITHDRAWALS_MARKER = 'withdrawal record'
+
 export async function assertAccountRemovable(userId: number) {
   const withdrawals = await retoolDb.query<{ cnt: number }>(
     'SELECT COUNT(*) AS cnt FROM withdrawals WHERE withdrawn_by = $1 OR returned_by = $2',
     [userId, userId],
   )
-  if ((withdrawals.data[0]?.cnt ?? 0) > 0) {
-    throw new Error('Cannot remove login access — this person has withdrawal records. Reassign or archive those first.')
+  const count = withdrawals.data[0]?.cnt ?? 0
+  if (count > 0) {
+    throw new Error(
+      `Cannot remove login access — this person has ${count} ${HAS_WITHDRAWALS_MARKER}${count !== 1 ? 's' : ''}. `
+      + 'Only the Superuser can delete them together with their withdrawal history.',
+    )
   }
+}
+
+/**
+ * Permanently deletes a login's withdrawal history so the login can be removed
+ * (used to clear out demo or test accounts). Items they still have out are put
+ * back into stock first. Returns they recorded on other people's withdrawals
+ * keep the withdrawal but no longer name who returned it.
+ */
+export async function removeWithdrawalHistory(userId: number) {
+  await retoolDb.query(
+    `UPDATE assets
+     SET quantity_available = quantity_available + (
+       SELECT COALESCE(SUM(w.quantity), 0) FROM withdrawals w
+       WHERE w.asset_id = assets.id AND w.withdrawn_by = $1 AND w.status = 'out'
+     )
+     WHERE id IN (SELECT asset_id FROM withdrawals WHERE withdrawn_by = $2 AND status = 'out')`,
+    [userId, userId],
+  )
+  await retoolDb.query('DELETE FROM withdrawals WHERE withdrawn_by = $1', [userId])
+  await retoolDb.query('UPDATE withdrawals SET returned_by = NULL WHERE returned_by = $1', [userId])
 }
 
 export async function removeAccount(userId: number) {

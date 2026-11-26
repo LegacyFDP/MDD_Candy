@@ -121,3 +121,35 @@ test('the Superuser counts as a Store Keeper for stock movements', async () => {
   assert.ok(!meetsRole('user', 'store keeper'))
   assert.ok(!meetsRole(undefined, 'user'))
 })
+
+test('only the Superuser can delete a person together with their withdrawal history', async () => {
+  const superuser = (await signIn('boss@example.com')).user
+  const adminUser = (await signIn('ann@example.com')).user
+  const demo = await addPerson('Demo Dan', 'dan@example.com', ['Store Keeper'])
+  const other = await addPerson('Other Olly', 'olly@example.com', ['Store Keeper'])
+
+  await call('saveAssetCategory', { name: 'Tables' })
+  await call('saveAsset', { name: 'Trestle', category: 'Tables', quantity_total: 10, location_id: null, storage_area_id: null, notes: '' })
+  const [asset] = await q("SELECT id FROM assets WHERE name = 'Trestle'")
+  const available = async () => (await q('SELECT quantity_available AS n FROM assets WHERE id = $1', [asset.id]))[0].n
+  const withdraw = (by, quantity) => call('withdrawAsset', { asset_id: asset.id, fete_id: null, quantity, withdrawn_by: by, notes: '' })
+
+  await withdraw(demo.userId, 3)          // still out
+  await withdraw(demo.userId, 2)          // returned below
+  await withdraw(other.userId, 1)         // Olly's, returned by Dan
+  const [returnedOwn, returnedOther] = await q(
+    'SELECT id FROM withdrawals WHERE asset_id = $1 AND quantity IN (2, 1) ORDER BY quantity DESC', [asset.id])
+  await call('returnAsset', { withdrawal_id: returnedOwn.id, returned_by: demo.userId, notes: '' })
+  await call('returnAsset', { withdrawal_id: returnedOther.id, returned_by: demo.userId, notes: '' })
+  assert.equal(await available(), 7)      // 3 still out with Dan
+
+  await assert.rejects(call('deletePerson', { id: demo.personId }, superuser), /3 withdrawal records/)
+  await assert.rejects(call('deletePerson', { id: demo.personId, delete_withdrawals: true }, adminUser), /Only the Superuser/)
+
+  await call('deletePerson', { id: demo.personId, delete_withdrawals: true }, superuser)
+  assert.equal(await available(), 10, 'items Dan still had out go back into stock')
+  assert.deepEqual(await q('SELECT id FROM fete_users WHERE id = $1', [demo.userId]), [])
+  const left = await q('SELECT withdrawn_by, returned_by, status FROM withdrawals WHERE asset_id = $1', [asset.id])
+  assert.deepEqual(left, [{ withdrawn_by: other.userId, returned_by: null, status: 'returned' }],
+    "Olly's withdrawal stays, without Dan's name as returner")
+})

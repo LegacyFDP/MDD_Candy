@@ -1,12 +1,5 @@
 #!/bin/bash
-set -e
-
-DB="server/fete_store.db"
-OUTDIR="server/backup"
-STAMP=$(date +%F)
-OUTFILE="$OUTDIR/fete_store_$STAMP.db"
-
-mkdir -p "$OUTDIR"
-
-sqlite3 "$DB" ".backup $OUTFILE"
-
+# Replaced by deploy/backup-db.sh, which finds the live database from DB_PATH
+# in server/.env (it moved to /home/timmi/fete-data/). Kept so an old cron
+# entry pointing here still makes a correct backup.
+exec bash "$(dirname "$(readlink -f "$0")")/../deploy/backup-db.sh" "$@"

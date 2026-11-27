@@ -173,11 +173,16 @@ sudo systemctl reload caddy
 
 ## Backing up the database
 
-The whole database is one file: /home/timmi/projects/MDD_Candy/server/fete_store.db. Back it up while the app is stopped or use SQLite's online backup:
+The whole database is one file, at the path set by `DB_PATH` in `server/.env` (on production: `/home/timmi/fete-data/fete_store.db`). `deploy/backup-db.sh` takes a safe online copy (no downtime), checks it, and keeps 30 days of daily copies in `/home/timmi/fete-data/backups/daily/`. If Dropbox Uploader is set up it also sends each copy to Dropbox `/fete-backups/`.
+
+Install it as a daily job (03:15) once on the server, as `timmi` (this also removes any old `backup_sqlite.sh` entry):
 
 ```bash
-sqlite3 /home/timmi/projects/MDD_Candy/server/fete_store.db ".backup /home/timmi/backups/fete_store-$(date +%F).db"
+( crontab -l 2>/dev/null | grep -v 'backup_sqlite.sh\|deploy/backup-db.sh'; \
+  echo '15 3 * * * bash /home/timmi/projects/MDD_Candy/deploy/backup-db.sh >> /home/timmi/fete-data/backups/backup.log 2>&1' ) | crontab -
 ```
+
+Check it with `crontab -l` and `tail /home/timmi/fete-data/backups/backup.log`. To restore a copy: `sudo systemctl stop mdd-candy && cp <backup> /home/timmi/fete-data/fete_store.db && sudo systemctl start mdd-candy`.
 
 ## Local development
 
